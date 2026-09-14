@@ -1,0 +1,7 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Method App\\Shared\\Repositories\\BaseRepository\:\:all\(\) should return Illuminate\\Database\\Eloquent\\Collection\<int, TModel of Illuminate\\Database\\Eloquent\\Model\> but returns Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Shared/Repositories/BaseRepository.php

@@ -1,0 +1,627 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens CEBA — paleta "SaaS educativo" (azul marino + violeta),
+ * ver plan de rediseño. Cada color se define como triple RGB (sin "rgb()")
+ * para que Tailwind pueda componer la opacidad vía rgb(var(--x) / <alpha-value>).
+ * El violeta (--color-accent) es ahora el primario FUNCIONAL de toda la
+ * interfaz (botones, links, foco, estados activos) — el escudo institucional
+ * (rojo/azul marino/dorado) sigue siendo la marca en el logo, son cosas
+ * distintas: uno es identidad, el otro es la paleta de interacción.
+ */
+:root {
+    /* Sin esto, el navegador dibuja los controles nativos (el desplegable
+       abierto de un <select>, checkboxes, scrollbars) con su tema claro de
+       sistema sin importar el CSS de la página — el cuadro cerrado del
+       select se veía oscuro, pero la lista abierta salía blanca. */
+    color-scheme: light;
+
+    --color-bg: 246 247 250;
+    --color-bg-secondary: 238 240 245;
+    --color-surface: 255 255 255;
+    --color-surface-2: 238 240 243;
+    --color-surface-elevated: 255 255 255;
+    --color-border: 219 223 230;
+    --color-text: 27 31 39;
+    --color-text-dim: 91 100 114;
+    --color-text-faint: 136 145 160;
+    --color-accent: 96 61 219;
+    --color-accent-soft: 237 231 255;
+    --color-ok: 22 163 74;
+    --color-warn: 146 104 15;
+    --color-danger: 190 18 60;
+    --color-info: 37 99 235;
+
+    /*
+     * Degradado del panel de saludo del Dashboard (ver
+     * components/dashboard/hero-banner.blade.php) y del apartado de la
+     * mascota en el sidebar -- violeta a azul, misma familia que el
+     * primario en vez de un morado/rosa suelto, igual en claro y oscuro
+     * (el texto encima siempre es blanco).
+     */
+    --gradient-hero-from: 88 28 135;
+    --gradient-hero-via: 99 60 214;
+    --gradient-hero-to: 59 130 246;
+}
+
+.dark {
+    color-scheme: dark;
+
+    --color-bg: 11 16 32;
+    --color-bg-secondary: 16 23 42;
+    --color-surface: 21 29 51;
+    --color-surface-2: 24 32 56;
+    --color-surface-elevated: 26 35 64;
+    --color-border: 40 48 68;
+    --color-text: 248 250 252;
+    --color-text-dim: 170 180 200;
+    --color-text-faint: 111 123 145;
+    --color-accent: 124 77 255;
+    --color-accent-soft: 45 32 84;
+    --color-ok: 34 197 94;
+    --color-warn: 250 204 21;
+    --color-danger: 244 63 94;
+    --color-info: 59 130 246;
+
+    --gradient-hero-from: 88 28 135;
+    --gradient-hero-via: 99 60 214;
+    --gradient-hero-to: 59 130 246;
+}
+
+/*
+ * El sidebar de escritorio puede colapsarse a una franja de solo íconos.
+ * El estado se guarda en localStorage y se aplica como clase en <html>
+ * antes del primer paint (ver partials/theme-boot-script), igual que el
+ * tema claro/oscuro, para que no parpadee el sidebar expandido en cada
+ * carga o navegación.
+ */
+.sidebar-collapsed .sidebar-desktop {
+    width: 5rem;
+}
+
+/*
+ * Se aplica solo mientras theme-boot-script corrige el ancho tras un
+ * wire:navigate (ver ese archivo): apaga la transición para que la
+ * corrección sea instantánea en vez de un despliegue-y-colapso visible.
+ */
+.sidebar-desktop.sidebar-no-transition,
+.sidebar-desktop.sidebar-no-transition .sidebar-label,
+.sidebar-desktop.sidebar-no-transition .sidebar-section-title,
+.sidebar-desktop.sidebar-no-transition .sidebar-chevron {
+    transition: none !important;
+}
+
+/*
+ * display:none no se puede animar, así que el texto se recoge encogiendo su
+ * ancho y opacidad en vez de desaparecer de golpe -- eso es lo que hacía que
+ * los íconos "saltaran" al colapsar. overflow:hidden + max-width recorta el
+ * texto suavemente mientras el sidebar se angosta, en vez de que el ícono se
+ * reacomode de un tirón.
+ */
+.sidebar-desktop .sidebar-label {
+    display: inline-block;
+    max-width: 12rem;
+    overflow: hidden;
+    white-space: nowrap;
+    opacity: 1;
+    transition: opacity 200ms ease, max-width 300ms ease;
+}
+
+/*
+ * El nombre completo de la institución ("CEBA Peruano Británico") no
+ * entra en los 12rem que alcanzan los enlaces del menú -- se recortaría
+ * a la mitad. Mismo comportamiento de colapso, solo con más espacio.
+ */
+.sidebar-desktop .sidebar-label-brand {
+    max-width: 16rem;
+}
+
+.sidebar-desktop .sidebar-section-title {
+    max-height: 1.5rem;
+    overflow: hidden;
+    opacity: 1;
+    transition: opacity 200ms ease, max-height 300ms ease, margin-top 300ms ease;
+}
+
+.sidebar-collapsed .sidebar-desktop .sidebar-label {
+    max-width: 0;
+    opacity: 0;
+}
+
+.sidebar-collapsed .sidebar-desktop .sidebar-section-title {
+    max-height: 0;
+    margin-top: 0;
+    opacity: 0;
+}
+
+.sidebar-collapsed .sidebar-desktop .sidebar-chevron {
+    transform: rotate(180deg);
+}
+
+/*
+ * El apartado de la mascota (ver sidebar-nav.blade.php) no cabe en la
+ * franja de solo íconos -- mismo patrón de colapso que .sidebar-label,
+ * pero recogiendo alto en vez de ancho porque este bloque es horizontal.
+ */
+.sidebar-desktop .sidebar-mascot {
+    max-height: 5rem;
+    overflow: hidden;
+    opacity: 1;
+    transition: opacity 200ms ease, max-height 300ms ease, margin-top 300ms ease, padding-top 300ms ease;
+}
+
+.sidebar-collapsed .sidebar-desktop .sidebar-mascot {
+    max-height: 0;
+    padding-top: 0;
+    opacity: 0;
+    border-top-width: 0;
+}
+
+/*
+ * Confeti del apartado de la mascota: piezas sueltas que caen en loop
+ * dentro de la caja (recortadas por su propio overflow-hidden, como si
+ * lloviera confeti adentro). Cada <span> trae su color/posición/retraso
+ * inline (ver sidebar-nav.blade.php) para que no caigan todas sincronizadas.
+ */
+.confetti-piece {
+    position: absolute;
+    top: -10%;
+    width: 5px;
+    height: 9px;
+    border-radius: 1px;
+    animation: confetti-fall 3.6s linear infinite;
+    will-change: transform;
+}
+
+@keyframes confetti-fall {
+    0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 0;
+    }
+    12% {
+        opacity: 0.9;
+    }
+    85% {
+        opacity: 0.9;
+    }
+    100% {
+        transform: translateY(6rem) rotate(200deg);
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .confetti-piece {
+        animation: none;
+        display: none;
+    }
+}
+
+/*
+ * Los enlaces y títulos de sección del sidebar usan la fuente "display"
+ * (texto de interfaz), en vez del font-sans del resto del contenido.
+ */
+.sidebar-nav a,
+.sidebar-nav button,
+.sidebar-nav .sidebar-section-title {
+    font-family: theme('fontFamily.display');
+}
+
+/*
+ * Badges (píldoras de estado: Publicada/Borrador, tipo de incidencia,
+ * asistencia, etc.): no hay una clase compartida, cada uno es un <span>
+ * suelto, pero todos comparten el patrón rounded-full + texto pequeño +
+ * relleno vertical — eso basta para detectarlos sin tocar cada aparición.
+ * Acotado a .app-shell (layouts.app) para no afectar los badges de la
+ * landing pública, que tiene su propia tipografía aparte.
+ */
+.app-shell [class*='rounded-full'][class*='text-xs'][class*='py-'] {
+    font-family: theme('fontFamily.display');
+}
+
+/*
+ * Hover de fila para todas las tablas del sistema: comparten el mismo
+ * `<tbody class="divide-y divide-border">` en cada módulo (ver auditoría
+ * del Design System), así que una sola regla acá les da hover a las 17
+ * tablas existentes sin tocar cada archivo.
+ */
+.app-shell tbody tr:hover {
+    background-color: rgb(var(--color-surface-2) / 0.6);
+}
+
+/*
+ * Fondo de la página de login (y demás páginas "guest"): resplandores
+ * ambientales en los mismos tonos violeta/azul del degradado del hero,
+ * sobre el token --color-bg -- reemplaza la imagen roja anterior hasta que
+ * se defina una nueva. Muy tenue en claro, más presente en oscuro, mismo
+ * criterio que .ambient-glow.
+ */
+.fondo-login {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+        radial-gradient(ellipse 60% 50% at 15% -10%, rgb(var(--gradient-hero-via) / 12%), transparent 70%),
+        radial-gradient(ellipse 55% 45% at 100% 110%, rgb(var(--gradient-hero-to) / 10%), transparent 70%);
+}
+
+.dark .fondo-login {
+    background-image:
+        radial-gradient(ellipse 60% 50% at 15% -10%, rgb(var(--gradient-hero-via) / 35%), transparent 70%),
+        radial-gradient(ellipse 55% 45% at 100% 110%, rgb(var(--gradient-hero-to) / 22%), transparent 70%);
+}
+
+/*
+ * Mascota del panel izquierdo del login (ver layouts/guest.blade.php):
+ * flotación suave para que no se sienta estática junto al degradado
+ * animado (.hero-glow) de atrás.
+ */
+@keyframes mascot-float {
+    0%, 100% {
+        transform: translateY(0) rotate(-3deg);
+    }
+    50% {
+        transform: translateY(-14px) rotate(-1deg);
+    }
+}
+
+.mascot-float {
+    animation: mascot-float 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mascot-float {
+        animation: none;
+    }
+}
+
+/*
+ * Fondo del área de contenido de los módulos (dentro de <main>, ver
+ * layouts/app.blade.php) -- reemplaza las ilustraciones tipo cuaderno que
+ * había antes (fondo-modulo) por resplandores ambientales lisos en los
+ * mismos tonos del degradado del hero, igual que la referencia del
+ * rediseño. Muy tenue en claro (las tarjetas blancas siguen siendo el
+ * protagonista), más presente en oscuro.
+ */
+.ambient-glow {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+        radial-gradient(ellipse 45% 40% at 8% 0%, rgb(76 42 122 / 10%), transparent 70%),
+        radial-gradient(ellipse 40% 35% at 100% 100%, rgb(178 71 168 / 8%), transparent 70%);
+}
+
+.dark .ambient-glow {
+    background-image:
+        radial-gradient(ellipse 45% 40% at 8% 0%, rgb(76 42 122 / 30%), transparent 70%),
+        radial-gradient(ellipse 40% 35% at 100% 100%, rgb(178 71 168 / 18%), transparent 70%);
+}
+
+/*
+ * Modal de "Mi perfil" (x-modal :tv="true" en navigation.blade.php): en vez
+ * del fade+translate+scale genérico, entra y sale como una tele CRT
+ * encendiéndose / apagándose (línea horizontal que se abre y luego se
+ * estira en vertical, y a la inversa al cerrar). transform-origin: center
+ * a propósito, para que lea como "pantalla".
+ */
+.tv-on {
+    animation: tv-on 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    transform-origin: center;
+}
+
+.tv-off {
+    animation: tv-off 320ms cubic-bezier(0.6, 0, 0.8, 0.2) both;
+    transform-origin: center;
+}
+
+@keyframes tv-on {
+    0% {
+        opacity: 0;
+        transform: scaleX(0.02) scaleY(0.02);
+        filter: brightness(3.2);
+    }
+
+    30% {
+        opacity: 1;
+        transform: scaleX(1) scaleY(0.02);
+        filter: brightness(3.5);
+    }
+
+    55% {
+        opacity: 1;
+        transform: scaleX(1) scaleY(0.04);
+        filter: brightness(2.5);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scaleX(1) scaleY(1);
+        filter: brightness(1);
+    }
+}
+
+@keyframes tv-off {
+    0% {
+        opacity: 1;
+        transform: scaleX(1) scaleY(1);
+        filter: brightness(1);
+    }
+
+    45% {
+        opacity: 1;
+        transform: scaleX(1) scaleY(0.04);
+        filter: brightness(2.8);
+    }
+
+    75% {
+        opacity: 1;
+        transform: scaleX(0.03) scaleY(0.04);
+        filter: brightness(3.5);
+    }
+
+    100% {
+        opacity: 0;
+        transform: scaleX(0.01) scaleY(0.01);
+        filter: brightness(3.5);
+    }
+}
+
+/*
+ * Menú de "Mi perfil" (x-dropdown en navigation.blade.php): efecto de
+ * enrollamiento, como una persiana que se despliega desde arriba al abrir
+ * y se enrolla de vuelta hacia arriba al cerrar.
+ */
+.dropdown-roll-on {
+    animation: dropdown-roll-on 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    transform-origin: top center;
+}
+
+.dropdown-roll-off {
+    animation: dropdown-roll-off 200ms cubic-bezier(0.6, 0, 0.8, 0.2) both;
+    transform-origin: top center;
+}
+
+@keyframes dropdown-roll-on {
+    0% {
+        opacity: 0;
+        transform: scaleY(0);
+    }
+
+    60% {
+        opacity: 1;
+        transform: scaleY(1.03);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scaleY(1);
+    }
+}
+
+@keyframes dropdown-roll-off {
+    0% {
+        opacity: 1;
+        transform: scaleY(1);
+    }
+
+    100% {
+        opacity: 0;
+        transform: scaleY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tv-on,
+    .tv-off,
+    .dropdown-roll-on,
+    .dropdown-roll-off {
+        animation: none;
+    }
+}
+
+/*
+ * Panel de saludo del Dashboard (ver components/dashboard/hero-banner).
+ * Degradado diagonal con los tokens --gradient-hero-* (ver :root/.dark);
+ * un resplandor radial suave detrás de la mascota le da profundidad sin
+ * necesitar una segunda imagen.
+ */
+.dashboard-hero-gradient {
+    background-image:
+        radial-gradient(ellipse 60% 90% at 85% 100%, rgb(255 255 255 / 10%), transparent 70%),
+        linear-gradient(135deg, rgb(var(--gradient-hero-from)) 0%, rgb(var(--gradient-hero-via)) 55%, rgb(var(--gradient-hero-to)) 100%);
+}
+
+@layer base {
+    body {
+        @apply bg-bg text-ink;
+    }
+
+    /* Alpine oculta [x-cloak] recién tras inicializar; sin esta regla, el
+       elemento parpadea visible un instante en cada carga de página. */
+    [x-cloak] {
+        display: none !important;
+    }
+
+    /*
+     * Scrollbars con los tokens de marca: sin esto, todo scroll interno
+     * (sidebar, tablas, modales) usa la barra gris por defecto del SO/
+     * navegador, que no responde a claro/oscuro y desentona con el resto
+     * del diseño. Firefox usa scrollbar-color; Chrome/Edge/Safari, los
+     * pseudo-elementos ::-webkit-scrollbar-*. Ambos leen las mismas
+     * variables, así que cambian solos con el tema.
+     */
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: rgb(var(--color-text-faint)) transparent;
+    }
+
+    *::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    *::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    *::-webkit-scrollbar-thumb {
+        background-color: rgb(var(--color-text-faint));
+        border-radius: 9999px;
+    }
+
+    *::-webkit-scrollbar-thumb:hover {
+        background-color: rgb(var(--color-text-dim));
+    }
+}
+
+/*
+ * Resplandor que respira lentamente detrás de la mascota del login
+ * (layouts/guest.blade.php). Se desactiva si el usuario pidió menos
+ * movimiento en su sistema.
+ */
+@keyframes hero-glow-drift {
+    0%, 100% {
+        transform: translate3d(0, 0, 0) scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: translate3d(1.5%, -2.5%, 0) scale(1.08);
+        opacity: 0.85;
+    }
+}
+
+.hero-glow {
+    animation: hero-glow-drift 14s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-glow {
+        animation: none;
+    }
+}
+
+/*
+ * Identidad visual de Grupo Excelencia 360 (web pública, login y marca).
+ * Jerarquía: blanco de fondo, turquesa como color institucional, azul como
+ * secundario, naranja solo como acento, gris pizarra para texto. Triples RGB
+ * (sin "rgb()") para que Tailwind componga la opacidad, igual que los
+ * tokens del panel de arriba; ver theme.extend.colors.e360 en
+ * tailwind.config.js. Los tonos "deep" existen porque el turquesa y el
+ * naranja del logo, con texto blanco encima, no llegan al contraste mínimo
+ * WCAG AA (2.3:1 y 3.4:1): las formas, íconos y fondos suaves usan el color
+ * original y los botones/enlaces usan el tono profundo (>= 4.5:1).
+ */
+:root {
+    --e360-primary: 24 190 188;        /* #18BEBC turquesa principal */
+    --e360-primary-dark: 19 152 150;   /* #139896 turquesa oscuro */
+    --e360-primary-deep: 15 122 120;   /* #0F7A78 botones y enlaces (AA) */
+    --e360-primary-deeper: 12 100 98;  /* #0C6462 hover de botones */
+    --e360-primary-tint: 232 248 248;  /* #E8F8F8 fondos suaves */
+    --e360-secondary: 27 115 186;      /* #1B73BA azul principal */
+    --e360-secondary-dark: 22 93 150;  /* #165D96 azul oscuro */
+    --e360-secondary-tint: 238 245 251;/* #EEF5FB fondos suaves */
+    --e360-accent: 241 90 41;          /* #F15A29 naranja principal */
+    --e360-accent-light: 245 134 52;   /* #F58634 naranja secundario */
+    --e360-accent-deep: 200 70 28;     /* #C8461C botón destacado (AA) */
+    --e360-accent-deeper: 166 58 23;   /* #A63A17 hover del destacado */
+    --e360-accent-tint: 254 240 233;   /* #FEF0E9 fondos suaves */
+    --e360-white: 255 255 255;
+    --e360-text: 51 65 85;             /* #334155 texto */
+    --e360-heading: 15 23 42;          /* #0F172A títulos */
+    --e360-muted: 100 116 139;         /* #64748B texto secundario */
+    --e360-surface: 248 250 252;       /* #F8FAFC secciones alternas */
+    --e360-border: 226 232 240;        /* #E2E8F0 bordes */
+}
+
+/*
+ * Página pública: fondo blanco fijo (no participa del tema claro/oscuro del
+ * panel) y desplazamiento suave con espacio para el navbar fijo, para que
+ * los anclajes del menú no queden tapados.
+ */
+.landing-page {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+}
+
+.landing-page body {
+    background-color: rgb(var(--e360-white));
+    color: rgb(var(--e360-text));
+}
+
+/* Enlace "Saltar al contenido": invisible hasta que recibe el foco del teclado. */
+.landing-skip-link {
+    position: absolute;
+    left: 1rem;
+    top: -4rem;
+    z-index: 100;
+    border-radius: 0.5rem;
+    background-color: rgb(var(--e360-primary-deep));
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: rgb(var(--e360-white));
+    transition: top 150ms ease-out;
+}
+
+.landing-skip-link:focus {
+    top: 1rem;
+}
+
+/*
+ * Firma visual: el arco de 360° del hero se dibuja al cargar (una sola
+ * vez), turquesa a azul, y termina en el punto naranja. Con "menos
+ * movimiento" aparece ya dibujado.
+ */
+.arco-360 {
+    /* pathLength="1" en el SVG: 0.89 de trazo y el resto de hueco, para que
+       el arco no cierre del todo y el punto naranja marque el final. */
+    stroke-dasharray: 0.89 1.11;
+    stroke-dashoffset: 1;
+    animation: arco-360-dibujar 1.6s cubic-bezier(0.22, 1, 0.36, 1) 0.2s forwards;
+}
+
+@keyframes arco-360-dibujar {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+.arco-360-punto {
+    opacity: 0;
+    animation: arco-360-aparecer 0.5s ease-out 1.6s forwards;
+}
+
+@keyframes arco-360-aparecer {
+    to {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .landing-page {
+        scroll-behavior: auto;
+    }
+
+    .arco-360 {
+        animation: none;
+        stroke-dashoffset: 0;
+    }
+
+    .arco-360-punto {
+        animation: none;
+        opacity: 1;
+    }
+}
+
+/*
+ * Línea de marca: el único degradado del sitio, turquesa a azul, como
+ * filete de 3px sobre el footer y bajo el navbar cuando hay scroll.
+ */
+.linea-marca {
+    background-image: linear-gradient(90deg, rgb(var(--e360-primary)), rgb(var(--e360-secondary)));
+}
