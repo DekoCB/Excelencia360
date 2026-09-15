@@ -7,9 +7,8 @@
 
         table.encabezado { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
         table.encabezado td { vertical-align: middle; }
-        .logo-celda { width: 78px; padding-right: 14px; text-align: center; }
-        .logo-celda img { width: 70px; }
-        .centro-costo { margin: 2px 0 0; font-size: 9px; font-weight: bold; letter-spacing: 0.06em; color: #12225C; }
+        .logo-celda { width: 64px; padding-right: 14px; text-align: center; }
+        .logo-celda img { width: 56px; }
         .colegio-nombre { font-size: 16px; font-weight: bold; color: #12225C; margin: 0; line-height: 1.15; }
         .colegio-nombre span { display: block; font-size: 22px; }
         .colegio-subtitulo { font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase; color: #5B6472; margin: 2px 0 0; }

@@ -232,12 +232,12 @@ export class VortexScene {
  * Preset para el panel del login: más calmo que los defaults del componente
  * original (pensados para un hero grande de landing) -- menos motas, deriva
  * y giro más lentos, para que acompañe al saludo en vez de competir con él.
- * colorB usa el lila ya presente en la insignia de la mascota, en vez del
- * morado genérico del componente original.
+ * colorB sigue el primario funcional del panel (--color-accent en app.css,
+ * turquesa), en vez del morado genérico del componente original.
  */
 export const VORTEX_LOGIN_CONFIG = {
     colorA: '#FFFFFF',
-    colorB: '#C4B5FD',
+    colorB: '#5EEAD4',
     count: 8,
     size: 8,
     pull: 6,

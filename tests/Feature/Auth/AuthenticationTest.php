@@ -166,6 +166,44 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticatedAs($docente);
     }
 
+    public function test_elegir_apoderado_y_autenticarse_con_credenciales_de_apoderado_completa_el_login(): void
+    {
+        $this->seed(RolesAndPermissionsSeeder::class);
+
+        $apoderado = User::factory()->create();
+        $apoderado->assignRole(RolEnum::APODERADO->value);
+
+        Volt::test('pages.auth.login')
+            ->call('elegirCategoria', 'apoderado')
+            ->set('form.nombre', 'Quien Ingresa')
+            ->set('form.email', $apoderado->email)
+            ->set('form.password', 'password')
+            ->call('login')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('dashboard', absolute: false));
+
+        $this->assertAuthenticatedAs($apoderado);
+    }
+
+    public function test_elegir_estudiante_pero_autenticarse_con_credenciales_de_apoderado_es_rechazado(): void
+    {
+        $this->seed(RolesAndPermissionsSeeder::class);
+
+        $apoderado = User::factory()->create();
+        $apoderado->assignRole(RolEnum::APODERADO->value);
+
+        Volt::test('pages.auth.login')
+            ->call('elegirCategoria', 'estudiante')
+            ->set('form.nombre', 'Quien Ingresa')
+            ->set('form.email', $apoderado->email)
+            ->set('form.password', 'password')
+            ->call('login')
+            ->assertHasErrors('form.email')
+            ->assertNoRedirect();
+
+        $this->assertGuest();
+    }
+
     public function test_cambiar_categoria_vuelve_al_selector_y_limpia_el_formulario(): void
     {
         $component = Volt::test('pages.auth.login')

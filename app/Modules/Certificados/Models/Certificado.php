@@ -122,4 +122,15 @@ class Certificado extends Model implements HasMedia
     {
         return $this->hasOne(SolicitudCertificado::class);
     }
+
+    /**
+     * URL pública de verificación con el código ya incluido: quien escanea
+     * el QR del PDF (ver resources/views/pdf/certificado.blade.php) cae
+     * directo al resultado, sin tener que escribirlo a mano -- ver
+     * livewire/certificados/verificar.blade.php.
+     */
+    public function urlVerificacion(): string
+    {
+        return route('certificados.verificar', ['codigo' => $this->codigo_verificacion]);
+    }
 }

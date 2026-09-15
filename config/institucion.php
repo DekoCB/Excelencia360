@@ -37,11 +37,17 @@ return [
     ],
 
     /*
-    | Logo institucional. Copiar el archivo a public/images/excelencia360/
-    | y la marca aparece sola en navbar, footer, login, panel y PDFs;
-    | mientras no exista se muestra una marca tipográfica provisional.
+    | Logo institucional (entregado 2026-09-15): trae el emblema -- gorro
+    | de graduación, rayos y libro -- con el wordmark "EXCELENCIA 360" ya
+    | incluido debajo, en un solo archivo vertical. La web recorta solo el
+    | emblema para navbar/footer/sidebar (ver x-brand-logo, variant="icon"
+    | y "full") y muestra el archivo completo tal cual en los lugares con
+    | más espacio (login, panel de 2FA/recuperar contraseña: variant="mark").
+    | logo_emblema es un recorte aparte del mismo archivo, sin el wordmark,
+    | para los PDFs (DomPDF no soporta el recorte por CSS de la web).
     */
     'logo' => 'images/excelencia360/logo.png',
+    'logo_emblema' => 'images/excelencia360/logo-emblema.png',
     'favicon' => 'images/excelencia360/favicon.svg',
 
     'descripcion' => 'Es una institución de formación y capacitación de personas en diferentes áreas, '

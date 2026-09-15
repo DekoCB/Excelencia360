@@ -28,17 +28,14 @@
 
         <div class="relative flex min-h-screen">
             {{--
-                Panel de la mascota, solo en pantallas grandes -- en mobile
+                Panel de bienvenida, solo en pantallas grandes -- en mobile
                 no hay espacio para dos columnas y el saludo cede el lugar
-                al formulario. Astronauta "de guardia" mientras se define la
-                mascota oficial del login (ver conversación).
+                al formulario.
             --}}
             <div class="dashboard-hero-gradient relative hidden w-1/2 items-center justify-center overflow-hidden lg:flex">
                 <div x-data="vortexDust()" class="absolute inset-0" aria-hidden="true"></div>
 
                 <div class="hero-glow absolute h-72 w-72 rounded-full bg-white/10 blur-3xl" aria-hidden="true"></div>
-
-                <x-dashboard.mascot class="mascot-float relative h-72 w-72 -rotate-3 drop-shadow-2xl xl:h-80 xl:w-80" />
 
                 <div class="absolute inset-x-0 bottom-14 px-10 text-center">
                     <p class="font-display text-xl font-medium text-white">¡Bienvenido a {{ config('institucion.nombre_corto') }}!</p>
@@ -48,7 +45,7 @@
 
             <div class="flex w-full flex-col items-center justify-center px-4 py-10 lg:w-1/2">
                 <div class="flex flex-col items-center">
-                    <x-brand-logo size="lg" />
+                    <x-brand-logo variant="mark" size="lg" />
                     <p class="mt-3 font-sans text-base font-extrabold text-ink">{{ config('institucion.nombre') }}</p>
                     <p class="text-xs text-ink-faint">Formación y capacitación · Modalidad virtual</p>
                 </div>

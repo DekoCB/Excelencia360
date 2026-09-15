@@ -3,13 +3,19 @@
 @tailwind utilities;
 
 /*
- * Design tokens CEBA — paleta "SaaS educativo" (azul marino + violeta),
- * ver plan de rediseño. Cada color se define como triple RGB (sin "rgb()")
- * para que Tailwind pueda componer la opacidad vía rgb(var(--x) / <alpha-value>).
- * El violeta (--color-accent) es ahora el primario FUNCIONAL de toda la
- * interfaz (botones, links, foco, estados activos) — el escudo institucional
- * (rojo/azul marino/dorado) sigue siendo la marca en el logo, son cosas
- * distintas: uno es identidad, el otro es la paleta de interacción.
+ * Design tokens del panel — paleta "SaaS educativo" alineada a la
+ * identidad de Excelencia 360 (turquesa + azul, ver --e360-* más abajo).
+ * Cada color se define como triple RGB (sin "rgb()") para que Tailwind
+ * pueda componer la opacidad vía rgb(var(--x) / <alpha-value>).
+ * --color-accent es el primario FUNCIONAL de toda la interfaz del panel
+ * (botones, links, foco, estados activos) — antes era violeta; se
+ * recolorea a turqueso para que no desentone con la marca del resto del
+ * sistema. El logo institucional sigue siendo la identidad visual, son
+ * cosas distintas: uno es marca, el otro es la paleta de interacción.
+ * Claro y oscuro usan tonos distintos porque ningún turquesa único
+ * funciona bien a la vez como fondo de botón con texto blanco Y como
+ * texto/ícono legible sobre un fondo casi negro (el violeta anterior
+ * tenía exactamente la misma limitación matemática).
  */
 :root {
     /* Sin esto, el navegador dibuja los controles nativos (el desplegable
@@ -27,8 +33,8 @@
     --color-text: 27 31 39;
     --color-text-dim: 91 100 114;
     --color-text-faint: 136 145 160;
-    --color-accent: 96 61 219;
-    --color-accent-soft: 237 231 255;
+    --color-accent: 15 122 120;
+    --color-accent-soft: 232 248 248;
     --color-ok: 22 163 74;
     --color-warn: 146 104 15;
     --color-danger: 190 18 60;
@@ -36,14 +42,14 @@
 
     /*
      * Degradado del panel de saludo del Dashboard (ver
-     * components/dashboard/hero-banner.blade.php) y del apartado de la
-     * mascota en el sidebar -- violeta a azul, misma familia que el
-     * primario en vez de un morado/rosa suelto, igual en claro y oscuro
-     * (el texto encima siempre es blanco).
+     * components/dashboard/hero-banner.blade.php) y del panel de
+     * bienvenida del login -- turquesa a azul, misma familia que el
+     * primario en vez de un color suelto sin relación, igual en claro y
+     * oscuro (el texto encima siempre es blanco).
      */
-    --gradient-hero-from: 88 28 135;
-    --gradient-hero-via: 99 60 214;
-    --gradient-hero-to: 59 130 246;
+    --gradient-hero-from: 10 90 88;
+    --gradient-hero-via: 24 190 188;
+    --gradient-hero-to: 27 115 186;
 }
 
 .dark {
@@ -58,16 +64,16 @@
     --color-text: 248 250 252;
     --color-text-dim: 170 180 200;
     --color-text-faint: 111 123 145;
-    --color-accent: 124 77 255;
-    --color-accent-soft: 45 32 84;
+    --color-accent: 17 130 127;
+    --color-accent-soft: 10 50 49;
     --color-ok: 34 197 94;
     --color-warn: 250 204 21;
     --color-danger: 244 63 94;
     --color-info: 59 130 246;
 
-    --gradient-hero-from: 88 28 135;
-    --gradient-hero-via: 99 60 214;
-    --gradient-hero-to: 59 130 246;
+    --gradient-hero-from: 10 90 88;
+    --gradient-hero-via: 24 190 188;
+    --gradient-hero-to: 27 115 186;
 }
 
 /*
@@ -141,65 +147,6 @@
 }
 
 /*
- * El apartado de la mascota (ver sidebar-nav.blade.php) no cabe en la
- * franja de solo íconos -- mismo patrón de colapso que .sidebar-label,
- * pero recogiendo alto en vez de ancho porque este bloque es horizontal.
- */
-.sidebar-desktop .sidebar-mascot {
-    max-height: 5rem;
-    overflow: hidden;
-    opacity: 1;
-    transition: opacity 200ms ease, max-height 300ms ease, margin-top 300ms ease, padding-top 300ms ease;
-}
-
-.sidebar-collapsed .sidebar-desktop .sidebar-mascot {
-    max-height: 0;
-    padding-top: 0;
-    opacity: 0;
-    border-top-width: 0;
-}
-
-/*
- * Confeti del apartado de la mascota: piezas sueltas que caen en loop
- * dentro de la caja (recortadas por su propio overflow-hidden, como si
- * lloviera confeti adentro). Cada <span> trae su color/posición/retraso
- * inline (ver sidebar-nav.blade.php) para que no caigan todas sincronizadas.
- */
-.confetti-piece {
-    position: absolute;
-    top: -10%;
-    width: 5px;
-    height: 9px;
-    border-radius: 1px;
-    animation: confetti-fall 3.6s linear infinite;
-    will-change: transform;
-}
-
-@keyframes confetti-fall {
-    0% {
-        transform: translateY(0) rotate(0deg);
-        opacity: 0;
-    }
-    12% {
-        opacity: 0.9;
-    }
-    85% {
-        opacity: 0.9;
-    }
-    100% {
-        transform: translateY(6rem) rotate(200deg);
-        opacity: 0;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .confetti-piece {
-        animation: none;
-        display: none;
-    }
-}
-
-/*
  * Los enlaces y títulos de sección del sidebar usan la fuente "display"
  * (texto de interfaz), en vez del font-sans del resto del contenido.
  */
@@ -252,30 +199,6 @@
     background-image:
         radial-gradient(ellipse 60% 50% at 15% -10%, rgb(var(--gradient-hero-via) / 35%), transparent 70%),
         radial-gradient(ellipse 55% 45% at 100% 110%, rgb(var(--gradient-hero-to) / 22%), transparent 70%);
-}
-
-/*
- * Mascota del panel izquierdo del login (ver layouts/guest.blade.php):
- * flotación suave para que no se sienta estática junto al degradado
- * animado (.hero-glow) de atrás.
- */
-@keyframes mascot-float {
-    0%, 100% {
-        transform: translateY(0) rotate(-3deg);
-    }
-    50% {
-        transform: translateY(-14px) rotate(-1deg);
-    }
-}
-
-.mascot-float {
-    animation: mascot-float 5s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .mascot-float {
-        animation: none;
-    }
 }
 
 /*
@@ -425,10 +348,10 @@
 }
 
 /*
- * Panel de saludo del Dashboard (ver components/dashboard/hero-banner).
- * Degradado diagonal con los tokens --gradient-hero-* (ver :root/.dark);
- * un resplandor radial suave detrás de la mascota le da profundidad sin
- * necesitar una segunda imagen.
+ * Panel de saludo del Dashboard (ver components/dashboard/hero-banner) y
+ * panel de bienvenida del login (ver layouts/guest.blade.php). Degradado
+ * diagonal con los tokens --gradient-hero-* (ver :root/.dark); un
+ * resplandor radial suave le da profundidad sin necesitar una imagen.
  */
 .dashboard-hero-gradient {
     background-image:
@@ -480,7 +403,7 @@
 }
 
 /*
- * Resplandor que respira lentamente detrás de la mascota del login
+ * Resplandor que respira lentamente en el panel de bienvenida del login
  * (layouts/guest.blade.php). Se desactiva si el usuario pidió menos
  * movimiento en su sistema.
  */

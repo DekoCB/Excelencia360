@@ -112,6 +112,33 @@ class CertificadosPermisosTest extends TestCase
             ->assertSee($estudiante->nombreCompleto());
     }
 
+    public function test_escanear_el_qr_verifica_de_una_vez_sin_tocar_el_boton(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $emisor = User::factory()->create();
+        $certificado = app(CertificadoService::class)->emitir($estudiante, null, null, null, $emisor);
+
+        // urlVerificacion() es literalmente lo que codifica el QR del PDF
+        // (ver resources/views/pdf/certificado.blade.php): entrar a esa
+        // misma URL simula haberlo escaneado.
+        $this->get($certificado->urlVerificacion())
+            ->assertOk()
+            ->assertSee('Certificado válido')
+            ->assertSee($estudiante->nombreCompleto());
+    }
+
+    public function test_un_codigo_manipulado_en_la_url_no_rompe_la_pagina(): void
+    {
+        // Ni muy corto (viola la regla min:4) ni uno que simplemente no
+        // exista -- ninguno de los dos debe tirar un 500.
+        $this->get(route('certificados.verificar', ['codigo' => 'x']))
+            ->assertOk();
+
+        $this->get(route('certificados.verificar', ['codigo' => 'CODIGOINEXISTENTE']))
+            ->assertOk()
+            ->assertSee('No se encontró ningún certificado');
+    }
+
     public function test_el_estudiante_puede_adjuntar_requisitos_al_solicitar(): void
     {
         Storage::fake('public');

@@ -1,7 +1,7 @@
 {{-- @var \App\Modules\Pagos\Enums\SerieReciboEnum $serie --}}
 <table class="encabezado">
     <tr>
-        @if ($logoInstitucion = \App\Shared\Support\Institucion::logoPath())
+        @if ($logoInstitucion = \App\Shared\Support\Institucion::emblemaPath())
             <td class="logo-celda">
                 <img src="{{ $logoInstitucion }}" alt="{{ config('institucion.nombre') }}">
             </td>

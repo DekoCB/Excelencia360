@@ -2,7 +2,10 @@
 
 use App\Modules\Academico\Providers\AcademicoServiceProvider;
 use App\Modules\Asistencia\Providers\AsistenciaServiceProvider;
+use App\Modules\AsistenciaDocentes\Providers\AsistenciaDocentesServiceProvider;
 use App\Modules\AulaVirtual\Providers\AulaVirtualServiceProvider;
+use App\Modules\Biblioteca\Providers\BibliotecaServiceProvider;
+use App\Modules\Calendario\Providers\CalendarioServiceProvider;
 use App\Modules\Certificados\Providers\CertificadosServiceProvider;
 use App\Modules\Dashboard\Providers\DashboardServiceProvider;
 use App\Modules\Docentes\Providers\DocentesServiceProvider;
@@ -17,6 +20,7 @@ use App\Modules\Notificaciones\Providers\NotificacionesServiceProvider;
 use App\Modules\Pagos\Providers\PagosServiceProvider;
 use App\Modules\Personal\Providers\PersonalServiceProvider;
 use App\Modules\Reportes\Providers\ReportesServiceProvider;
+use App\Modules\Tramites\Providers\TramitesServiceProvider;
 use App\Modules\Vacaciones\Providers\VacacionesServiceProvider;
 use App\Providers\AppServiceProvider;
 use App\Providers\AuthServiceProvider;
@@ -44,4 +48,8 @@ return [
     FlujoCajaServiceProvider::class,
     DocentesServiceProvider::class,
     PersonalServiceProvider::class,
+    TramitesServiceProvider::class,
+    CalendarioServiceProvider::class,
+    AsistenciaDocentesServiceProvider::class,
+    BibliotecaServiceProvider::class,
 ];

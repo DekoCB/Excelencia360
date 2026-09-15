@@ -3,11 +3,14 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Modules\Docentes\Models\Docente;
 use App\Modules\Identidad\Support\Auditable;
+use App\Modules\Matricula\Models\Apoderado;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Shared\Enums\EstadoUsuarioEnum;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -83,6 +86,18 @@ class User extends Authenticatable implements HasMedia
     }
 
     /**
+     * Filas de Apoderado vinculadas a esta cuenta (una por cada hijo, si
+     * el usuario tiene rol "apoderado" y ya se le habilitó acceso al
+     * portal) -- puede haber más de una, a diferencia de estudiante().
+     *
+     * @return HasMany<Apoderado, $this>
+     */
+    public function apoderados(): HasMany
+    {
+        return $this->hasMany(Apoderado::class);
+    }
+
+    /**
      * Ficha de estudiante vinculada a esta cuenta, si el usuario tiene rol
      * "estudiante" y ya se le habilitó acceso al portal.
      *
@@ -91,5 +106,16 @@ class User extends Authenticatable implements HasMedia
     public function estudiante(): HasOne
     {
         return $this->hasOne(Estudiante::class);
+    }
+
+    /**
+     * Ficha de docente vinculada a esta cuenta, si el usuario tiene rol
+     * "docente".
+     *
+     * @return HasOne<Docente, $this>
+     */
+    public function docente(): HasOne
+    {
+        return $this->hasOne(Docente::class);
     }
 }

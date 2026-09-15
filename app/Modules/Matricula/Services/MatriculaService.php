@@ -109,6 +109,16 @@ class MatriculaService
         });
     }
 
+    /**
+     * Además de la ficha del apoderado, esto le crea (o reutiliza, si ya
+     * existe una cuenta con el mismo DNI) acceso al portal de Apoderados
+     * -- mismo criterio que registrarEstudiante()/DocenteService::registrar():
+     * correo {dni}@ceba.test y contraseña inicial igual al DNI. Una misma
+     * persona con más de un hijo matriculado tiene una fila de Apoderado
+     * por cada uno (estudiante_id es unique), pero las que compartan DNI
+     * quedan vinculadas a la MISMA cuenta vía user_id -- así ve a todos
+     * sus hijos desde un solo inicio de sesión.
+     */
     public function registrarApoderado(Estudiante $estudiante, RegistrarApoderadoData $data): Apoderado
     {
         if (! $estudiante->es_menor_edad) {
@@ -117,14 +127,41 @@ class MatriculaService
             ]);
         }
 
-        return $estudiante->apoderado()->updateOrCreate([], [
-            'nombres' => $data->nombres,
-            'dni' => $data->dni->valor(),
-            'celular' => $data->celular->numero(),
-            'correo' => $data->correo,
-            'direccion' => $data->direccion,
-            'parentesco' => $data->parentesco,
-        ]);
+        return DB::transaction(function () use ($estudiante, $data) {
+            $usuario = $this->vincularAccesoApoderado($data->dni, $data->nombres, $data->celular);
+
+            return $estudiante->apoderado()->updateOrCreate([], [
+                'user_id' => $usuario->id,
+                'nombres' => $data->nombres,
+                'dni' => $data->dni->valor(),
+                'celular' => $data->celular->numero(),
+                'correo' => $data->correo,
+                'direccion' => $data->direccion,
+                'parentesco' => $data->parentesco,
+            ]);
+        });
+    }
+
+    private function vincularAccesoApoderado(Dni $dni, string $nombres, Telefono $celular): User
+    {
+        $usuario = User::query()->where('dni', $dni->valor())->first();
+
+        if ($usuario) {
+            if (! $usuario->hasRole(RolEnum::APODERADO->value)) {
+                $usuario->assignRole(RolEnum::APODERADO->value);
+            }
+
+            return $usuario;
+        }
+
+        return $this->usuarios->crear(new CrearUsuarioData(
+            name: $nombres,
+            email: $dni->correoInstitucional(),
+            dni: $dni,
+            phone: $celular,
+            password: $dni->valor(),
+            rol: RolEnum::APODERADO,
+        ));
     }
 
     /**

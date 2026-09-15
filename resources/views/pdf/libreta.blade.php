@@ -7,8 +7,8 @@
 
         table.encabezado { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
         table.encabezado td { vertical-align: middle; }
-        .logo-celda { width: 78px; padding-right: 14px; }
-        .logo-celda img { width: 70px; }
+        .logo-celda { width: 64px; padding-right: 14px; }
+        .logo-celda img { width: 56px; }
         .institucion { font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: #5B6472; margin: 0 0 2px; }
         .colegio-nombre { font-size: 18px; font-weight: bold; color: #12225C; margin: 0; line-height: 1.15; }
         .colegio-nombre span { display: block; font-size: 25px; }
@@ -48,7 +48,7 @@
 <body>
     <table class="encabezado">
         <tr>
-            @if ($logoInstitucion = \App\Shared\Support\Institucion::logoPath())
+            @if ($logoInstitucion = \App\Shared\Support\Institucion::emblemaPath())
                 <td class="logo-celda"><img src="{{ $logoInstitucion }}" alt="{{ config('institucion.nombre') }}"></td>
             @endif
             <td>

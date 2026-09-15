@@ -35,7 +35,7 @@
             playsinline
             aria-hidden="true"
         >
-            <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260403_050628_c4e32401-fab4-4a27-b7a8-6e9291cd5959.mp4" type="video/mp4">
+            <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260815_034306_229eccbe-fd8f-40fb-8002-9868ef2bb1a8.mp4" type="video/mp4">
         </video>
         <div class="fixed inset-0 bg-black/45" aria-hidden="true"></div>
 
@@ -46,38 +46,18 @@
 
         <div class="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-10">
             <div class="flex flex-col items-center">
-                <x-brand-logo size="lg" class="relative -top-6 rounded-xl bg-white/95 px-4 py-2 shadow-lg" />
+                <x-brand-logo variant="mark" size="lg" class="relative -top-6 drop-shadow-[0_6px_18px_rgba(0,0,0,0.45)]" />
                 {{-- relative -top-* en vez de margin: sube el escudo y el
-                     texto sin mover al hermano de abajo (tarjeta + mascota),
-                     ya que el desplazamiento relativo no afecta el flujo
-                     del documento. --}}
+                     texto sin mover al hermano de abajo (la tarjeta), ya que
+                     el desplazamiento relativo no afecta el flujo del
+                     documento. --}}
                 <div class="relative -top-9 text-center">
                     <p class="mt-3 font-sans text-base font-extrabold text-white">{{ config('institucion.nombre') }}</p>
                     <p class="text-xs text-white/70">Formación y capacitación · Modalidad virtual</p>
                 </div>
             </div>
 
-            {{--
-                La mascota asoma por detrás de la tarjeta y del nombre de la
-                institución (por eso -z-10: queda debajo de ambos en
-                vez de taparlos), sin animación de flotar, quieta como un
-                elemento de fondo. El padding de la tarjeta es simétrico
-                (ya no necesita aire extra arriba para la mascota, que ahora
-                queda escondida detrás) para que el formulario quede
-                centrado dentro del recuadro.
-            --}}
-            <div class="relative mt-24 w-full sm:max-w-md">
-                <video
-                    class="js-mascota-video pointer-events-none absolute -top-44 left-1/2 -z-10 h-56 w-auto -translate-x-1/2 drop-shadow-2xl sm:-top-52 sm:h-72"
-                    autoplay
-                    muted
-                    loop
-                    playsinline
-                    aria-hidden="true"
-                >
-                    <source src="{{ asset('images/pet-video-transparent.webm') }}" type="video/webm">
-                </video>
-
+            <div class="relative mt-8 w-full sm:max-w-md">
                 <div class="w-full overflow-hidden rounded-2xl border border-border bg-surface px-6 py-6 shadow-2xl shadow-black/40 sm:px-8 sm:py-8">
                     {{ $slot }}
                 </div>
@@ -86,7 +66,7 @@
 
         <script>
             if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                document.querySelectorAll('.js-fondo-video, .js-mascota-video').forEach((video) => video.pause());
+                document.querySelectorAll('.js-fondo-video').forEach((video) => video.pause());
             }
         </script>
     </body>

@@ -2,6 +2,7 @@
 
 use App\Modules\Certificados\Models\Certificado;
 use App\Modules\Certificados\Services\CertificadoService;
+use Illuminate\Support\Facades\Request;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
@@ -12,6 +13,26 @@ new #[Layout('layouts.guest')] class extends Component
     public bool $buscado = false;
 
     public ?Certificado $resultado = null;
+
+    /**
+     * Quien escanea el QR del PDF llega con ?codigo=... ya en la URL (ver
+     * Certificado::urlVerificacion()): se autocompleta el campo y se
+     * verifica de una vez, sin que la persona tenga que volver a
+     * escribirlo ni tocar el botón. mount() no recibe la query string
+     * como parámetro con nombre (a diferencia de los segmentos de ruta,
+     * tipo {estudiante}) -- hay que leerla a mano del request.
+     */
+    public function mount(CertificadoService $service): void
+    {
+        $codigo = Request::query('codigo');
+
+        if (! is_string($codigo) || trim($codigo) === '') {
+            return;
+        }
+
+        $this->codigo = $codigo;
+        $this->verificar($service);
+    }
 
     public function verificar(CertificadoService $service): void
     {

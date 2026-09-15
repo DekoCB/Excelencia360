@@ -57,6 +57,19 @@ new #[Layout('layouts.login')] class extends Component
             <p class="mt-1 text-sm text-ink-faint">Elige tu tipo de acceso para continuar.</p>
         </div>
 
+        @php
+            $iconoPorCategoria = [
+                CategoriaAccesoEnum::ESTUDIANTE->value => 'academic-cap',
+                CategoriaAccesoEnum::APODERADO->value => 'user-group',
+                CategoriaAccesoEnum::PERSONAL->value => 'briefcase',
+            ];
+            $descripcionPorCategoria = [
+                CategoriaAccesoEnum::ESTUDIANTE->value => 'Matrícula, notas y asistencia',
+                CategoriaAccesoEnum::APODERADO->value => 'Notas, pagos y documentos de tu(s) hijo(s)',
+                CategoriaAccesoEnum::PERSONAL->value => 'Docentes, coordinación, dirección, tesorería y administrativo',
+            ];
+        @endphp
+
         <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
             @foreach (CategoriaAccesoEnum::cases() as $opcion)
                 <button
@@ -65,19 +78,11 @@ new #[Layout('layouts.login')] class extends Component
                     class="group rounded-2xl border border-border bg-surface-2 p-6 text-center transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-accent-soft"
                 >
                     <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-accent transition duration-300 group-hover:scale-110">
-                        @if ($opcion === CategoriaAccesoEnum::ESTUDIANTE)
-                            <x-heroicon-o-academic-cap class="h-6 w-6" />
-                        @else
-                            <x-heroicon-o-briefcase class="h-6 w-6" />
-                        @endif
+                        <x-dynamic-component :component="'heroicon-o-'.$iconoPorCategoria[$opcion->value]" class="h-6 w-6" />
                     </span>
                     <span class="mt-3 block font-sans text-sm font-bold text-ink">{{ $opcion->label() }}</span>
                     <span class="mt-1 block text-xs text-ink-faint">
-                        @if ($opcion === CategoriaAccesoEnum::ESTUDIANTE)
-                            Matrícula, notas y asistencia
-                        @else
-                            Docentes, coordinación, dirección, tesorería y administrativo
-                        @endif
+                        {{ $descripcionPorCategoria[$opcion->value] }}
                     </span>
                 </button>
             @endforeach

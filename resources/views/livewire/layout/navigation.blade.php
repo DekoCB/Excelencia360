@@ -80,6 +80,10 @@ new class extends Component
             </a>
         </div>
 
+        <div class="hidden flex-1 justify-center px-4 sm:flex">
+            <livewire:busqueda.buscador-global />
+        </div>
+
         <div class="flex items-center gap-2">
             <span class="hidden rounded-full bg-surface-2 px-3 py-1 font-display text-xs font-medium text-ink-dim sm:inline-block">
                 {{ auth()->user()->roles->first()?->name ? ucfirst(auth()->user()->roles->first()->name) : 'Sin rol' }}

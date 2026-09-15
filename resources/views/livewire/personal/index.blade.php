@@ -5,6 +5,7 @@ use App\Modules\Personal\Services\PersonalService;
 use App\Shared\ValueObjects\Dni;
 use App\Shared\ValueObjects\Telefono;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Request;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -39,6 +40,11 @@ new #[Layout('layouts.app')] class extends Component
     public function mount(): void
     {
         Gate::authorize('personal.ver');
+
+        // Livewire/Volt no inyecta la query string en mount(), solo los
+        // parámetros de ruta -- viene del buscador global (ver
+        // BusquedaGlobalService), que enlaza aquí con el DNI exacto.
+        $this->termino = Request::query('q', '');
     }
 
     public function updatingTermino(): void

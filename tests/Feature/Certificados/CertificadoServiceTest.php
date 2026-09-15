@@ -7,6 +7,7 @@ use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Certificados\Enums\EstadoSolicitudCertificadoEnum;
 use App\Modules\Certificados\Enums\TipoDocumentoEnum;
 use App\Modules\Certificados\Models\Certificado;
+use App\Modules\Certificados\Models\PlantillaCertificado;
 use App\Modules\Certificados\Models\SolicitudCertificado;
 use App\Modules\Certificados\Services\CertificadoService;
 use App\Modules\Matricula\Models\Estudiante;
@@ -38,6 +39,41 @@ class CertificadoServiceTest extends TestCase
         $this->assertSame(10, mb_strlen($certificado->codigo_verificacion));
         $this->assertFalse($certificado->es_duplicado);
         $this->assertNotNull($certificado->getFirstMedia('pdf'));
+    }
+
+    public function test_url_de_verificacion_apunta_a_la_pagina_publica_con_el_codigo(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $emisor = User::factory()->create();
+        $certificado = app(CertificadoService::class)->emitir($estudiante, null, null, null, $emisor);
+
+        $this->assertSame(
+            route('certificados.verificar', ['codigo' => $certificado->codigo_verificacion]),
+            $certificado->urlVerificacion(),
+        );
+    }
+
+    public function test_la_plantilla_del_pdf_incluye_el_qr_de_verificacion(): void
+    {
+        // DomPDF compila el HTML a PDF (streams comprimidos, la imagen
+        // queda como un XObject binario): el data URI ya no aparece tal
+        // cual en el archivo final, así que se revisa en el HTML de la
+        // vista -- lo mismo que compila DomPDF -- en vez de en los bytes
+        // del PDF ya generado.
+        $estudiante = Estudiante::factory()->create();
+        $emisor = User::factory()->create();
+        $certificado = app(CertificadoService::class)->emitir($estudiante, null, null, null, $emisor);
+        $plantilla = PlantillaCertificado::paraTipo($certificado->tipo);
+
+        $html = view('pdf.certificado', [
+            'certificado' => $certificado->load(['estudiante', 'matricula.grado', 'matricula.ciclo']),
+            'plantilla' => $plantilla,
+            'cuerpo' => 'Cuerpo de prueba.',
+        ])->render();
+
+        $this->assertStringContainsString('class="qr-verificacion"', $html);
+        $this->assertStringContainsString('src="data:image/png;base64,', $html);
+        $this->assertStringContainsString($certificado->codigo_verificacion, $html);
     }
 
     public function test_numeros_correlativos_no_se_repiten_dentro_del_mismo_anio(): void

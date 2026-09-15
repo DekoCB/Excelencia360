@@ -7,6 +7,438 @@ fecha y los commits que le corresponden.
 
 ---
 
+## 2026-09-15 (noche, cont. 7)
+
+### Se quitó también la mascota astronauta
+
+Pendiente desde la sesión anterior: en su momento se quitó la mascota oso
+(login + saludo del dashboard) pero se dejó el astronauta SVG sin tocar
+hasta que el usuario confirmara. Hoy pidió quitarlo también.
+
+- Vivía en dos lugares: el panel de bienvenida a la izquierda del login/
+  2FA/recuperar contraseña (`layouts/guest.blade.php`) y un widget
+  decorativo al pie del sidebar del panel (confeti + "¡Vamos, Excelencia
+  360! 🚀", en `sidebar-nav.blade.php`). Se quitó de ambos; en el login se
+  conservó el degradado, el resplandor y el texto de bienvenida (mismo
+  criterio que ya tenía el login principal, que tampoco lleva mascota
+  desde antes). En el sidebar, el bloque completo del widget se eliminó
+  (no tenía sentido dejar el confeti sin nada adentro) y el `mt-auto` que
+  lo empujaba al fondo pasó al bloque de "Mi perfil" que sigue.
+- Como ya no queda ningún uso, se borró
+  `components/dashboard/mascot.blade.php` y el CSS que solo existía para
+  ella (`.sidebar-mascot`, `.confetti-piece`, `.mascot-float` y sus
+  `@keyframes`) en `resources/css/app.css`. Comentarios que la mencionaban
+  en código que sigue vigente (`.dashboard-hero-gradient`, `.hero-glow`,
+  el token `--gradient-hero-*`) se actualizaron para no describir algo
+  que ya no está.
+- Verificado: suite completo sigue en 1035/1035, Pint y Larastan limpios;
+  `/forgot-password` (usa el layout tocado) responde 200 y su HTML ya no
+  contiene ninguna referencia a la mascota.
+
+---
+
+## 2026-09-15 (noche, cont. 6)
+
+### Biblioteca (séptimo y último módulo del ERP)
+
+Módulo nuevo y completo (`app/Modules/Biblioteca`): catálogo de libros,
+ejemplares físicos con código de inventario, y circulación (préstamos y
+devoluciones). Era el único punto de la auditoría sin nada reutilizable
+-- no existía ninguna tabla ni concepto parecido en el sistema.
+
+- **Modelos**: `Libro` (título, autor, ISBN, categoría, editorial, año) →
+  `Ejemplar` (un código de inventario único por copia física, con estado
+  disponible/prestado/perdido/en_reparación) → `Prestamo` (quién se lo
+  llevó, quién se lo entregó, fecha esperada de devolución, fecha real,
+  estado). `estaVencido()` se calcula al vuelo comparando la fecha
+  esperada contra hoy -- no hay un job ni un estado "vencido" guardado
+  aparte que alguien tenga que mantener sincronizado.
+- **Solo Docente y Estudiante piden prestado** (tienen cuenta de acceso
+  con DNI para identificarlos en el mostrador): mismo criterio ya usado
+  en Asistencia de docentes para excluir a Personal, que no tiene
+  `user_id` en el modelo actual.
+- Una página para bibliotecario/staff (`biblioteca.index`: catálogo +
+  agregar libros/ejemplares + préstamos activos con devolver/marcar
+  perdido, todo detrás de `biblioteca.gestionar`) y otra de autoservicio
+  (`biblioteca.mis-prestamos`, `biblioteca.ver_propio`) para que
+  cualquier estudiante o docente vea su propio historial. El catálogo en
+  sí (`biblioteca.ver`) es visible para todos los roles salvo Apoderado,
+  que no tiene relación directa con préstamos de libros.
+- **Bug real encontrado en el camino**: el modelo `Ejemplar` no declaraba
+  `protected $table`, así que Eloquent adivinaba el nombre de tabla en
+  inglés (`ejemplars`, con "s" simple) en vez del nombre real de la
+  migración (`ejemplares`, plural correcto en español) -- toda operación
+  sobre ejemplares fallaba con "no such table". Detectado de inmediato
+  por el propio suite de tests (no llegó a probarse en vivo sin antes
+  corregirlo); se agregó la propiedad explícita.
+- Tests: `BibliotecaServiceTest` (11) y `BibliotecaPermisosTest` (8
+  métodos, 13 casos contando `@dataProvider`) -- 24 casos nuevos, todos
+  pasando. Verificado en vivo contra la base de datos real de desarrollo
+  vía tinker: registrar libro → agregar ejemplar → prestar → devolver,
+  con el ejemplar cambiando de estado correctamente en cada paso.
+
+Con esto se cierran los 7 puntos que la auditoría del prompt maestro
+había marcado como faltantes por completo o parciales: Apoderados, QR,
+Trámites, Calendario, Asistencia docente, Búsqueda global y Biblioteca.
+
+---
+
+## 2026-09-15 (noche, cont. 5)
+
+### Búsqueda global (sexto punto del ERP)
+
+Caja de búsqueda en el topbar (`livewire.busqueda.buscador-global`,
+embebida en `layout.navigation`) que busca a la vez entre Estudiantes,
+Apoderados, Docentes y Personal -- antes cada uno solo se podía buscar
+entrando a su propio módulo.
+
+- **No es un módulo con tabla propia**: `BusquedaGlobalService`
+  (`app/Modules/Busqueda`) no tiene modelo ni migración -- son las mismas
+  consultas `LIKE` que ya usa cada índice (Matrícula, Docentes, Personal),
+  unidas en un solo resultado. Sin Service Provider tampoco: no hay rutas
+  ni migraciones que registrar, y el componente Livewire se descubre solo
+  por convención de carpetas, igual que cualquier otro Volt.
+- **Reutiliza los permisos que ya existían** (`matricula.ver`,
+  `docentes.ver`, `personal.ver`) en vez de inventar un `busqueda.*`
+  nuevo: cada tipo de resultado solo aparece si el usuario ya podía verlo
+  por su cuenta.
+- **Enlaces reales, no una promesa de "página en construcción"**:
+  Estudiante y Apoderado (este último resuelve a la ficha de su hijo) ya
+  tenían una ruta propia (`matricula.show`) y enlazan directo ahí. Docente
+  y Personal no tienen ficha propia en el sistema actual (se editan desde
+  un modal en su índice, no una URL) -- en vez de inventar rutas nuevas
+  que nada más usa el buscador, el resultado enlaza al índice existente
+  con `?q=<dni>`, y se le agregó a `docentes.index`/`personal.index` (dos
+  líneas cada uno) leer ese parámetro para prefiltrar su propia lista al
+  cargar. Mismo patrón ya aprendido en Verificación por QR:
+  `Request::query()`, porque Livewire/Volt no inyecta la query string en
+  `mount()`.
+- **Bug real encontrado en el camino**: `Apoderado` no tenía
+  `estudiante_id` en su docblock `@property` (aunque sí está en
+  `$fillable` y en la base de datos) -- Larastan lo marcó como propiedad
+  indefinida en cuanto el nuevo código la usó. Se corrigió agregando la
+  anotación que faltaba, sin tocar nada más del modelo.
+- Tests: `BusquedaGlobalServiceTest` (9) y `BuscadorGlobalTest` (6,
+  incluye los dos índices con `?q=`) -- 15 casos nuevos, todos pasando.
+  Verificado en vivo contra la base de datos real de desarrollo vía
+  tinker.
+
+---
+
+## 2026-09-15 (noche, cont. 4)
+
+### Asistencia de docentes (quinto módulo del ERP)
+
+Módulo nuevo (`app/Modules/AsistenciaDocentes`) para el control de
+asistencia laboral del personal docente -- distinto del módulo
+`Asistencia` ya existente, que registra si un **estudiante** fue a una
+**sesión de clase** puntual. Este nuevo módulo registra si un **docente**
+se presentó a trabajar en un **día calendario**, con Coordinador/
+Administrativo/Dirección como quienes marcan el día de todos y el propio
+docente viendo (no editando) su historial.
+
+- **Alcance deliberadamente acotado a Docente, no a Personal**: se
+  verificó primero que `Personal` (portería, limpieza, psicología...) no
+  tiene `user_id` ni ningún campo de horario laboral -- por diseño no
+  inicia sesión en el sistema. Extender asistencia a Personal exigiría
+  inventar datos que hoy no existen (a quién atribuirle el registro, con
+  qué horario compararlo), así que se dejó fuera en vez de improvisar esa
+  regla de negocio.
+- **Reutiliza el vocabulario de estados que ya existía**
+  (`App\Modules\Asistencia\Enums\EstadoAsistenciaEnum`:
+  presente/tardanza/falta/justificado) en vez de duplicarlo -- significa
+  exactamente lo mismo para un docente que para un estudiante.
+  `AsistenciaDocente` es un registro por (docente, fecha), no por sesión:
+  la asistencia laboral es diaria, no por curso.
+- A diferencia del flujo de estudiantes (que separa "solicitud de
+  justificación" del estudiante y su aprobación posterior), aquí quien
+  registra la asistencia (staff) ya tiene la autoridad para marcar
+  directamente "justificado" con una nota/archivo adjunto -- no hace
+  falta el mismo circuito de solicitud/aprobación que existe para que el
+  estudiante inicie el trámite.
+- Se agregó `User::docente(): HasOne` (no existía; ya existían
+  `estudiante()` y `apoderados()`) para que la vista de "mi historial" del
+  docente resuelva su propia ficha sin pasar por el módulo Docentes.
+- Nuevo enlace "Asistencia docente" en el menú lateral, justo debajo de
+  "Asistencia" (estudiantes), visible para Dirección/Coordinador/
+  Administrativo/Docente.
+- Tests: `AsistenciaDocenteServiceTest` (7) y
+  `AsistenciaDocentesPermisosTest` (7 métodos, 11 casos contando los
+  `@dataProvider`) -- 18 casos nuevos, todos pasando. Verificado en vivo
+  contra la base de datos real de desarrollo vía tinker: registrar
+  tardanza con observación → aparece en el resumen del docente → permisos
+  correctos por rol.
+
+---
+
+## 2026-09-15 (noche, cont. 3)
+
+### Calendario académico (cuarto módulo del ERP)
+
+Módulo nuevo (`app/Modules/Calendario`) que unifica, en una sola vista
+mensual, tres orígenes que antes vivían separados: clases recurrentes,
+evaluaciones con fecha propia y eventos institucionales puntuales.
+
+- **No se tocó nada existente.** `CalendarioService` reutiliza
+  `EvaluacionService::todos()/horariosDelDocente()/horariosDelEstudiante()`
+  (ya usados por "Mis evaluaciones"/"Mi libreta") para decidir qué
+  horarios corresponden a cada usuario según su rol, en vez de duplicar
+  esa lógica. Las clases se materializan expandiendo cada
+  `Horario`/`HorarioDia` (recurrente, sin fecha propia) día por día dentro
+  del mes consultado, acotadas al rango real del `Ciclo`
+  (`fecha_inicio`/`fecha_fin`) al que pertenece el horario -- una clase no
+  aparece antes de que empiece o después de que termine su ciclo, aunque
+  el día de la semana coincida.
+- **Alcance por rol** (mismo criterio que ya usa "Mis evaluaciones"):
+  Dirección/Coordinador (con `academico.ver`) ven todas las
+  clases/evaluaciones; un Docente solo las de sus propios horarios; un
+  Estudiante o Apoderado solo las de su grado/ciclo (o el de sus hijos), y
+  únicamente evaluaciones ya publicadas -- igual que en su portal.
+  Administrativo/Tesorería no tienen alcance académico, así que solo ven
+  los eventos institucionales (abajo), no clases ni evaluaciones.
+- **Eventos puntuales** (`EventoCalendario`: reunión, acto institucional,
+  feriado/no lectivo, otro) son nuevos en este módulo -- ninguna tabla
+  existente los cubría (`Vacaciones` resultó ser licencia individual por
+  estudiante, no feriados institucionales; ver auditoría). Visibles para
+  todos los roles; crear/editar/eliminar requiere `calendario.gestionar`
+  (Coordinador, Administrativo, Dirección, igual que en Trámites). Un
+  evento de varios días (p. ej. una semana cultural) se expande en un
+  ítem por cada día dentro del mes consultado.
+- Vista Livewire de calendario mensual con navegación (mes anterior/
+  siguiente/hoy), grilla de 7×N días con hasta 2 ítems visibles por
+  celda, y un panel de detalle al seleccionar un día.
+- Nuevo enlace "Calendario" en el menú lateral, visible para cualquier
+  rol con `calendario.ver` (todos).
+- Tests: `CalendarioServiceTest` (13, incluyendo expansión de eventos
+  multi-día, límites del ciclo, y alcance por cada rol) y
+  `CalendarioPermisosTest` (8 métodos, 17 casos contando los
+  `@dataProvider` por rol) -- 30 casos nuevos, todos pasando; **suite
+  completo: 978/978**. Verificado en vivo contra la base de datos real de
+  desarrollo vía tinker: crear un evento → aparece en `itemsDelMes()` del
+  mes actual junto con las clases/evaluaciones reales ya sembradas →
+  permisos correctos por rol.
+
+---
+
+## 2026-09-15 (noche, cont. 2)
+
+### Trámites / FUT (tercer módulo del ERP)
+
+Módulo nuevo (`app/Modules/Tramites`) para solicitudes administrativas de
+cualquier usuario (constancias, reclamos, pedidos económicos, etc.), con
+seguimiento de estado y resolución — lo que el prompt maestro llama FUT
+(Formulario Único de Trámite).
+
+- **Modelo `SolicitudTramite`** (`solicitudes_tramite`): solicitante,
+  categoría (académico/administrativo/económico/otro), asunto,
+  descripción, adjuntos (Spatie MediaLibrary), estado (registrada →
+  en_revisión/observada → aprobada/denegada/atendida, o archivada),
+  responsable y resolución. Todos los roles pueden crear y ver sus
+  propios trámites (`tramites.crear`, `tramites.ver_propio`); Coordinador
+  y Administrativo además los gestionan todos (`tramites.gestionar`):
+  cambiar estado, dejar resolución, filtrar por estado/categoría.
+- Pasar a un estado que exige explicación (observada, aprobada, denegada,
+  atendida) sin escribir resolución lanza un error de validación —
+  `EstadoTramiteEnum::requiereResolucion()`. Al llegar a un estado final
+  (aprobada, denegada, atendida) se registra `atendido_en` y se notifica
+  al solicitante (`TipoNotificacionEnum::TRAMITE_ATENDIDO`), reutilizando
+  `NotificacionService` ya existente — nada de canales nuevos.
+- Una sola página Livewire (`tramites.index`), igual que Incidencias:
+  el mismo componente muestra la vista "mis trámites" o la vista de
+  gestión según el permiso del usuario autenticado, revalidado en cada
+  acción (`abort_unless(...->hasPermissionTo(...), 403)`), no solo
+  ocultado en la interfaz.
+- Nuevo enlace "Trámites" en el menú lateral, visible para cualquier rol.
+- Tests: `TramiteServiceTest` (8, reglas de negocio del servicio) y
+  `TramitesPermisosTest` (11, acceso por rol, aislamiento "ver_propio",
+  restricción de "gestionar" a Coordinador/Administrativo/Dirección,
+  validación de resolución obligatoria) — 24 en total, todos pasando.
+- Verificado en vivo contra la base de datos real (`tinker`): registrar →
+  cambiar a "atendida" con resolución → notificación creada → permisos
+  correctos por rol, con limpieza de los datos de prueba al final.
+
+---
+
+## 2026-09-15 (noche, cont.)
+
+### Verificación de documentos por QR (segundo módulo del ERP)
+
+Ya existía una página pública de verificación (`/verificar-certificado`)
+donde el interesado escribía a mano el código impreso en el certificado.
+Se le agregó un QR que lleva directo al resultado.
+
+- `App\Shared\Support\QrCode`: genera el QR como PNG embebible (data URI)
+  dibujando a mano con GD la matriz de módulos de `bacon/bacon-qr-code`
+  (ya era dependencia, solo se usaba para el QR del 2FA) — no sus
+  renderers de SVG/Imagick, porque DomPDF no soporta SVG de forma
+  confiable y este servidor no tiene Imagick instalado (`php -m`), solo
+  GD. Verificado end-to-end con un lector independiente (`pyzbar`) sobre
+  un PDF real generado por el sistema: decodifica exactamente la URL
+  esperada.
+- `Certificado::urlVerificacion()`: la URL de verificación con el código
+  ya incluido (`?codigo=...`).
+- `certificado.blade.php` (la plantilla PDF que ya comparten los 6 tipos
+  de documento del módulo: certificado de estudios y las 5 constancias)
+  imprime el QR junto al código de texto — ambos caminos siguen
+  disponibles, ninguno reemplaza al otro. La libreta de notas usa una
+  plantilla PDF aparte (`pdf.libreta`, sin código de verificación) y
+  queda fuera de este cambio: no es parte del sistema de verificación
+  existente.
+- `verificar.blade.php`: si la URL trae `?codigo=...`, se autocompleta y
+  verifica de una vez, sin tocar el botón.
+- **Bug real encontrado en el camino:** `mount(?string $codigo = null)`
+  no funcionaba — Livewire/Volt solo inyecta en `mount()` los parámetros
+  de RUTA (segmentos tipo `{estudiante}`), no la query string. Se
+  detectó con una prueba end-to-end real (`curl` contra el servidor
+  vivo, no solo el test unitario) antes de darlo por bueno; la lectura
+  correcta es `Request::query('codigo')`.
+- Otro ajuste en el camino: el primer test que escribí para "el PDF
+  incluye el QR" comparaba el data URI contra los bytes ya compilados
+  del PDF -- DomPDF los comprime y los reincrusta como XObject binario,
+  así que la cadena literal nunca aparece ahí. Se corrigió comparando
+  contra el HTML de la vista (lo que DomPDF recibe antes de compilar).
+- Verificado en vivo: PDF real generado, rasterizado y decodificado con
+  un lector de QR independiente (contenido exacto); página de
+  verificación probada escaneando (simulado) y escribiendo a mano.
+
+---
+
+## 2026-09-15 (noche)
+
+### Portal de Apoderados (primer módulo del prompt "Excelencia 360 ERP")
+
+El usuario entregó un prompt de 57 secciones pidiendo adaptar el sistema a
+un ERP académico completo (ver auditoría publicada como Artifact esa misma
+tarde). Se auditó primero contra el código real sin tocar nada; el usuario
+priorizó **Apoderados: rol y portal** como primer módulo a construir, y
+**mantener Livewire sin TypeScript** para el requisito de §38.
+
+- **Cuenta propia para cada apoderado:** `Apoderado` (dato que ya existía,
+  vinculado 1:1 a cada estudiante) ahora puede tener una cuenta de acceso
+  (`apoderados.user_id`), creada/reutilizada con el mismo criterio que
+  estudiantes y docentes: correo `{dni}@ceba.test`, contraseña inicial =
+  DNI. Como una misma persona puede tener más de un hijo matriculado (una
+  fila de `Apoderado` por hijo, sin un DNI único en la tabla), varias filas
+  pueden compartir el mismo `user_id` — ve a todos sus hijos desde un solo
+  inicio de sesión. Se integró directamente en
+  `MatriculaService::registrarApoderado()`: todo apoderado nuevo (por el
+  wizard o por carga masiva) recibe acceso automáticamente, sin paso
+  manual aparte. Comando `apoderados:generar-accesos` (idempotente) para
+  los 21 que ya existían antes de este cambio — ya corrido en local.
+- **Rol nuevo:** `apoderado`, con un único permiso de solo lectura
+  (`matricula.ver_propio_hijo`) sobre el/los hijo(s) vinculados a su
+  cuenta. Nueva puerta de entrada "Apoderado" en el selector del login
+  (antes solo "Personal administrativo" / "Estudiante").
+- **Pantalla `/matricula/mis-hijos`:** reutiliza el mismo resumen de solo
+  lectura (grados cursados, situación de pagos, documentos, notas) que ya
+  usa Coordinación/Dirección en "Historial de estudiante" — se extrajo esa
+  parte a un componente compartido (`x-historial-estudiante.resumen`) para
+  no duplicar ~250 líneas de marcado entre ambas pantallas. Si el
+  apoderado tiene más de un hijo, elige a cuál ver; si tiene uno solo, se
+  muestra directo. Incluye exportar a PDF.
+- **Seguridad:** `estudianteSeleccionadoId` es una propiedad pública de
+  Livewire (el cliente puede intentar modificarla directamente, no solo a
+  través del selector) — cada punto que la usa vuelve a validar contra los
+  hijos reales de esa cuenta en vez de confiar en el valor recibido;
+  cubierto por test (`manipular la propiedad publica directamente no
+  filtra al hijo de otro`).
+- **Bug real encontrado y corregido en el camino:** al agregar la relación
+  `User::apoderados()`, un doc-comment quedó huérfano (dos bloques
+  `/** */` seguidos, sin código entre medio) — eso rompió la asociación de
+  PHPDoc de `estudiante()` y, en cascada, hizo que Larastan dejara de
+  reconocer `$user->id`/`$model->id` en 6 Policies completamente ajenas
+  (CursoVirtual, Certificado, Evaluaciones, Incidencias, Pagos). Detectado
+  por Larastan antes de subir nada; correspondencia 1 docblock ↔ 1 método
+  restaurada.
+- Verificado en vivo: login real como apoderado (DNI de producción/demo),
+  "Mis hijos" muestra los datos reales del hijo (matrícula, cuotas
+  pendientes, pagos). 899 → +14 tests nuevos, todos en verde. Pint y
+  Larastan limpios.
+
+---
+
+## 2026-09-15 (tarde)
+
+### Se quitó el violeta heredado de CEBA: paleta del panel a turquesa
+
+`--color-accent` (el primario FUNCIONAL de toda la interfaz del panel —
+botones, links activos, foco) era violeta, heredado del rediseño de CEBA.
+Se recoloreó a turquesa/cian para que no desentone con la identidad de
+Excelencia 360, en `resources/css/app.css`:
+
+- `--color-accent`/`--color-accent-soft` (claro y oscuro) y
+  `--gradient-hero-*` (degradado del saludo del Dashboard y resplandor
+  ambiental del login/2FA): de violeta a turquesa → azul.
+- Claro y oscuro usan tonos *distintos* a propósito: ningún turquesa único
+  funciona a la vez como fondo de botón con texto blanco Y como texto
+  legible sobre un fondo casi negro (el violeta anterior tenía la misma
+  limitación). Los nuevos valores se verificaron con la misma fórmula de
+  contraste WCAG usada para la web pública.
+- La insignia/mochila/guante de la mascota astronauta (`dashboard/mascot.blade.php`)
+  y las partículas del fondo del login (`vortex-dust.js`) estaban en
+  violeta a propósito para combinar con el accent anterior — se pasaron a
+  `rgb(var(--color-accent))` (la mascota, así sigue la paleta activa sola)
+  y a un cian claro (las partículas).
+
+### Banner del Dashboard: sin espacio vacío arriba
+
+`hero-banner.blade.php` tenía `mt-8 sm:mt-10` para dejarle aire a la
+mascota que asomaba por encima del banner — ya no está (ver entrada de
+ayer). Se quitó ese margen: el padding de `<main>` alcanza, igual que en
+el resto de páginas del panel.
+
+### Login: video de fondo, y logo sin caja blanca
+
+- Video de fondo del login reemplazado por el que pasó el usuario.
+- El logo del login/2FA ya no lleva una tarjeta blanca detrás
+  (`bg-white/95 rounded-xl px-4 py-2`): el PNG real ya es transparente
+  (se verificó al conectarlo, ver entrada de ayer), así que sobra —
+  ahora flota directo sobre el video con un `drop-shadow` para que
+  se lea bien encima de cualquier escena.
+
+---
+
+## 2026-09-15
+
+### Logo oficial de la institución
+
+La institución entregó el logo (emblema con gorro de graduación, rayos y
+libro, con el wordmark "EXCELENCIA 360" ya incluido debajo, en un solo
+archivo vertical). Quedaba pendiente desde el día anterior; ya está
+conectado en todo el sistema vía `config/institucion.php` →
+`App\Shared\Support\Institucion`, sin tocar el archivo entregado (mismos
+colores/proporciones/isotipo):
+
+- `public/images/excelencia360/logo.png`: archivo completo tal cual,
+  usado en los pocos lugares con espacio vertical de sobra para lucirlo
+  entero (login, panel de 2FA/recuperar contraseña) — `x-brand-logo
+  variant="mark"`.
+- El navbar, el footer y el sidebar del panel necesitaban algo más
+  horizontal: el archivo es vertical (950×1510) y a la altura de un
+  navbar su wordmark queda ilegible. Se recorta solo el emblema (el 78%
+  superior, por CSS `object-fit: cover` + `object-position: top`, sin
+  tocar el PNG) y se combina con el nombre escrito aparte —
+  `x-brand-logo variant="icon"` (sidebar) y `variant="full"` (navbar/footer,
+  el nuevo valor por defecto del componente).
+- Los PDFs (certificados, libretas, recibos) usan un recorte físico
+  aparte, `logo-emblema.png` (generado una vez con GD, mismo criterio de
+  corte), porque DomPDF no soporta el recorte por CSS que sí usa la web.
+- El favicon pasa a usar ese mismo emblema recortado en vez del marcador
+  provisional (se ve mejor a 16-32px sin el wordmark encima).
+
+Se quitaron `public/images/logo.png` (provisional, en la raíz de
+`images/`) y `LEEME.md`, ya sin objeto.
+
+### Se quitó la mascota (oso) del login y del dashboard
+
+Video del oso en el login y su imagen en el saludo del dashboard,
+eliminados junto con los 3 archivos que solo ellos usaban (`pet.png`,
+`pet-video.mp4`, `pet-video-transparent.webm`). La otra mascota del
+sistema (el astronauta ilustrado en SVG, del panel de 2FA/recuperar
+contraseña y del pie del sidebar) no se tocó.
+
+---
+
 ## 2026-09-14
 
 Nace **Excelencia 360** como copia del sistema CEBA, con base de datos,

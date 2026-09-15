@@ -137,6 +137,61 @@ class MatriculaServiceTest extends TestCase
         ));
     }
 
+    public function test_registrar_apoderado_le_crea_acceso_al_portal(): void
+    {
+        $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMenor());
+
+        $apoderado = $this->service()->registrarApoderado($estudiante, new RegistrarApoderadoData(
+            nombres: 'Pedro García',
+            dni: new Dni('87654321'),
+            celular: new Telefono('912345678'),
+            correo: null,
+            direccion: null,
+            parentesco: 'Padre',
+        ));
+
+        $this->assertNotNull($apoderado->user_id);
+
+        $usuario = User::query()->findOrFail($apoderado->user_id);
+        $this->assertSame('87654321@ceba.test', $usuario->email);
+        $this->assertTrue($usuario->hasRole(RolEnum::APODERADO->value));
+        $this->assertTrue(Hash::check('87654321', $usuario->password));
+    }
+
+    public function test_registrar_apoderado_con_dni_ya_registrado_reutiliza_la_cuenta_para_ambos_hijos(): void
+    {
+        // Los dos hermanos comparten apoderado (mismo DNI): debe quedar
+        // una sola cuenta viendo a los dos, no una por cada fila de
+        // Apoderado (estudiante_id es unique en la tabla).
+        $usuarioExistente = User::factory()->create(['dni' => '87654321']);
+        $usuarioExistente->assignRole(RolEnum::APODERADO->value);
+
+        $hijoUno = $this->service()->registrarEstudiante($this->datosEstudianteMenor());
+        $hijoDos = $this->service()->registrarEstudiante(new RegistrarEstudianteData(
+            nombres: 'Rosa',
+            apellidos: 'Torres Huamán',
+            dni: new Dni('78912346'),
+            fechaNacimiento: now()->subYears(13)->format('Y-m-d'),
+            estadoCivil: null,
+            direccion: 'Av. Las Flores 512',
+            celular: null,
+            observaciones: null,
+        ));
+
+        $apoderadoUno = $this->service()->registrarApoderado($hijoUno, new RegistrarApoderadoData(
+            nombres: 'Pedro García', dni: new Dni('87654321'), celular: new Telefono('912345678'),
+            correo: null, direccion: null, parentesco: 'Padre',
+        ));
+        $apoderadoDos = $this->service()->registrarApoderado($hijoDos, new RegistrarApoderadoData(
+            nombres: 'Pedro García', dni: new Dni('87654321'), celular: new Telefono('912345678'),
+            correo: null, direccion: null, parentesco: 'Padre',
+        ));
+
+        $this->assertSame($usuarioExistente->id, $apoderadoUno->user_id);
+        $this->assertSame($usuarioExistente->id, $apoderadoDos->user_id);
+        $this->assertNotSame($apoderadoUno->estudiante_id, $apoderadoDos->estudiante_id);
+    }
+
     public function test_no_permite_matricular_sin_periodo_de_matricula_abierto(): void
     {
         $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMayor());

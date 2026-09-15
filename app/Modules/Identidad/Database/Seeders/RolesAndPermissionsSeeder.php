@@ -45,6 +45,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'reportes.academicos', 'reportes.matricula', 'reportes.financieros', 'reportes.morosos', 'reportes.certificados', 'reportes.historial_estudiante', 'reportes.exportar',
             'whatsapp.ver', 'whatsapp.enviar',
             'flujo_caja.ver',
+            'tramites.crear', 'tramites.ver_propio', 'tramites.gestionar',
+            'calendario.ver', 'calendario.gestionar',
+            'asistencia_docentes.ver', 'asistencia_docentes.registrar',
+            'biblioteca.ver', 'biblioteca.gestionar',
         ],
 
         RolEnum::ADMINISTRATIVO->value => [
@@ -56,6 +60,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'usuarios.ver',
             'usuarios.gestionar_sesiones',
             'auditoria.ver',
+            'tramites.crear', 'tramites.ver_propio', 'tramites.gestionar',
+            'calendario.ver', 'calendario.gestionar',
+            'asistencia_docentes.ver', 'asistencia_docentes.registrar',
+            'biblioteca.ver', 'biblioteca.gestionar',
         ],
 
         RolEnum::TESORERIA->value => [
@@ -63,6 +71,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'tesoreria.gestionar',
             'reportes.financieros', 'reportes.morosos', 'reportes.exportar',
             'flujo_caja.ver', 'flujo_caja.gestionar',
+            'tramites.crear', 'tramites.ver_propio',
+            'calendario.ver',
+            'biblioteca.ver',
         ],
 
         RolEnum::DOCENTE->value => [
@@ -71,6 +82,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'asistencia.registrar',
             'incidencias.gestionar_propio',
             'reportes.propios', 'reportes.exportar',
+            'tramites.crear', 'tramites.ver_propio',
+            'calendario.ver',
+            'asistencia_docentes.ver_propio',
+            'biblioteca.ver', 'biblioteca.ver_propio',
         ],
 
         RolEnum::ESTUDIANTE->value => [
@@ -81,6 +96,19 @@ class RolesAndPermissionsSeeder extends Seeder
             'pagos.ver_propio', 'pagos.subir_comprobante',
             'certificados.solicitar',
             'notificaciones.ver_propio',
+            'tramites.crear', 'tramites.ver_propio',
+            'calendario.ver',
+            'biblioteca.ver', 'biblioteca.ver_propio',
+        ],
+
+        // Solo lectura sobre el/los hijo(s) vinculados a su cuenta (ver
+        // Apoderado::user_id) -- reutiliza el mismo resumen de solo
+        // lectura que ya usa Coordinador/Dirección
+        // (HistorialEstudianteService), sin el buscador general.
+        RolEnum::APODERADO->value => [
+            'matricula.ver_propio_hijo',
+            'tramites.crear', 'tramites.ver_propio',
+            'calendario.ver',
         ],
     ];
 
@@ -89,7 +117,7 @@ class RolesAndPermissionsSeeder extends Seeder
      */
     private const TODOS_LOS_PERMISOS = [
         'academico.ver', 'academico.gestionar',
-        'matricula.crear', 'matricula.ver', 'matricula.editar', 'matricula.anular',
+        'matricula.crear', 'matricula.ver', 'matricula.editar', 'matricula.anular', 'matricula.ver_propio_hijo',
         'docentes.ver', 'docentes.gestionar',
         'contratos.ver', 'contratos.gestionar',
         'personal.ver', 'personal.gestionar',
@@ -109,6 +137,10 @@ class RolesAndPermissionsSeeder extends Seeder
         'flujo_caja.ver', 'flujo_caja.gestionar',
         'roles.gestionar', 'auditoria.ver',
         'usuarios.ver', 'usuarios.crear', 'usuarios.editar', 'usuarios.gestionar_sesiones',
+        'tramites.crear', 'tramites.ver_propio', 'tramites.gestionar',
+        'calendario.ver', 'calendario.gestionar',
+        'asistencia_docentes.ver', 'asistencia_docentes.registrar', 'asistencia_docentes.ver_propio',
+        'biblioteca.ver', 'biblioteca.gestionar', 'biblioteca.ver_propio',
     ];
 
     public function run(): void

@@ -10,6 +10,7 @@ enum TipoNotificacionEnum: string
     case EVALUACION_PUBLICADA = 'evaluacion_publicada';
     case MENSAJE = 'mensaje';
     case CERTIFICADO_LISTO = 'certificado_listo';
+    case TRAMITE_ATENDIDO = 'tramite_atendido';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum TipoNotificacionEnum: string
             self::EVALUACION_PUBLICADA => 'Evaluación publicada',
             self::MENSAJE => 'Mensaje',
             self::CERTIFICADO_LISTO => 'Certificado listo',
+            self::TRAMITE_ATENDIDO => 'Trámite atendido',
         };
     }
 
@@ -28,6 +30,7 @@ enum TipoNotificacionEnum: string
             self::EVALUACION_PUBLICADA => 'pencil-square',
             self::MENSAJE => 'chat-bubble-left-right',
             self::CERTIFICADO_LISTO => 'document-check',
+            self::TRAMITE_ATENDIDO => 'inbox-arrow-down',
         };
     }
 }

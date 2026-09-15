@@ -12,6 +12,57 @@
         <span class="sidebar-label">Dashboard</span>
     </a>
 
+    @canany(['tramites.crear', 'tramites.ver_propio', 'tramites.gestionar'])
+        <a
+            href="{{ route('tramites.index') }}"
+            wire:navigate
+            @class([
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+                'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('tramites.*'),
+                'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('tramites.*'),
+            ])
+        >
+            <x-heroicon-o-inbox-stack class="h-5 w-5 shrink-0" />
+            <span class="sidebar-label">Trámites</span>
+        </a>
+    @endcan
+
+    @can('calendario.ver')
+        <a
+            href="{{ route('calendario.index') }}"
+            wire:navigate
+            @class([
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+                'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('calendario.*'),
+                'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('calendario.*'),
+            ])
+        >
+            <x-heroicon-o-calendar-days class="h-5 w-5 shrink-0" />
+            <span class="sidebar-label">Calendario</span>
+        </a>
+    @endcan
+
+    @can('matricula.ver_propio_hijo')
+        <div class="mt-4 border-t border-border pt-4">
+            <p class="sidebar-section-title px-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                Portal de Apoderados
+            </p>
+        </div>
+
+        <a
+            href="{{ route('matricula.mis-hijos') }}"
+            wire:navigate
+            @class([
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+                'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('matricula.mis-hijos'),
+                'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('matricula.mis-hijos'),
+            ])
+        >
+            <x-heroicon-o-user-group class="h-5 w-5 shrink-0" />
+            <span class="sidebar-label">Mis hijos</span>
+        </a>
+    @endcan
+
     @can('matricula.ver')
         <div class="mt-4 border-t border-border pt-4">
             <p class="sidebar-section-title px-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">
@@ -98,6 +149,51 @@
             <span class="sidebar-label">Asistencia</span>
         </a>
     @endcanany
+
+    @canany(['asistencia_docentes.ver', 'asistencia_docentes.registrar', 'asistencia_docentes.ver_propio'])
+        <a
+            href="{{ route('asistencia-docentes.index') }}"
+            wire:navigate
+            @class([
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+                'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('asistencia-docentes.*'),
+                'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('asistencia-docentes.*'),
+            ])
+        >
+            <x-heroicon-o-briefcase class="h-5 w-5 shrink-0" />
+            <span class="sidebar-label">Asistencia docente</span>
+        </a>
+    @endcanany
+
+    @canany(['biblioteca.ver', 'biblioteca.gestionar'])
+        <a
+            href="{{ route('biblioteca.index') }}"
+            wire:navigate
+            @class([
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+                'bg-accent text-white shadow-md shadow-accent/30' => request()->routeIs('biblioteca.index'),
+                'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('biblioteca.index'),
+            ])
+        >
+            <x-heroicon-o-book-open class="h-5 w-5 shrink-0" />
+            <span class="sidebar-label">Biblioteca</span>
+        </a>
+    @endcanany
+
+    @can('biblioteca.ver_propio')
+        <a
+            href="{{ route('biblioteca.mis-prestamos') }}"
+            wire:navigate
+            @class([
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+                'bg-accent text-white shadow-md shadow-accent/30' => request()->routeIs('biblioteca.mis-prestamos'),
+                'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('biblioteca.mis-prestamos'),
+            ])
+        >
+            <x-heroicon-o-book-open class="h-5 w-5 shrink-0" />
+            <span class="sidebar-label">Mis préstamos</span>
+        </a>
+    @endcan
 
     @canany(['evaluaciones.ver', 'evaluaciones.registrar', 'evaluaciones.ver_propio'])
         <a
@@ -513,23 +609,7 @@
         @endcan
     @endcanany
 
-    <div class="sidebar-mascot mt-auto shrink-0 border-t border-border pt-4">
-        <div class="dashboard-hero-gradient relative h-20 overflow-hidden rounded-xl px-3 py-3">
-            <span class="confetti-piece" style="left: 8%; background: #FCD34D; animation-delay: 0s; animation-duration: 3.2s;" aria-hidden="true"></span>
-            <span class="confetti-piece" style="left: 22%; background: #F472B6; animation-delay: 0.6s; animation-duration: 4s;" aria-hidden="true"></span>
-            <span class="confetti-piece" style="left: 38%; background: #4ADE80; animation-delay: 1.4s; animation-duration: 3.6s;" aria-hidden="true"></span>
-            <span class="confetti-piece" style="left: 52%; background: #60A5FA; animation-delay: 0.2s; animation-duration: 4.4s;" aria-hidden="true"></span>
-            <span class="confetti-piece" style="left: 65%; background: #FDE68A; animation-delay: 2s; animation-duration: 3.4s;" aria-hidden="true"></span>
-            <span class="confetti-piece" style="left: 78%; background: #C4B5FD; animation-delay: 1s; animation-duration: 3.8s;" aria-hidden="true"></span>
-            <span class="confetti-piece" style="left: 90%; background: #FCD34D; animation-delay: 2.6s; animation-duration: 3.3s;" aria-hidden="true"></span>
-            <span class="confetti-piece" style="left: 15%; background: #F472B6; animation-delay: 3.1s; animation-duration: 4.1s;" aria-hidden="true"></span>
-
-            <x-dashboard.mascot class="pointer-events-none absolute -bottom-4 -right-3 h-16 w-16 rotate-6" />
-            <p class="relative z-10 max-w-[7.5rem] font-display text-xs font-medium leading-snug text-white">¡Vamos, {{ config('institucion.nombre_corto') }}! 🚀</p>
-        </div>
-    </div>
-
-    <div class="shrink-0 border-t border-border pt-4">
+    <div class="mt-auto shrink-0 border-t border-border pt-4">
         <button
             type="button"
             x-data
