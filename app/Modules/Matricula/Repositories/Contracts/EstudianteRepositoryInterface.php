@@ -13,7 +13,15 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
  */
 interface EstudianteRepositoryInterface extends RepositoryInterface
 {
-    public function buscar(?string $termino, ?string $estado, int $perPage = 15): LengthAwarePaginator;
+    public function buscar(
+        ?string $termino,
+        ?string $estado,
+        int $perPage = 15,
+        ?int $cicloId = null,
+        ?int $gradoId = null,
+        ?int $cursoId = null,
+        ?int $docenteId = null,
+    ): LengthAwarePaginator;
 
     public function existeDni(string $dni, ?int $exceptoId = null): bool;
 }

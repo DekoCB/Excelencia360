@@ -1,8 +1,13 @@
 <?php
 
+use App\Modules\Academico\Models\Ciclo;
+use App\Modules\Academico\Models\Curso;
+use App\Modules\Academico\Models\Grado;
+use App\Modules\Docentes\Models\Docente;
 use App\Modules\Matricula\Enums\EstadoEstudianteEnum;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Services\MatriculaService;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
@@ -18,6 +23,19 @@ new #[Layout('layouts.app')] class extends Component
     public string $estadoFiltro = '';
 
     public bool $mostrarWizard = false;
+
+    // Búsqueda avanzada (§25 del prompt maestro): oculta por defecto para
+    // no saturar el formulario simple de nombre/DNI + estado que cubre el
+    // caso de uso más común.
+    public bool $mostrarFiltrosAvanzados = false;
+
+    public string $cicloFiltro = '';
+
+    public string $gradoFiltro = '';
+
+    public string $cursoFiltro = '';
+
+    public string $docenteFiltro = '';
 
     public function mount(): void
     {
@@ -48,9 +66,45 @@ new #[Layout('layouts.app')] class extends Component
         $this->resetPage();
     }
 
+    public function updatedCicloFiltro(): void
+    {
+        $this->gradoFiltro = '';
+        $this->cursoFiltro = '';
+        $this->resetPage();
+    }
+
+    public function updatedGradoFiltro(): void
+    {
+        $this->cursoFiltro = '';
+        $this->resetPage();
+    }
+
+    public function updatingCursoFiltro(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingDocenteFiltro(): void
+    {
+        $this->resetPage();
+    }
+
+    public function limpiarFiltrosAvanzados(): void
+    {
+        $this->reset(['cicloFiltro', 'gradoFiltro', 'cursoFiltro', 'docenteFiltro']);
+        $this->resetPage();
+    }
+
     public function with(MatriculaService $service): array
     {
-        $estudiantes = $service->listarEstudiantes($this->termino ?: null, $this->estadoFiltro ?: null);
+        $estudiantes = $service->listarEstudiantes(
+            $this->termino ?: null,
+            $this->estadoFiltro ?: null,
+            cicloId: $this->cicloFiltro !== '' ? (int) $this->cicloFiltro : null,
+            gradoId: $this->gradoFiltro !== '' ? (int) $this->gradoFiltro : null,
+            cursoId: $this->cursoFiltro !== '' ? (int) $this->cursoFiltro : null,
+            docenteId: $this->docenteFiltro !== '' ? (int) $this->docenteFiltro : null,
+        );
 
         return [
             'estudiantes' => $estudiantes,
@@ -59,7 +113,27 @@ new #[Layout('layouts.app')] class extends Component
                 'label' => $estudiante->nombreCompleto(),
             ])->values()->all(),
             'estados' => EstadoEstudianteEnum::cases(),
+            'ciclosDisponibles' => Ciclo::query()->orderByDesc('fecha_inicio')->get(),
+            'gradosDisponibles' => Grado::query()->where('activo', true)->orderBy('orden')->get(),
+            'cursosDisponibles' => $this->cursosDisponibles(),
+            'docentesDisponibles' => Docente::query()->with('usuario')->get()->sortBy(fn (Docente $d) => $d->usuario->name)->values(),
         ];
+    }
+
+    /**
+     * @return Collection<int, Curso>
+     */
+    private function cursosDisponibles(): Collection
+    {
+        if ($this->gradoFiltro === '') {
+            return collect();
+        }
+
+        return Curso::query()
+            ->where('grado_id', (int) $this->gradoFiltro)
+            ->where('activo', true)
+            ->orderBy('nombre')
+            ->get();
     }
 }; ?>
 
@@ -105,7 +179,7 @@ new #[Layout('layouts.app')] class extends Component
         <livewire:matricula.wizard wire:key="wizard-nueva-matricula" />
     @endif
 
-    <div class="mb-4 flex flex-col gap-3 sm:flex-row">
+    <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center">
         <x-buscador-combo
             wire:model.live.debounce.300ms="termino"
             placeholder="Buscar por nombre, apellido o DNI…"
@@ -116,7 +190,57 @@ new #[Layout('layouts.app')] class extends Component
             class="w-full sm:max-w-xs"
             :options="collect($estados)->mapWithKeys(fn ($estado) => [$estado->value => $estado->label()])->prepend('Todos los estados', '')"
         />
+        <button type="button" wire:click="$toggle('mostrarFiltrosAvanzados')" class="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-accent hover:underline">
+            <x-heroicon-o-adjustments-horizontal class="h-4 w-4" />
+            Búsqueda avanzada
+        </button>
     </div>
+
+    @if ($mostrarFiltrosAvanzados)
+        <div class="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-surface-2 p-4">
+            <div wire:key="ciclo-select-matricula">
+                <x-input-label for="cicloFiltro" value="Grupo (periodo académico)" />
+                <x-select-input
+                    wire:model.live="cicloFiltro"
+                    id="cicloFiltro"
+                    class="mt-1 block w-56"
+                    :options="collect($ciclosDisponibles)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])->prepend('Todos los grupos', '')"
+                />
+            </div>
+            <div wire:key="grado-select-matricula-{{ $cicloFiltro }}">
+                <x-input-label for="gradoFiltro" value="Grado" />
+                <x-select-input
+                    wire:model.live="gradoFiltro"
+                    id="gradoFiltro"
+                    class="mt-1 block w-48"
+                    :options="collect($gradosDisponibles)->mapWithKeys(fn ($grado) => [$grado->id => $grado->nombre])->prepend('Todos los grados', '')"
+                />
+            </div>
+            <div wire:key="curso-select-matricula-{{ $gradoFiltro }}">
+                <x-input-label for="cursoFiltro" value="Curso" />
+                <x-select-input
+                    wire:model.live="cursoFiltro"
+                    id="cursoFiltro"
+                    class="mt-1 block w-48"
+                    :disabled="$gradoFiltro === ''"
+                    :options="collect($cursosDisponibles)->mapWithKeys(fn ($curso) => [$curso->id => $curso->nombre])->prepend('Todos los cursos', '')"
+                />
+            </div>
+            <div wire:key="docente-select-matricula">
+                <x-input-label for="docenteFiltro" value="Docente" />
+                <x-select-input
+                    wire:model.live="docenteFiltro"
+                    id="docenteFiltro"
+                    class="mt-1 block w-56"
+                    :options="collect($docentesDisponibles)->mapWithKeys(fn ($docente) => [$docente->user_id => $docente->usuario->name])->prepend('Todos los docentes', '')"
+                />
+            </div>
+
+            @if ($cicloFiltro !== '' || $gradoFiltro !== '' || $cursoFiltro !== '' || $docenteFiltro !== '')
+                <x-secondary-button type="button" wire:click="limpiarFiltrosAvanzados">Limpiar filtros</x-secondary-button>
+            @endif
+        </div>
+    @endif
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         @forelse ($estudiantes as $estudiante)

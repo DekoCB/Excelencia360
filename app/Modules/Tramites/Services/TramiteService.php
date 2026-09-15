@@ -10,6 +10,7 @@ use App\Modules\Notificaciones\Services\NotificacionService;
 use App\Modules\Tramites\Enums\CategoriaTramiteEnum;
 use App\Modules\Tramites\Enums\EstadoTramiteEnum;
 use App\Modules\Tramites\Models\SolicitudTramite;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -99,21 +100,23 @@ class TramiteService
     {
         return SolicitudTramite::query()
             ->where('solicitante_id', $solicitante->id)
-            ->with('responsable')
+            ->with(['responsable', 'media'])
             ->latest()
             ->get();
     }
 
     /**
-     * @return Collection<int, SolicitudTramite>
+     * Lista institucional (todos los solicitantes) -- paginada porque, a
+     * diferencia de misTramites() (acotada a un usuario), esta crece sin
+     * límite con el tiempo.
      */
-    public function todos(?EstadoTramiteEnum $estado = null, ?CategoriaTramiteEnum $categoria = null): Collection
+    public function todos(?EstadoTramiteEnum $estado = null, ?CategoriaTramiteEnum $categoria = null, int $perPage = 15): LengthAwarePaginator
     {
         return SolicitudTramite::query()
             ->when($estado, fn ($query) => $query->where('estado', $estado))
             ->when($categoria, fn ($query) => $query->where('categoria', $categoria))
-            ->with(['solicitante', 'responsable'])
+            ->with(['solicitante', 'responsable', 'media'])
             ->latest()
-            ->get();
+            ->paginate($perPage);
     }
 }

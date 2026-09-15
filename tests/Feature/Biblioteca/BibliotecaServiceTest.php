@@ -144,4 +144,24 @@ class BibliotecaServiceTest extends TestCase
         $this->assertCount(1, $resultado);
         $this->assertSame($solicitante->id, $resultado->first()->solicitante_id);
     }
+
+    public function test_catalogo_pagina_los_resultados(): void
+    {
+        Libro::factory()->count(20)->create();
+
+        $pagina = $this->service()->catalogo(perPage: 5);
+
+        $this->assertCount(5, $pagina);
+        $this->assertSame(20, $pagina->total());
+    }
+
+    public function test_prestamos_activos_pagina_los_resultados(): void
+    {
+        Prestamo::factory()->conEstado(EstadoPrestamoEnum::PRESTADO)->count(20)->create();
+
+        $pagina = $this->service()->prestamosActivos(perPage: 5);
+
+        $this->assertCount(5, $pagina);
+        $this->assertSame(20, $pagina->total());
+    }
 }

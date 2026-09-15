@@ -18,6 +18,7 @@ use App\Modules\Matricula\Models\Matricula;
 use App\Shared\Enums\RolEnum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class CalendarioServiceTest extends TestCase
@@ -265,5 +266,27 @@ class CalendarioServiceTest extends TestCase
         foreach ($fechas as $fecha) {
             $this->assertTrue($fecha->between($ciclo->fecha_inicio, $ciclo->fecha_fin));
         }
+    }
+
+    public function test_las_clases_del_docente_no_disparan_una_consulta_por_horario(): void
+    {
+        $docente = User::factory()->create();
+        $docente->assignRole(RolEnum::DOCENTE->value);
+
+        // Varios horarios del mismo docente en el mes -- itemsDeClases()
+        // lee $horario->docente->name para cada uno; sin el eager-load
+        // de 'docente' en horariosDelDocente(), esto dispararía una
+        // consulta extra por horario.
+        Horario::factory()->count(5)->create(['docente_id' => $docente->id])->each(function (Horario $horario) {
+            $horario->dias()->delete();
+            $horario->dias()->create(['dia_semana' => DiaSemanaEnum::LUNES, 'hora_inicio' => '09:00', 'hora_fin' => '10:00']);
+        });
+
+        DB::enableQueryLog();
+        $this->service()->itemsDelMes($docente, Carbon::parse('2026-09-01'));
+        $consultas = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertLessThan(15, $consultas);
     }
 }

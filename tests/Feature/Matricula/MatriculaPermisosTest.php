@@ -1214,4 +1214,79 @@ class MatriculaPermisosTest extends TestCase
 
         $this->assertDatabaseCount('cargos_adicionales', 0);
     }
+
+    /**
+     * Búsqueda avanzada (§25 del prompt maestro): el filtro en cascada
+     * mismo -- ciclo/grado/curso/docente -- ya lo prueba a fondo
+     * tests/Feature/Academico/FiltroMatriculaAcademicoTest.php y
+     * tests/Feature/Reportes/ReporteServiceTest.php; esto solo cubre la
+     * UX propia de esta pantalla: el toggle y el reinicio en cascada.
+     */
+    public function test_el_boton_de_busqueda_avanzada_muestra_y_oculta_los_filtros(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.index')
+            ->assertDontSee('Grupo (periodo académico)')
+            ->set('mostrarFiltrosAvanzados', true)
+            ->assertSee('Grupo (periodo académico)')
+            ->set('mostrarFiltrosAvanzados', false)
+            ->assertDontSee('Grupo (periodo académico)');
+    }
+
+    public function test_elegir_un_ciclo_reinicia_grado_y_curso(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+        $this->actingAs($usuario);
+
+        $grado = Grado::factory()->create();
+        $curso = Curso::factory()->create(['grado_id' => $grado->id]);
+
+        Volt::test('matricula.index')
+            ->set('gradoFiltro', (string) $grado->id)
+            ->set('cursoFiltro', (string) $curso->id)
+            ->set('cicloFiltro', (string) Ciclo::factory()->create()->id)
+            ->assertSet('gradoFiltro', '')
+            ->assertSet('cursoFiltro', '');
+    }
+
+    public function test_elegir_un_grado_reinicia_curso(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+        $this->actingAs($usuario);
+
+        $grado = Grado::factory()->create();
+        $curso = Curso::factory()->create(['grado_id' => $grado->id]);
+        $otroGrado = Grado::factory()->create();
+
+        Volt::test('matricula.index')
+            ->set('cursoFiltro', (string) $curso->id)
+            ->set('gradoFiltro', (string) $otroGrado->id)
+            ->assertSet('cursoFiltro', '');
+    }
+
+    public function test_filtrar_por_grado_reduce_la_lista_de_estudiantes(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+        $this->actingAs($usuario);
+
+        $grado = Grado::factory()->create();
+        $ciclo = Ciclo::factory()->create();
+
+        $estudianteDelGrado = Estudiante::factory()->create(['nombres' => 'Del Grado Buscado']);
+        Matricula::factory()->create(['estudiante_id' => $estudianteDelGrado->id, 'grado_id' => $grado->id, 'ciclo_id' => $ciclo->id]);
+
+        $otroEstudiante = Estudiante::factory()->create(['nombres' => 'De Otro Grado']);
+        Matricula::factory()->create(['estudiante_id' => $otroEstudiante->id]);
+
+        Volt::test('matricula.index')
+            ->set('gradoFiltro', (string) $grado->id)
+            ->assertSee('Del Grado Buscado')
+            ->assertDontSee('De Otro Grado');
+    }
 }

@@ -47,7 +47,7 @@ class EvaluacionService
     {
         return Horario::query()
             ->where('docente_id', $docenteId)
-            ->with(['curso', 'grado', 'ciclo', 'dias'])
+            ->with(['curso', 'grado', 'ciclo', 'docente', 'dias'])
             ->get();
     }
 

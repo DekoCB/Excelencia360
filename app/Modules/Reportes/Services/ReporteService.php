@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Reportes\Services;
 
 use App\Models\User;
-use App\Modules\Academico\Enums\FranjaHorarioEnum;
-use App\Modules\Academico\Models\Horario;
+use App\Modules\Academico\Support\FiltroMatriculaAcademico;
 use App\Modules\Asistencia\Models\Asistencia;
 use App\Modules\Certificados\Models\Certificado;
 use App\Modules\Evaluaciones\Models\Calificacion;
@@ -15,8 +14,6 @@ use App\Modules\Matricula\Models\Matricula;
 use App\Modules\Pagos\Enums\EstadoCuotaEnum;
 use App\Modules\Pagos\Models\Cuota;
 use App\Modules\Pagos\Models\Pago;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 
 /**
  * Constructor de reportes tabulares exportables. Cada método devuelve
@@ -41,7 +38,7 @@ class ReporteService
      */
     public function matricula(?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja = null, ?int $siagieId = null): array
     {
-        $matriculas = $this->filtrarMatriculasPorFiltros(
+        $matriculas = FiltroMatriculaAcademico::filtrarMatriculas(
             Matricula::query()->with(['estudiante', 'grado', 'ciclo']),
             $cicloId,
             $gradoId,
@@ -68,7 +65,7 @@ class ReporteService
      */
     public function academico(?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja = null, ?int $siagieId = null): array
     {
-        $horarioIds = $this->horarioIdsFiltrados($cicloId, $gradoId, $cursoId, $franja);
+        $horarioIds = FiltroMatriculaAcademico::horarioIdsFiltrados($cicloId, $gradoId, $cursoId, $franja);
         $estudianteIds = $this->estudianteIdsConSiagie($siagieId);
 
         $calificaciones = Calificacion::query()
@@ -99,13 +96,13 @@ class ReporteService
      */
     public function financiero(?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja = null, ?int $siagieId = null): array
     {
-        $sinFiltros = $this->sinFiltros($cicloId, $gradoId, $cursoId, $franja, $siagieId);
+        $sinFiltros = FiltroMatriculaAcademico::sinFiltros($cicloId, $gradoId, $cursoId, $franja, $siagieId);
 
         $pagos = Pago::query()
             ->with(['estudiante', 'concepto', 'cargoAdicional'])
             ->when(! $sinFiltros, fn ($query) => $query->whereHas(
                 'estudiante.matriculas',
-                fn ($sub) => $this->filtrarMatriculasPorFiltros($sub, $cicloId, $gradoId, $cursoId, $franja, $siagieId),
+                fn ($sub) => FiltroMatriculaAcademico::filtrarMatriculas($sub, $cicloId, $gradoId, $cursoId, $franja, $siagieId),
             ))
             ->latest('fecha_pago')
             ->get();
@@ -128,13 +125,13 @@ class ReporteService
      */
     public function certificados(?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja = null, ?int $siagieId = null): array
     {
-        $sinFiltros = $this->sinFiltros($cicloId, $gradoId, $cursoId, $franja, $siagieId);
+        $sinFiltros = FiltroMatriculaAcademico::sinFiltros($cicloId, $gradoId, $cursoId, $franja, $siagieId);
 
         $certificados = Certificado::query()
             ->with(['estudiante', 'matricula.grado'])
             ->when(! $sinFiltros, fn ($query) => $query->whereHas(
                 'matricula',
-                fn ($sub) => $this->filtrarMatriculasPorFiltros($sub, $cicloId, $gradoId, $cursoId, $franja, $siagieId),
+                fn ($sub) => FiltroMatriculaAcademico::filtrarMatriculas($sub, $cicloId, $gradoId, $cursoId, $franja, $siagieId),
             ))
             ->latest('fecha_emision')
             ->get();
@@ -156,7 +153,7 @@ class ReporteService
      */
     public function operativo(?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja = null, ?int $siagieId = null): array
     {
-        $horarioIds = $this->horarioIdsFiltrados($cicloId, $gradoId, $cursoId, $franja);
+        $horarioIds = FiltroMatriculaAcademico::horarioIdsFiltrados($cicloId, $gradoId, $cursoId, $franja);
         $estudianteIds = $this->estudianteIdsConSiagie($siagieId);
 
         $asistencias = Asistencia::query()
@@ -198,14 +195,14 @@ class ReporteService
      */
     public function morosos(?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja = null, ?int $siagieId = null): array
     {
-        $sinFiltros = $this->sinFiltros($cicloId, $gradoId, $cursoId, $franja, $siagieId);
+        $sinFiltros = FiltroMatriculaAcademico::sinFiltros($cicloId, $gradoId, $cursoId, $franja, $siagieId);
 
         $cuotasVencidas = Cuota::query()
             ->where('estado', EstadoCuotaEnum::PENDIENTE)
             ->where('fecha_vencimiento', '<', now()->toDateString())
             ->when(! $sinFiltros, fn ($query) => $query->whereHas(
                 'planPago.matricula',
-                fn ($sub) => $this->filtrarMatriculasPorFiltros($sub, $cicloId, $gradoId, $cursoId, $franja, $siagieId),
+                fn ($sub) => FiltroMatriculaAcademico::filtrarMatriculas($sub, $cicloId, $gradoId, $cursoId, $franja, $siagieId),
             ))
             ->with('planPago.matricula.estudiante', 'planPago.matricula.grado')
             ->get()
@@ -246,7 +243,7 @@ class ReporteService
      */
     public function propio(User $docente, ?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja = null, ?int $siagieId = null): array
     {
-        $horarioIds = $this->horarioIdsFiltrados($cicloId, $gradoId, $cursoId, $franja);
+        $horarioIds = FiltroMatriculaAcademico::horarioIdsFiltrados($cicloId, $gradoId, $cursoId, $franja);
 
         $evaluaciones = Evaluacion::query()
             ->with(['horario.grado', 'horario.curso'])
@@ -267,11 +264,6 @@ class ReporteService
         ];
     }
 
-    private function sinFiltros(?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja, ?int $siagieId = null): bool
-    {
-        return $cicloId === null && $gradoId === null && $cursoId === null && $franja === null && $siagieId === null;
-    }
-
     /**
      * IDs de estudiantes con al menos una Matricula etiquetada con este
      * SIAGIE (ver Matricula::siagie_id) -- es una etiqueta independiente
@@ -287,116 +279,5 @@ class ReporteService
         }
 
         return Matricula::query()->where('siagie_id', $siagieId)->pluck('estudiante_id')->unique()->values()->all();
-    }
-
-    /**
-     * Horarios que coinciden con el Grupo (ciclo), Grado y Curso elegidos
-     * en el selector en cascada, más la franja institucional si se usa.
-     * null en cualquiera de los filtros significa "no restringir por ese
-     * campo". Devuelve null si no se pidió ningún filtro (para que el
-     * caller no aplique ninguna restricción en absoluto).
-     *
-     * @return ?Collection<int, Horario>
-     */
-    private function horariosFiltrados(?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja): ?Collection
-    {
-        if ($this->sinFiltros($cicloId, $gradoId, $cursoId, $franja)) {
-            return null;
-        }
-
-        $franjaEnum = $franja !== null ? FranjaHorarioEnum::tryFrom($franja) : null;
-
-        return Horario::query()
-            ->with('dias')
-            ->when($cicloId !== null, fn ($query) => $query->where('ciclo_id', $cicloId))
-            ->when($gradoId !== null, fn ($query) => $query->where('grado_id', $gradoId))
-            ->when($cursoId !== null, fn ($query) => $query->where('curso_id', $cursoId))
-            ->get()
-            ->filter(fn (Horario $horario) => $franjaEnum === null || $horario->franja() === $franjaEnum)
-            ->values();
-    }
-
-    /**
-     * @return ?list<int>
-     */
-    private function horarioIdsFiltrados(?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja): ?array
-    {
-        return $this->horariosFiltrados($cicloId, $gradoId, $cursoId, $franja)?->pluck('id')->all();
-    }
-
-    /**
-     * Aplica el filtro de SIAGIE/Grupo/Grado/Curso/franja a una consulta
-     * de Matricula. SIAGIE, ciclo y grado se filtran directo por columna
-     * (Matricula ya las tiene). Curso y franja no existen ahí -- se
-     * resuelven vía Horario: un estudiante matriculado en ese grado+ciclo
-     * lleva automáticamente cualquier curso de su grado, salvo que ese
-     * curso tenga secciones paralelas, donde se exige la asignación
-     * explícita en el pivote matricula_horario a uno de los horarios
-     * filtrados (mismo criterio que Matricula::scopeDelHorario()).
-     *
-     * @template TModel of \Illuminate\Database\Eloquent\Model
-     *
-     * @param  Builder<TModel>  $query
-     * @return Builder<TModel>
-     */
-    private function filtrarMatriculasPorFiltros(Builder $query, ?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja, ?int $siagieId = null): Builder
-    {
-        $query = $query
-            ->when($cicloId !== null, fn ($q) => $q->where('ciclo_id', $cicloId))
-            ->when($gradoId !== null, fn ($q) => $q->where('grado_id', $gradoId))
-            ->when($siagieId !== null, fn ($q) => $q->where('siagie_id', $siagieId));
-
-        if ($cursoId === null && $franja === null) {
-            return $query;
-        }
-
-        $horarios = $this->horariosFiltrados($cicloId, $gradoId, $cursoId, $franja);
-
-        if ($horarios === null || $horarios->isEmpty()) {
-            return $query->whereIn('id', []);
-        }
-
-        // Si ciclo o grado no venían fijos arriba, hace falta acotar la
-        // matrícula a los pares grado+ciclo donde sí cae la franja/curso.
-        if ($cicloId === null || $gradoId === null) {
-            $pares = $horarios
-                ->map(fn (Horario $horario) => ['grado_id' => $horario->grado_id, 'ciclo_id' => $horario->ciclo_id])
-                ->unique(fn (array $par) => $par['grado_id'].'-'.$par['ciclo_id'])
-                ->values();
-
-            $query = $this->filtrarPorGradoYCiclo($query, $pares);
-        }
-
-        if ($cursoId === null) {
-            return $query;
-        }
-
-        $tieneParalelos = Horario::query()->where('curso_id', $cursoId)->count() > 1;
-
-        if (! $tieneParalelos) {
-            return $query;
-        }
-
-        return $query->whereHas('horarios', fn ($sub) => $sub->whereIn('horarios.id', $horarios->pluck('id')));
-    }
-
-    /**
-     * @template TModel of \Illuminate\Database\Eloquent\Model
-     *
-     * @param  Builder<TModel>  $query
-     * @param  Collection<int, array{grado_id: int, ciclo_id: int}>  $pares
-     * @return Builder<TModel>
-     */
-    private function filtrarPorGradoYCiclo(Builder $query, Collection $pares): Builder
-    {
-        if ($pares->isEmpty()) {
-            return $query->whereIn('id', []);
-        }
-
-        return $query->where(function (Builder $q) use ($pares) {
-            foreach ($pares as $par) {
-                $q->orWhere(fn (Builder $qq) => $qq->where('grado_id', $par['grado_id'])->where('ciclo_id', $par['ciclo_id']));
-            }
-        });
     }
 }

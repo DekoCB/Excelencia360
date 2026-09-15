@@ -66,7 +66,7 @@ new class extends Component
 
 <div>
     <header class="flex h-16 items-center justify-between border-b border-border bg-surface px-4 sm:px-6">
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1">
             <button
                 @click="sidebarOpen = ! sidebarOpen"
                 class="rounded-md p-2 text-ink-dim hover:bg-surface-2 hover:text-ink md:hidden"
@@ -78,9 +78,7 @@ new class extends Component
             <a href="{{ route('dashboard') }}" wire:navigate class="md:hidden">
                 <x-application-logo :icon-only="true" />
             </a>
-        </div>
 
-        <div class="hidden flex-1 justify-center px-4 sm:flex">
             <livewire:busqueda.buscador-global />
         </div>
 

@@ -9,6 +9,7 @@ use App\Modules\Tramites\Enums\EstadoTramiteEnum;
 use App\Modules\Tramites\Services\TramiteService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -123,5 +124,52 @@ class TramiteServiceTest extends TestCase
         $this->assertCount(1, $service->todos(categoria: CategoriaTramiteEnum::ACADEMICO));
         $this->assertCount(2, $service->todos());
         $this->assertCount(0, $service->todos(estado: EstadoTramiteEnum::ARCHIVADA));
+    }
+
+    public function test_todos_pagina_los_resultados(): void
+    {
+        $service = $this->service();
+        $solicitante = User::factory()->create();
+
+        for ($i = 0; $i < 20; $i++) {
+            $service->registrar($solicitante, CategoriaTramiteEnum::OTRO, "Trámite {$i}", 'Descripción');
+        }
+
+        $pagina = $service->todos(perPage: 5);
+
+        $this->assertCount(5, $pagina);
+        $this->assertSame(20, $pagina->total());
+        $this->assertSame(4, $pagina->lastPage());
+    }
+
+    public function test_todos_no_dispara_una_consulta_por_adjunto(): void
+    {
+        Storage::fake('public');
+
+        $service = $this->service();
+        $solicitante = User::factory()->create();
+
+        foreach (range(1, 3) as $i) {
+            $service->registrar(
+                $solicitante,
+                CategoriaTramiteEnum::OTRO,
+                "Trámite {$i}",
+                'Descripción',
+                [UploadedFile::fake()->create("sustento{$i}.pdf", 10, 'application/pdf')],
+            );
+        }
+
+        DB::enableQueryLog();
+        $tramites = $service->todos();
+        foreach ($tramites as $tramite) {
+            $tramite->getMedia('adjuntos');
+        }
+        $consultas = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        // Sin el eager-load de 'media', esto dispararía una consulta extra
+        // por cada uno de los 3 trámites (una por getMedia()); con él,
+        // el número de consultas no depende de cuántos trámites haya.
+        $this->assertLessThanOrEqual(4, $consultas);
     }
 }

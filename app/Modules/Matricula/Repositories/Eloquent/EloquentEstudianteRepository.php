@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Matricula\Repositories\Eloquent;
 
+use App\Modules\Academico\Support\FiltroMatriculaAcademico;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Repositories\Contracts\EstudianteRepositoryInterface;
 use App\Shared\Repositories\BaseRepository;
@@ -23,8 +24,23 @@ class EloquentEstudianteRepository extends BaseRepository implements EstudianteR
         return Estudiante::query()->with(['gradoActual', 'media', 'user.media']);
     }
 
-    public function buscar(?string $termino, ?string $estado, int $perPage = 15): LengthAwarePaginator
-    {
+    /**
+     * Los filtros de ciclo/grado/curso/docente (búsqueda avanzada, §25 del
+     * prompt maestro) se resuelven contra las matrículas del estudiante,
+     * reutilizando el mismo filtro en cascada que ya usa Reportes -- ver
+     * App\Modules\Academico\Support\FiltroMatriculaAcademico.
+     */
+    public function buscar(
+        ?string $termino,
+        ?string $estado,
+        int $perPage = 15,
+        ?int $cicloId = null,
+        ?int $gradoId = null,
+        ?int $cursoId = null,
+        ?int $docenteId = null,
+    ): LengthAwarePaginator {
+        $sinFiltrosAcademicos = FiltroMatriculaAcademico::sinFiltros($cicloId, $gradoId, $cursoId, null, null, $docenteId);
+
         return $this->query()
             ->when($termino, fn ($query) => $query->where(function ($query) use ($termino) {
                 $query->where('nombres', 'like', "%{$termino}%")
@@ -32,6 +48,10 @@ class EloquentEstudianteRepository extends BaseRepository implements EstudianteR
                     ->orWhere('dni', 'like', "%{$termino}%");
             }))
             ->when($estado, fn ($query) => $query->where('estado', $estado))
+            ->when(! $sinFiltrosAcademicos, fn ($query) => $query->whereHas(
+                'matriculas',
+                fn ($sub) => FiltroMatriculaAcademico::filtrarMatriculas($sub, $cicloId, $gradoId, $cursoId, null, null, $docenteId),
+            ))
             ->latest('id')
             ->paginate($perPage)
             ->withQueryString();

@@ -39,6 +39,16 @@ class BuscadorGlobalTest extends TestCase
             ->assertSee('Buscar estudiante, docente, personal');
     }
 
+    public function test_cerrar_limpia_el_termino_de_busqueda(): void
+    {
+        $this->actingAs($this->coordinador());
+
+        Volt::test('busqueda.buscador-global')
+            ->set('termino', 'algo')
+            ->call('cerrar')
+            ->assertSet('termino', '');
+    }
+
     public function test_escribir_menos_de_dos_caracteres_no_muestra_nada(): void
     {
         Estudiante::factory()->create(['nombres' => 'Ana']);

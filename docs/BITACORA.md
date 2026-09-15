@@ -7,6 +7,67 @@ fecha y los commits que le corresponden.
 
 ---
 
+## 2026-09-15 (noche, cont. 8)
+
+### Informe final, matriz de trazabilidad, fase 11 (optimización) y cierre de la búsqueda avanzada
+
+El usuario preguntó explícitamente si se habían seguido todos los pasos
+del prompt maestro. La respuesta honesta: la metodología sí (analizar
+antes de modificar, no inventar datos, probar todo, autorizar en
+backend), pero varios entregables *procesales* que el documento exige
+como cierre formal (informe final §56, matriz de trazabilidad §51, una
+pasada de optimización §49/fase 11, y la búsqueda avanzada multi-filtro
+completa de §25, que se había dejado como buscador global simple) no se
+habían hecho. Se hicieron los 4 hoy.
+
+- **`docs/INFORME_FINAL.md`**: las 14 secciones que pide §56 (resumen
+  ejecutivo, arquitectura, módulos, requerimientos cumplidos/pendientes,
+  cambios en BD/frontend/backend, seguridad, pruebas, bugs encontrados,
+  riesgos, ISO/IEC 25010, recomendaciones, matriz).
+- **`docs/MATRIZ_TRAZABILIDAD.md`**: 20 filas (una por agrupación de
+  requerimientos del prompt maestro), con ruta/service/modelo/tabla/test
+  reales -- verificados con `php artisan route:list` y `ls tests/`, no
+  de memoria.
+- **Fase 11 (optimización)**: una auditoría real (agente de exploración)
+  sobre los 7 módulos de hoy encontró 2 N+1 reales (adjuntos de Trámites
+  sin eager-load de `media`; docente de Calendario sin eager-load en
+  `EvaluacionService::horariosDelDocente()`, que también usa Asistencia),
+  2 índices faltantes (`categoria` en Trámites, `fecha` en Asistencia
+  docentes -- ninguno de los dos servía al índice compuesto que ya
+  existía, por la regla del prefijo izquierdo) y 3 listas sin paginar que
+  crecen sin límite (`Tramites::todos()`, `Biblioteca::catalogo()`,
+  `Biblioteca::prestamosActivos()`). Los 5 hallazgos se corrigieron, cada
+  uno con su propio test de regresión (conteo de queries con
+  `DB::enableQueryLog()` para los N+1, `total()`/`lastPage()` para la
+  paginación).
+- **Búsqueda avanzada (§25) completa**: se extrajo el filtro en cascada
+  ciclo→grado→curso (con la regla de "paralelos") de
+  `ReporteService`, donde vivía duplicado en 5 de sus 7 métodos como
+  métodos privados, a `App\Modules\Academico\Support\FiltroMatriculaAcademico`
+  (clase con métodos estáticos, sin estado) -- se reutiliza desde
+  Reportes (sin cambiar su comportamiento, verificado con su suite
+  completo) y desde el nuevo bloque "Búsqueda avanzada" de
+  `matricula.index`, que agrega un cuarto filtro (docente) que Reportes
+  no tenía.
+  - **Bug real encontrado y corregido antes de escribir el código**: el
+    primer diseño exigía la comprobación estricta de "paralelos"
+    (`whereHas` contra IDs de horario concretos) también cuando solo se
+    filtraba por docente sin curso. Eso habría excluido por error a
+    estudiantes que sí llevan la materia de ese docente pero nunca
+    necesitaron una asignación explícita en `matricula_horario` (por no
+    tener paralelos) -- se corrigió para que el filtro por docente sin
+    curso se comporte como el de franja (acota por grado+ciclo, sin
+    exigir la asignación explícita), y quedó cubierto por un test
+    dedicado (`FiltroMatriculaAcademicoTest`) antes de integrarlo.
+- Verificado en vivo contra la base de datos real de desarrollo vía
+  tinker: filtrar por grado real reduce de 55 a 16 estudiantes; filtrar
+  por un docente que dicta en 4 grados distintos del mismo ciclo trae 50
+  de 55 -- resultado correcto, no un bug, confirmado revisando cuántas
+  combinaciones grado+ciclo dicta ese docente en los datos de prueba.
+- Suite completo: **1035 → 1049** (+14), Pint y Larastan limpios.
+
+---
+
 ## 2026-09-15 (noche, cont. 7)
 
 ### Se quitó también la mascota astronauta

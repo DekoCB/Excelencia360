@@ -14,6 +14,8 @@ use App\Modules\Matricula\DTOs\RegistrarApoderadoData;
 use App\Modules\Matricula\DTOs\RegistrarEstudianteData;
 use App\Modules\Matricula\DTOs\RegistrarMatriculaData;
 use App\Modules\Matricula\Events\EstudianteMatriculado;
+use App\Modules\Matricula\Models\Estudiante;
+use App\Modules\Matricula\Models\Matricula;
 use App\Modules\Matricula\Services\MatriculaService;
 use App\Shared\Enums\RolEnum;
 use App\Shared\ValueObjects\Dni;
@@ -400,5 +402,46 @@ class MatriculaServiceTest extends TestCase
         $this->expectException(ValidationException::class);
 
         $this->service()->asignarHorarioDeCurso($matricula, $horarioAjeno->curso_id, $horarioAjeno->id);
+    }
+
+    /**
+     * La lógica de filtrado en sí (grado+ciclo, paralelos, etc.) ya está
+     * probada a fondo en tests/Feature/Academico/FiltroMatriculaAcademicoTest.php
+     * y tests/Feature/Reportes/ReporteServiceTest.php -- esto solo verifica
+     * que listarEstudiantes() (la búsqueda avanzada, §25 del prompt
+     * maestro) de verdad pasa los filtros hasta ahí.
+     */
+    public function test_listar_estudiantes_filtra_por_grado(): void
+    {
+        $grado = Grado::factory()->create();
+        $ciclo = Ciclo::factory()->create();
+
+        $estudianteDelGrado = Estudiante::factory()->create();
+        Matricula::factory()->create(['estudiante_id' => $estudianteDelGrado->id, 'grado_id' => $grado->id, 'ciclo_id' => $ciclo->id]);
+
+        $estudianteDeOtroGrado = Estudiante::factory()->create();
+        Matricula::factory()->create(['estudiante_id' => $estudianteDeOtroGrado->id]);
+
+        $resultado = $this->service()->listarEstudiantes(null, null, gradoId: $grado->id);
+
+        $this->assertCount(1, $resultado);
+        $this->assertSame($estudianteDelGrado->id, $resultado->first()->id);
+    }
+
+    public function test_listar_estudiantes_filtra_por_docente(): void
+    {
+        $docente = User::factory()->create();
+        $horario = Horario::factory()->create(['docente_id' => $docente->id]);
+
+        $estudianteDelDocente = Estudiante::factory()->create();
+        Matricula::factory()->create(['estudiante_id' => $estudianteDelDocente->id, 'grado_id' => $horario->grado_id, 'ciclo_id' => $horario->ciclo_id]);
+
+        $otroEstudiante = Estudiante::factory()->create();
+        Matricula::factory()->create(['estudiante_id' => $otroEstudiante->id]);
+
+        $resultado = $this->service()->listarEstudiantes(null, null, docenteId: $docente->id);
+
+        $this->assertCount(1, $resultado);
+        $this->assertSame($estudianteDelDocente->id, $resultado->first()->id);
     }
 }

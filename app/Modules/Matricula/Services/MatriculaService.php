@@ -48,9 +48,16 @@ class MatriculaService
         private readonly UserManagementService $usuarios,
     ) {}
 
-    public function listarEstudiantes(?string $termino, ?string $estado, int $perPage = 15): LengthAwarePaginator
-    {
-        return $this->estudiantes->buscar($termino, $estado, $perPage);
+    public function listarEstudiantes(
+        ?string $termino,
+        ?string $estado,
+        int $perPage = 15,
+        ?int $cicloId = null,
+        ?int $gradoId = null,
+        ?int $cursoId = null,
+        ?int $docenteId = null,
+    ): LengthAwarePaginator {
+        return $this->estudiantes->buscar($termino, $estado, $perPage, $cicloId, $gradoId, $cursoId, $docenteId);
     }
 
     public function dniDisponible(string $dni, ?int $exceptoId = null): bool

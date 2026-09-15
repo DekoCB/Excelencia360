@@ -8,15 +8,20 @@ use App\Modules\Biblioteca\Services\BibliotecaService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
+use Livewire\WithPagination;
 
 /**
  * Catálogo, visible para cualquiera con biblioteca.ver. Quien además
  * tiene biblioteca.gestionar ve, en esta misma página, cómo agregar
  * libros/ejemplares y la lista de préstamos activos con prestar/devolver/
- * marcar perdido.
+ * marcar perdido. Dos listas paginadas por separado (catálogo y préstamos
+ * activos), cada una con su propio nombre de página -- si compartieran el
+ * mismo parámetro ?page=, paginar una movería la otra.
  */
 new #[Layout('layouts.app')] class extends Component
 {
+    use WithPagination;
+
     public string $termino = '';
 
     public bool $mostrarFormLibro = false;
@@ -44,6 +49,11 @@ new #[Layout('layouts.app')] class extends Component
     public function mount(): void
     {
         abort_unless(Auth::user()->hasPermissionTo('biblioteca.ver'), 403);
+    }
+
+    public function updatingTermino(): void
+    {
+        $this->resetPage('librosPage');
     }
 
     public function abrirFormLibro(): void
@@ -288,6 +298,8 @@ new #[Layout('layouts.app')] class extends Component
         @endforelse
     </div>
 
+    <div class="mt-4">{{ $libros->links() }}</div>
+
     @if ($puedeGestionar)
         <h2 class="mb-3 mt-8 font-display text-lg text-ink">Préstamos activos</h2>
 
@@ -312,5 +324,7 @@ new #[Layout('layouts.app')] class extends Component
                 <p class="rounded-lg border border-dashed border-border p-8 text-center text-sm text-ink-faint">No hay préstamos activos.</p>
             @endforelse
         </div>
+
+        <div class="mt-4">{{ $prestamosActivos->links() }}</div>
     @endif
 </div>

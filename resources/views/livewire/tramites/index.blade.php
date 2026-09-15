@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 
 /**
  * Una sola página, distinta según permisos (mismo criterio que
@@ -18,6 +19,7 @@ use Livewire\WithFileUploads;
 new #[Layout('layouts.app')] class extends Component
 {
     use WithFileUploads;
+    use WithPagination;
 
     public bool $mostrarFormNueva = false;
 
@@ -46,6 +48,16 @@ new #[Layout('layouts.app')] class extends Component
             Auth::user()->hasAnyPermission(['tramites.crear', 'tramites.ver_propio', 'tramites.gestionar']),
             403,
         );
+    }
+
+    public function updatingFiltroEstado(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingFiltroCategoria(): void
+    {
+        $this->resetPage();
     }
 
     public function crear(TramiteService $service): void
@@ -288,4 +300,8 @@ new #[Layout('layouts.app')] class extends Component
             </p>
         @endforelse
     </div>
+
+    @if ($puedeGestionar)
+        <div class="mt-4">{{ $tramites->links() }}</div>
+    @endif
 </div>

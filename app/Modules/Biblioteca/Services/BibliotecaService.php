@@ -10,6 +10,7 @@ use App\Modules\Biblioteca\Enums\EstadoPrestamoEnum;
 use App\Modules\Biblioteca\Models\Ejemplar;
 use App\Modules\Biblioteca\Models\Libro;
 use App\Modules\Biblioteca\Models\Prestamo;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -26,9 +27,10 @@ class BibliotecaService
     private const DIAS_PRESTAMO_POR_DEFECTO = 7;
 
     /**
-     * @return Collection<int, Libro>
+     * Paginado: el catálogo crece sin límite con el tiempo, a diferencia
+     * de misPrestamos()/historialDocente() (acotados a un usuario).
      */
-    public function catalogo(?string $termino = null): Collection
+    public function catalogo(?string $termino = null, int $perPage = 15): LengthAwarePaginator
     {
         return Libro::query()
             ->when($termino, fn ($query) => $query->where(function ($query) use ($termino) {
@@ -38,7 +40,7 @@ class BibliotecaService
             }))
             ->with('ejemplares')
             ->orderBy('titulo')
-            ->get();
+            ->paginate($perPage, ['*'], 'librosPage');
     }
 
     public function registrarLibro(string $titulo, string $autor, ?string $isbn, ?string $categoria, ?string $editorial, ?int $anioPublicacion): Libro
@@ -131,15 +133,16 @@ class BibliotecaService
     }
 
     /**
-     * @return Collection<int, Prestamo>
+     * Paginado por la misma razón que catalogo(): crece sin límite con el
+     * tiempo (a diferencia de misPrestamos(), acotado a un solicitante).
      */
-    public function prestamosActivos(): Collection
+    public function prestamosActivos(int $perPage = 15): LengthAwarePaginator
     {
         return Prestamo::query()
             ->where('estado', EstadoPrestamoEnum::PRESTADO)
             ->with(['ejemplar.libro', 'solicitante'])
             ->orderBy('fecha_devolucion_esperada')
-            ->get();
+            ->paginate($perPage, ['*'], 'prestamosPage');
     }
 
     /**
