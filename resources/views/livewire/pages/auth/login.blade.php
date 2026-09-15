@@ -70,17 +70,17 @@ new #[Layout('layouts.login')] class extends Component
             ];
         @endphp
 
-        <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="mt-6 flex flex-wrap justify-center gap-3">
             @foreach (CategoriaAccesoEnum::cases() as $opcion)
                 <button
                     type="button"
                     wire:click="elegirCategoria('{{ $opcion->value }}')"
-                    class="group rounded-2xl border border-border bg-surface-2 p-6 text-center transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-accent-soft"
+                    class="group w-full rounded-2xl border border-border bg-surface-2 p-4 text-center transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-accent-soft sm:w-[calc((100%-1.5rem)/3)]"
                 >
-                    <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-accent transition duration-300 group-hover:scale-110">
-                        <x-dynamic-component :component="'heroicon-o-'.$iconoPorCategoria[$opcion->value]" class="h-6 w-6" />
+                    <span class="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent transition duration-300 group-hover:scale-110">
+                        <x-dynamic-component :component="'heroicon-o-'.$iconoPorCategoria[$opcion->value]" class="h-5 w-5" />
                     </span>
-                    <span class="mt-3 block font-sans text-sm font-bold text-ink">{{ $opcion->label() }}</span>
+                    <span class="mt-2 block font-sans text-sm font-bold text-ink">{{ $opcion->label() }}</span>
                     <span class="mt-1 block text-xs text-ink-faint">
                         {{ $descripcionPorCategoria[$opcion->value] }}
                     </span>

@@ -57,7 +57,7 @@
                 </div>
             </div>
 
-            <div class="relative mt-8 w-full sm:max-w-md">
+            <div class="relative mt-8 w-full sm:max-w-lg">
                 <div class="w-full overflow-hidden rounded-2xl border border-border bg-surface px-6 py-6 shadow-2xl shadow-black/40 sm:px-8 sm:py-8">
                     {{ $slot }}
                 </div>
