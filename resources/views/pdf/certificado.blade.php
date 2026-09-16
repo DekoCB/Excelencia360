@@ -35,6 +35,11 @@
         .firma .nombre { font-weight: bold; }
 
         .pie-codigo { margin-top: 18px; font-size: 10px; color: #8891A0; }
+        .convenios { margin-top: 18px; }
+        .convenios-titulo { margin: 0 0 8px; font-size: 10px; color: #5B6472; }
+        .convenios-tabla { border-collapse: collapse; }
+        .convenios-tabla td { padding-right: 16px; vertical-align: middle; }
+        .convenios-tabla img { height: 40px; }
         .verificacion { margin-top: 20px; font-size: 9.5px; color: #8891A0; text-align: center; }
         .qr-verificacion { display: block; width: 70px; height: 70px; margin: 0 auto 6px; }
     </style>
@@ -109,8 +114,28 @@
 
     <p class="pie-codigo">N.° {{ $certificado->numero }}</p>
 
-    @if ($plantilla->codigo_documento_aprobacion)
+    @if ($certificado->tipo->esCapacitacion())
+        @if ($certificado->numero_registro)
+            <p class="pie-codigo">N.° de registro: {{ $certificado->numero_registro }}</p>
+        @endif
+        @if ($certificado->cursoCapacitacion?->documento_autorizacion)
+            <p class="pie-codigo">{{ $certificado->cursoCapacitacion->documento_autorizacion }}</p>
+        @endif
+    @elseif ($plantilla->codigo_documento_aprobacion)
         <p class="pie-codigo">{{ $plantilla->codigo_documento_aprobacion }}</p>
+    @endif
+
+    @if ($certificado->tipo->esCapacitacion() && ! empty(config('institucion.convenios')))
+        <div class="convenios">
+            <p class="convenios-titulo">Convenios con las siguientes instituciones:</p>
+            <table class="convenios-tabla">
+                <tr>
+                    @foreach (config('institucion.convenios') as $convenio)
+                        <td><img src="{{ $convenio['logo'] }}" alt="{{ $convenio['nombre'] }}"></td>
+                    @endforeach
+                </tr>
+            </table>
+        </div>
     @endif
 
     @if ($plantilla->pie_nota)

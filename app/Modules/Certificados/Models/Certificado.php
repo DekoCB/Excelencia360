@@ -25,6 +25,8 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property int $estudiante_id
  * @property TipoDocumentoEnum $tipo
  * @property int|null $matricula_id
+ * @property int|null $curso_capacitacion_id
+ * @property string|null $numero_registro
  * @property string $numero
  * @property string $codigo_verificacion
  * @property bool $es_duplicado
@@ -38,6 +40,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string|null $correo_entrega
  * @property-read Estudiante|null $estudiante
  * @property-read Matricula|null $matricula
+ * @property-read CursoCapacitacion|null $cursoCapacitacion
  * @property-read Certificado|null $original
  * @property-read User $emisor
  * @property-read User|null $entregadoPor
@@ -53,6 +56,8 @@ class Certificado extends Model implements HasMedia
         'estudiante_id',
         'tipo',
         'matricula_id',
+        'curso_capacitacion_id',
+        'numero_registro',
         'numero',
         'codigo_verificacion',
         'es_duplicado',
@@ -96,6 +101,11 @@ class Certificado extends Model implements HasMedia
     public function matricula(): BelongsTo
     {
         return $this->belongsTo(Matricula::class);
+    }
+
+    public function cursoCapacitacion(): BelongsTo
+    {
+        return $this->belongsTo(CursoCapacitacion::class);
     }
 
     public function original(): BelongsTo

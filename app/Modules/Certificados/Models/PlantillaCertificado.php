@@ -53,7 +53,8 @@ class PlantillaCertificado extends Model
      * completa sobre el grado/ciclo cursado, o el texto alterno si el
      * documento no está ligado a una matrícula), {{grado}} y {{periodo}}
      * (solo el nombre del grado/ciclo, sueltos, para redactar la frase a
-     * mano en vez de usar detalle_matricula ya armado).
+     * mano en vez de usar detalle_matricula ya armado). Solo para
+     * certificado_capacitacion: {{curso}} y {{horas_lectivas}}.
      */
     public static function paraTipo(TipoDocumentoEnum $tipo): self
     {
@@ -79,6 +80,15 @@ class PlantillaCertificado extends Model
                 'titulo' => 'Certificado de estudios',
                 'cuerpo' => 'Se deja constancia que {{estudiante}}, identificado(a) con DNI N.° {{dni}}, '
                     .'{{detalle_matricula}} conforme a los registros académicos de la institución.',
+                'pie_nota' => $pieNota,
+                'color_acento' => $colorAcento,
+            ],
+            TipoDocumentoEnum::CERTIFICADO_CAPACITACION => [
+                'institucion' => $institucion,
+                'titulo' => 'Certificado de capacitación',
+                'cuerpo' => 'Se deja constancia que {{estudiante}}, identificado(a) con DNI N.° {{dni}}, '
+                    .'ha participado y aprobado satisfactoriamente el curso de capacitación "{{curso}}", '
+                    .'con una duración de {{horas_lectivas}} horas lectivas.',
                 'pie_nota' => $pieNota,
                 'color_acento' => $colorAcento,
             ],

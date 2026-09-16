@@ -125,6 +125,16 @@ return [
         ],
     ],
 
+    /*
+    | Instituciones con las que hay convenio, mostradas (sus logos) en la
+    | validación pública y el PDF de un Certificado de capacitación. Vacío
+    | hasta que la institución entregue los logos reales -- no se inventan
+    | convenios ni se usan logos de terceros sin autorización. Estructura
+    | esperada por cada entrada: nombre, logo (ruta pública, ej. bajo
+    | public/images/convenios/).
+    */
+    'convenios' => [],
+
     // Descripciones genéricas derivadas solo del nombre de cada servicio.
     'servicios' => [
         ['nombre' => 'Capacitación en General', 'icono' => 'presentation-chart-line', 'descripcion' => 'Programas de capacitación en diferentes áreas, en modalidad virtual.'],

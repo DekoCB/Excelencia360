@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Certificados\Enums\EstadoSolicitudCertificadoEnum;
 use App\Modules\Certificados\Enums\TipoDocumentoEnum;
 use App\Modules\Certificados\Models\Certificado;
+use App\Modules\Certificados\Models\CursoCapacitacion;
 use App\Modules\Certificados\Models\PlantillaCertificado;
 use App\Modules\Certificados\Models\SolicitudCertificado;
 use App\Modules\Evaluaciones\Models\Libreta;
@@ -69,14 +70,18 @@ class CertificadoService
         ?string $observaciones,
         User $emisor,
         TipoDocumentoEnum $tipo = TipoDocumentoEnum::CERTIFICADO_ESTUDIOS,
+        ?CursoCapacitacion $cursoCapacitacion = null,
+        ?string $numeroRegistro = null,
     ): Certificado {
         $tipo = $solicitud !== null ? $solicitud->tipo : $tipo;
 
-        return DB::transaction(function () use ($estudiante, $matricula, $solicitud, $observaciones, $emisor, $tipo) {
+        return DB::transaction(function () use ($estudiante, $matricula, $solicitud, $observaciones, $emisor, $tipo, $cursoCapacitacion, $numeroRegistro) {
             $certificado = $this->crearConNumeroUnico([
                 'estudiante_id' => $estudiante->id,
                 'tipo' => $tipo,
                 'matricula_id' => $matricula?->id,
+                'curso_capacitacion_id' => $cursoCapacitacion?->id,
+                'numero_registro' => $numeroRegistro,
                 'codigo_verificacion' => $this->generarCodigoVerificacion(),
                 'es_duplicado' => false,
                 'emitido_por' => $emisor->id,
@@ -243,6 +248,8 @@ class CertificadoService
                 'estudiante_id' => $base->estudiante_id,
                 'tipo' => $base->tipo,
                 'matricula_id' => $base->matricula_id,
+                'curso_capacitacion_id' => $base->curso_capacitacion_id,
+                'numero_registro' => $base->numero_registro,
                 'codigo_verificacion' => $base->codigo_verificacion,
                 'es_duplicado' => true,
                 'certificado_original_id' => $base->id,
@@ -292,7 +299,9 @@ class CertificadoService
     public function previsualizarPlantilla(PlantillaCertificado $plantilla): string
     {
         $certificado = new Certificado([
+            'tipo' => $plantilla->tipo,
             'numero' => '000000-'.now()->format('Y'),
+            'numero_registro' => $plantilla->tipo->esCapacitacion() ? '0000000000' : null,
             'codigo_verificacion' => 'MUESTRAMUES',
             'es_duplicado' => false,
             'fecha_emision' => now(),
@@ -304,16 +313,31 @@ class CertificadoService
             'dni' => '00000000',
         ]));
         $certificado->setRelation('matricula', null);
+        $certificado->setRelation('cursoCapacitacion', $plantilla->tipo->esCapacitacion()
+            ? new CursoCapacitacion(['nombre' => 'Curso de ejemplo', 'horas_lectivas' => 100, 'documento_autorizacion' => 'R.D.R. N.°0000-0000-DREP'])
+            : null);
 
         return $this->renderizarPdf($certificado, $plantilla)->output();
     }
 
+    /**
+     * El código puede ser el codigo_verificacion (alfanumérico, lo genera
+     * el sistema) de un certificado/constancia académico, o el
+     * numero_registro (numérico, lo escribe el staff a mano) de un
+     * certificado de capacitación -- ambos son "el código impreso en el
+     * documento" desde el punto de vista de quien lo escanea o lo tipea acá.
+     */
     public function verificar(string $codigo): ?Certificado
     {
+        $codigo = trim($codigo);
+
         return Certificado::query()
-            ->where('codigo_verificacion', strtoupper(trim($codigo)))
+            ->where(function ($query) use ($codigo) {
+                $query->where('codigo_verificacion', strtoupper($codigo))
+                    ->orWhere('numero_registro', $codigo);
+            })
             ->where('es_duplicado', false)
-            ->with(['estudiante', 'matricula.grado', 'matricula.ciclo'])
+            ->with(['estudiante', 'matricula.grado', 'matricula.ciclo', 'cursoCapacitacion'])
             ->first();
     }
 
@@ -359,14 +383,14 @@ class CertificadoService
     public function todos(): Collection
     {
         return Certificado::query()
-            ->with(['estudiante', 'matricula.grado', 'emisor', 'entregadoPor'])
+            ->with(['estudiante', 'matricula.grado', 'cursoCapacitacion', 'emisor', 'entregadoPor'])
             ->latest('fecha_emision')
             ->get();
     }
 
     private function generarPdf(Certificado $certificado): void
     {
-        $certificado->load(['estudiante', 'matricula.grado', 'matricula.ciclo']);
+        $certificado->load(['estudiante', 'matricula.grado', 'matricula.ciclo', 'cursoCapacitacion']);
 
         $pdf = $this->renderizarPdf($certificado);
 
@@ -404,6 +428,8 @@ class CertificadoService
             )
             : 'se encuentra registrado(a) en esta institución,';
 
+        $curso = $certificado->cursoCapacitacion;
+
         return [
             'estudiante' => $certificado->estudiante?->nombreCompleto() ?? '—',
             'dni' => $certificado->estudiante->dni ?? '—',
@@ -414,6 +440,8 @@ class CertificadoService
             // presente periodo {{periodo}}"), así que repetirla acá duplicaría la
             // palabra en el texto final.
             'periodo' => $certificado->matricula?->ciclo->nombre ?? 'correspondiente',
+            'curso' => $curso !== null ? $curso->nombre : 'curso correspondiente',
+            'horas_lectivas' => $curso !== null ? (string) $curso->horas_lectivas : '',
             'numero' => $certificado->numero,
             'fecha_emision' => $certificado->fecha_emision->format('d/m/Y'),
             'codigo_verificacion' => $certificado->codigo_verificacion,

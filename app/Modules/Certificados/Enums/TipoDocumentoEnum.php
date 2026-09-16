@@ -13,6 +13,7 @@ namespace App\Modules\Certificados\Enums;
 enum TipoDocumentoEnum: string
 {
     case CERTIFICADO_ESTUDIOS = 'certificado_estudios';
+    case CERTIFICADO_CAPACITACION = 'certificado_capacitacion';
     case CONSTANCIA_ESTUDIOS = 'constancia_estudios';
     /** @deprecated Ya no se ofrece en el módulo Constancias (ver constancias() abajo); se conserva solo para no romper el casteo de registros antiguos que ya la usan. */
     case CONSTANCIA_VACANTE = 'constancia_vacante';
@@ -27,6 +28,7 @@ enum TipoDocumentoEnum: string
     {
         return match ($this) {
             self::CERTIFICADO_ESTUDIOS => 'Certificado de estudios',
+            self::CERTIFICADO_CAPACITACION => 'Certificado de capacitación',
             self::CONSTANCIA_ESTUDIOS => 'Constancia de estudios',
             self::CONSTANCIA_VACANTE => 'Constancia de vacante',
             self::CONSTANCIA_BUENA_CONDUCTA => 'Constancia de buena conducta',
@@ -41,6 +43,11 @@ enum TipoDocumentoEnum: string
     public function esLibreta(): bool
     {
         return $this === self::LIBRETA_NOTAS;
+    }
+
+    public function esCapacitacion(): bool
+    {
+        return $this === self::CERTIFICADO_CAPACITACION;
     }
 
     /**
@@ -66,7 +73,7 @@ enum TipoDocumentoEnum: string
      */
     public static function certificados(): array
     {
-        return [self::CERTIFICADO_ESTUDIOS, self::LIBRETA_NOTAS];
+        return [self::CERTIFICADO_ESTUDIOS, self::CERTIFICADO_CAPACITACION, self::LIBRETA_NOTAS];
     }
 
     /**

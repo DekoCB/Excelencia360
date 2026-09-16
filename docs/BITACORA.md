@@ -7,6 +7,88 @@ fecha y los commits que le corresponden.
 
 ---
 
+## 2026-09-17
+
+### Bloque B, punto #1 — Certificado de Capacitación y su validación pública
+
+El usuario mandó una captura con el formato exacto que debe mostrar la
+Validación de Certificados al consultar por código (el punto #1 del
+backlog original, bloqueado hasta ahora por falta de este formato):
+Documento de Identidad, Nombres/Apellidos del Participante, Número de
+Registro del Documento, Nombre y Horas Lectivas del Curso, Documento de
+Autorización y logos de instituciones convenio. Antes de programar se
+confirmaron 4 detalles con el usuario: (1) esto es un tipo de documento
+nuevo, pero el participante **sí** debe ser un estudiante ya matriculado
+en el sistema (no un registro suelto con datos tecleados a mano) — el
+curso de capacitación en sí, en cambio, si debe modelarse como una
+entidad propia, no texto libre; (2) en la captura "Nombres" y
+"Apellidos" estaban con las etiquetas cambiadas, van intercambiados a
+la convención normal; (3) los convenios con instituciones son una
+lista fija para todos los certificados de este tipo, no varían por
+curso; (4) el "Número de Registro" lo escribe el staff a mano desde su
+propio registro externo, no lo genera el sistema.
+
+**Se reutilizó por completo el módulo Certificados existente** en vez
+de crear uno aparte: nuevo caso `CERTIFICADO_CAPACITACION` en
+`TipoDocumentoEnum`, nuevo modelo `CursoCapacitacion` (catálogo propio,
+nombre/horas_lectivas/documento_autorizacion — distinto de
+`Academico\Curso`, que es una materia del currículo EBA con horario
+propio, sin relación con esto) y dos columnas nuevas en `certificados`
+(`curso_capacitacion_id`, `numero_registro`). `CertificadoService::
+emitir()`, `duplicar()`, `verificar()` y el generador de PDF se
+extendieron para el nuevo tipo sin tocar el comportamiento de los tipos
+existentes — mismo `PlantillaCertificado::valoresPorDefecto()` (match
+exhaustivo del enum, ahora con un caso más), mismo `renderizarCuerpo()`
+con placeholders nuevos (`{{curso}}`, `{{horas_lectivas}}`).
+
+**`verificar()` ahora busca por `codigo_verificacion` O
+`numero_registro`** (antes solo por el primero): son "el código
+impreso en el documento" desde el punto de vista de quien lo escanea o
+lo tipea, sin importar qué tipo de certificado sea. `numero_registro`
+quedó indexado pero no único a nivel de columna (mismo criterio que
+`codigo_verificacion`): un duplicado reutiliza el mismo número a
+propósito, y `verificar()` ya filtra `es_duplicado=false`, así que
+nunca hay ambigüedad de cuál devolver.
+
+**Panel de administración** (`certificados/index.blade.php`): pestaña
+"Emitir certificado" ahora muestra campos distintos según el tipo
+elegido (curso + número de registro para capacitación, matrícula para
+los demás) — nueva pestaña "Cursos de capacitación" para gestionar el
+catálogo (mismo permiso `certificados.gestionar_plantilla` que ya
+gobierna la Plantilla, en vez de crear un permiso nuevo).
+
+**Bug real encontrado y corregido verificando en vivo con Playwright:**
+al cambiar el tipo de documento, el formulario pasa de mostrar el
+select de Matrícula al de Curso de capacitación en la misma posición
+del DOM — sin un `wire:key` propio por rama, Livewire reutilizaba el
+nodo existente y el estado interno de Alpine del `<x-select-input>`
+anterior (su lista de opciones) quedaba pegado al nuevo: el desplegable
+de curso mostraba las opciones de matrícula. Se corrigió agregando
+`wire:key` a cada rama — ver el comentario en el archivo, porque es el
+tipo de bug que un test de Livewire normal (sin navegador real) no
+detecta.
+
+**Convenios con instituciones**: nuevo `config('institucion.convenios')`,
+vacío por defecto (igual criterio que `blog: []`) — no se inventaron ni
+se usaron logos de terceros sin autorización; queda listo para que el
+usuario mande los logos reales y sus nombres.
+
+38 tests nuevos. Suite completo: 1134/1134. Pint y Larastan limpios.
+Verificado en vivo de punta a punta: se creó
+el curso "Ofimática Nivel Avanzado" (130 horas, R.D.R. N°2182-2023-DREP),
+se emitió un certificado de capacitación para un estudiante real con
+número de registro 3002324002, y la página pública de Validación de
+Certificados (sin sesión iniciada) mostró exactamente el formato de la
+captura del usuario al consultar ese número.
+
+Sigue pendiente el resto del Bloque B: #2 (columnas del Excel de
+matrícula masiva) y #3 (el QR redirige a esta misma página, ya
+correspondía desde que se agregó el enlace en el navbar) — #3 en
+realidad ya está resuelto, dado que la URL de verificación siempre fue
+la misma página pública, ahora con el nuevo formato según el tipo.
+
+---
+
 ## 2026-09-16 (cont. 4)
 
 ### Bloque C, punto #11 (último) — Evaluaciones dentro de Cursos Virtuales, modo Físico/Virtual con banco de preguntas

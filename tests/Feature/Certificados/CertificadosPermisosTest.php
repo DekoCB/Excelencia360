@@ -5,6 +5,7 @@ namespace Tests\Feature\Certificados;
 use App\Models\User;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Certificados\Enums\TipoDocumentoEnum;
+use App\Modules\Certificados\Models\CursoCapacitacion;
 use App\Modules\Certificados\Models\SolicitudCertificado;
 use App\Modules\Certificados\Services\CertificadoService;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
@@ -114,6 +115,39 @@ class CertificadosPermisosTest extends TestCase
             ->set('codigo', $certificado->codigo_verificacion)
             ->call('verificar')
             ->assertSee($estudiante->nombreCompleto());
+    }
+
+    public function test_la_verificacion_de_un_certificado_de_capacitacion_muestra_curso_y_registro(): void
+    {
+        $estudiante = Estudiante::factory()->create(['nombres' => 'Ademir Erikson', 'apellidos' => 'Portillo Livisi', 'dni' => '72552221']);
+        $emisor = User::factory()->create();
+        $curso = CursoCapacitacion::factory()->create([
+            'nombre' => 'Ofimática Nivel Avanzado',
+            'horas_lectivas' => 130,
+            'documento_autorizacion' => 'R.D.R. N°2182-2023-DREP',
+        ]);
+        $certificado = app(CertificadoService::class)->emitir(
+            $estudiante,
+            null,
+            null,
+            null,
+            $emisor,
+            TipoDocumentoEnum::CERTIFICADO_CAPACITACION,
+            $curso,
+            '3002324002',
+        );
+
+        Volt::test('certificados.verificar')
+            ->set('codigo', '3002324002')
+            ->call('verificar')
+            ->assertSee('72552221')
+            ->assertSee('Ademir Erikson')
+            ->assertSee('Portillo Livisi')
+            ->assertSee('3002324002')
+            ->assertSee('Ofimática Nivel Avanzado')
+            ->assertSee('130')
+            ->assertSee('R.D.R. N°2182-2023-DREP')
+            ->assertDontSee($certificado->numero);
     }
 
     public function test_escanear_el_qr_verifica_de_una_vez_sin_tocar_el_boton(): void
