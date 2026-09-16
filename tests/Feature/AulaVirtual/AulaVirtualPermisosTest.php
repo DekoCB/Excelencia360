@@ -7,6 +7,7 @@ use App\Modules\Academico\Models\Horario;
 use App\Modules\AulaVirtual\Enums\TipoClaseGrabadaEnum;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
 use App\Modules\AulaVirtual\Models\Foro;
+use App\Modules\AulaVirtual\Models\Seccion;
 use App\Modules\AulaVirtual\Services\ClaseGrabadaService;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Models\Estudiante;
@@ -169,7 +170,7 @@ class AulaVirtualPermisosTest extends TestCase
         $this->assertSame(1, $cursoDos->materiales()->count());
     }
 
-    public function test_el_material_creado_con_semana_se_agrupa_bajo_su_semana(): void
+    public function test_el_material_creado_con_seccion_se_agrupa_bajo_su_seccion(): void
     {
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
@@ -177,18 +178,24 @@ class AulaVirtualPermisosTest extends TestCase
 
         $this->actingAs($docente);
 
-        Volt::test('aula-virtual.show', ['curso' => $curso])
-            ->set('materialTipo', 'enlace')
+        $component = Volt::test('aula-virtual.show', ['curso' => $curso])
+            ->set('seccionNombre', 'Repaso')
+            ->call('guardarSeccion')
+            ->assertHasNoErrors();
+
+        $seccion = Seccion::query()->where('curso_virtual_id', $curso->id)->where('nombre', 'Repaso')->firstOrFail();
+
+        $component->set('materialTipo', 'enlace')
             ->set('materialTitulo', 'Video de repaso')
             ->set('materialUrl', 'https://ejemplo.test/video')
-            ->set('materialSemana', '2')
+            ->set('materialSeccionId', (string) $seccion->id)
             ->set('materialCursosSeleccionados', [$curso->id])
             ->call('crearMaterial')
             ->assertHasNoErrors()
-            ->assertSeeInOrder(['Semana 2', 'Video de repaso']);
+            ->assertSeeInOrder(['Repaso', 'Video de repaso']);
     }
 
-    public function test_el_material_creado_sin_semana_se_agrupa_bajo_bienvenida(): void
+    public function test_el_material_creado_sin_seccion_se_agrupa_bajo_bienvenida(): void
     {
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
@@ -382,7 +389,7 @@ class AulaVirtualPermisosTest extends TestCase
             ->assertSee('Abrir enlace');
     }
 
-    public function test_el_foro_creado_con_semana_se_agrupa_bajo_su_semana(): void
+    public function test_el_foro_creado_con_seccion_se_agrupa_bajo_su_seccion(): void
     {
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
@@ -390,16 +397,22 @@ class AulaVirtualPermisosTest extends TestCase
 
         $this->actingAs($docente);
 
-        Volt::test('aula-virtual.show', ['curso' => $curso])
+        $component = Volt::test('aula-virtual.show', ['curso' => $curso])
             ->set('tab', 'foros')
-            ->set('foroTitulo', 'Dudas de la semana 2')
-            ->set('foroSemana', '2')
+            ->set('seccionNombre', 'Semana 2')
+            ->call('guardarSeccion')
+            ->assertHasNoErrors();
+
+        $seccion = Seccion::query()->where('curso_virtual_id', $curso->id)->where('nombre', 'Semana 2')->firstOrFail();
+
+        $component->set('foroTitulo', 'Dudas de la semana 2')
+            ->set('foroSeccionId', (string) $seccion->id)
             ->call('crearForo')
             ->assertHasNoErrors()
             ->assertSeeInOrder(['Semana 2', 'Dudas de la semana 2']);
     }
 
-    public function test_el_foro_creado_sin_semana_se_agrupa_bajo_bienvenida(): void
+    public function test_el_foro_creado_sin_seccion_se_agrupa_bajo_bienvenida(): void
     {
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);

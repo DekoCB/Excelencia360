@@ -7,6 +7,7 @@ use App\Modules\AulaVirtual\Models\CursoVirtual;
 use App\Modules\AulaVirtual\Models\Foro;
 use App\Modules\AulaVirtual\Models\PlantillaCursoVirtual;
 use App\Modules\AulaVirtual\Models\Publicacion;
+use App\Modules\AulaVirtual\Models\Seccion;
 use App\Modules\AulaVirtual\Services\ClaseGrabadaService;
 use App\Modules\AulaVirtual\Services\ComentarioService;
 use App\Modules\AulaVirtual\Services\CursoVirtualService;
@@ -14,6 +15,7 @@ use App\Modules\AulaVirtual\Services\ForoService;
 use App\Modules\AulaVirtual\Services\MaterialService;
 use App\Modules\AulaVirtual\Services\PlantillaCursoVirtualService;
 use App\Modules\AulaVirtual\Services\PublicacionService;
+use App\Modules\AulaVirtual\Services\SeccionService;
 use App\Modules\AulaVirtual\Services\TareaService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Collection as SupportCollection;
@@ -40,7 +42,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $materialUrl = '';
 
-    public string $materialSemana = '';
+    public string $materialSeccionId = '';
 
     public $materialArchivo = null;
 
@@ -56,7 +58,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $grabacionUrl = '';
 
-    public string $grabacionSemana = '';
+    public string $grabacionSeccionId = '';
 
     public $grabacionArchivo = null;
 
@@ -74,7 +76,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $tareaPuntajeMax = '20';
 
-    public string $tareaSemana = '';
+    public string $tareaSeccionId = '';
 
     /** @var array<int, int> */
     public array $tareaCursosSeleccionados = [];
@@ -96,7 +98,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $foroDescripcion = '';
 
-    public string $foroSemana = '';
+    public string $foroSeccionId = '';
 
     /** @var array<int, int> */
     public array $foroCursosSeleccionados = [];
@@ -109,6 +111,15 @@ new #[Layout('layouts.app')] class extends Component
 
     // Plantillas de aula virtual
     public string $nombrePlantilla = '';
+
+    // Secciones (bloques de contenido, con nombre y/o fecha)
+    public bool $mostrarFormSeccion = false;
+
+    public ?int $seccionEditandoId = null;
+
+    public string $seccionNombre = '';
+
+    public string $seccionFecha = '';
 
     public function mount(CursoVirtual $curso): void
     {
@@ -146,7 +157,6 @@ new #[Layout('layouts.app')] class extends Component
             'materialTitulo' => 'required|string|max:150',
             'materialUrl' => 'nullable|url|max:500',
             'materialArchivo' => 'nullable|file|mimes:pdf,doc,docx,ppt,pptx,xls,xlsx,txt,zip,jpg,jpeg,png|max:10240',
-            'materialSemana' => 'nullable|integer|min:1',
             'materialCursosSeleccionados' => 'required|array|min:1',
             'materialCursosSeleccionados.*' => 'integer|exists:aula_virtual_cursos,id',
         ]);
@@ -161,10 +171,10 @@ new #[Layout('layouts.app')] class extends Component
             $this->materialTitulo,
             $this->materialUrl ?: null,
             $this->materialArchivo,
-            $this->materialSemana !== '' ? (int) $this->materialSemana : null,
+            $this->seccionSeleccionada($this->materialSeccionId),
         );
 
-        $this->reset(['materialTipo', 'materialTitulo', 'materialUrl', 'materialArchivo', 'materialSemana', 'mostrarFormMaterial']);
+        $this->reset(['materialTipo', 'materialTitulo', 'materialUrl', 'materialArchivo', 'materialSeccionId', 'mostrarFormMaterial']);
         $this->materialCursosSeleccionados = [$this->curso->id];
     }
 
@@ -184,7 +194,6 @@ new #[Layout('layouts.app')] class extends Component
             'grabacionTitulo' => 'required|string|max:150',
             'grabacionUrl' => 'nullable|url|max:500',
             'grabacionArchivo' => 'nullable|file|mimes:mp4,mov,avi,wmv,mkv,webm|max:40000',
-            'grabacionSemana' => 'nullable|integer|min:1',
             'grabacionCursosSeleccionados' => 'required|array|min:1',
             'grabacionCursosSeleccionados.*' => 'integer|exists:aula_virtual_cursos,id',
         ]);
@@ -199,10 +208,10 @@ new #[Layout('layouts.app')] class extends Component
             $this->grabacionTitulo,
             $this->grabacionUrl ?: null,
             $this->grabacionArchivo,
-            $this->grabacionSemana !== '' ? (int) $this->grabacionSemana : null,
+            $this->seccionSeleccionada($this->grabacionSeccionId),
         );
 
-        $this->reset(['grabacionTipo', 'grabacionTitulo', 'grabacionUrl', 'grabacionArchivo', 'grabacionSemana', 'mostrarFormGrabacion']);
+        $this->reset(['grabacionTipo', 'grabacionTitulo', 'grabacionUrl', 'grabacionArchivo', 'grabacionSeccionId', 'mostrarFormGrabacion']);
         $this->grabacionCursosSeleccionados = [$this->curso->id];
     }
 
@@ -222,7 +231,6 @@ new #[Layout('layouts.app')] class extends Component
             'tareaDescripcion' => 'nullable|string',
             'tareaFechaLimite' => 'required|date',
             'tareaPuntajeMax' => 'required|integer|min:1|max:20',
-            'tareaSemana' => 'nullable|integer|min:1',
             'tareaCursosSeleccionados' => 'required|array|min:1',
             'tareaCursosSeleccionados.*' => 'integer|exists:aula_virtual_cursos,id',
         ]);
@@ -236,10 +244,9 @@ new #[Layout('layouts.app')] class extends Component
             'descripcion' => $this->tareaDescripcion ?: null,
             'fecha_limite' => $this->tareaFechaLimite,
             'puntaje_max' => (int) $this->tareaPuntajeMax,
-            'semana' => $this->tareaSemana !== '' ? (int) $this->tareaSemana : null,
-        ]);
+        ], $this->seccionSeleccionada($this->tareaSeccionId));
 
-        $this->reset(['tareaTitulo', 'tareaDescripcion', 'tareaFechaLimite', 'tareaPuntajeMax', 'tareaSemana', 'mostrarFormTarea']);
+        $this->reset(['tareaTitulo', 'tareaDescripcion', 'tareaFechaLimite', 'tareaPuntajeMax', 'tareaSeccionId', 'mostrarFormTarea']);
         $this->tareaCursosSeleccionados = [$this->curso->id];
     }
 
@@ -281,7 +288,6 @@ new #[Layout('layouts.app')] class extends Component
         $this->validate([
             'foroTitulo' => 'required|string|max:150',
             'foroDescripcion' => 'nullable|string',
-            'foroSemana' => 'nullable|integer|min:1',
             'foroCursosSeleccionados' => 'required|array|min:1',
             'foroCursosSeleccionados.*' => 'integer|exists:aula_virtual_cursos,id',
         ]);
@@ -295,11 +301,86 @@ new #[Layout('layouts.app')] class extends Component
             auth()->id(),
             $this->foroTitulo,
             $this->foroDescripcion ?: null,
-            $this->foroSemana !== '' ? (int) $this->foroSemana : null,
+            $this->seccionSeleccionada($this->foroSeccionId),
         );
 
-        $this->reset(['foroTitulo', 'foroDescripcion', 'foroSemana', 'mostrarFormForo']);
+        $this->reset(['foroTitulo', 'foroDescripcion', 'foroSeccionId', 'mostrarFormForo']);
         $this->foroCursosSeleccionados = [$this->curso->id];
+    }
+
+    /**
+     * $idComoTexto llega desde un <select> (siempre string, '' si no se
+     * eligió nada): resuelve la Seccion real, acotada a este curso para
+     * que nadie pueda mandar el id de una sección de otro curso a mano.
+     */
+    private function seccionSeleccionada(string $idComoTexto): ?Seccion
+    {
+        if ($idComoTexto === '') {
+            return null;
+        }
+
+        return $this->curso->secciones()->find((int) $idComoTexto);
+    }
+
+    public function abrirFormSeccion(?int $seccionId = null): void
+    {
+        Gate::authorize('manage', $this->curso);
+
+        $seccion = $seccionId ? $this->curso->secciones()->find($seccionId) : null;
+
+        $this->seccionEditandoId = $seccion?->id;
+        $this->seccionNombre = $seccion?->nombre ?? '';
+        $this->seccionFecha = $seccion?->fecha?->format('Y-m-d') ?? '';
+        $this->mostrarFormSeccion = true;
+    }
+
+    public function cerrarFormSeccion(): void
+    {
+        $this->reset(['mostrarFormSeccion', 'seccionEditandoId', 'seccionNombre', 'seccionFecha']);
+        $this->resetErrorBag();
+    }
+
+    public function guardarSeccion(SeccionService $service): void
+    {
+        Gate::authorize('manage', $this->curso);
+
+        $this->validate([
+            'seccionNombre' => 'nullable|string|max:100',
+            'seccionFecha' => 'nullable|date',
+        ]);
+
+        $nombre = $this->seccionNombre !== '' ? $this->seccionNombre : null;
+        $fecha = $this->seccionFecha !== '' ? $this->seccionFecha : null;
+
+        if ($this->seccionEditandoId) {
+            $seccion = $this->curso->secciones()->findOrFail($this->seccionEditandoId);
+            $service->actualizar($seccion, $nombre, $fecha);
+        } else {
+            $service->crear($this->curso, $nombre, $fecha);
+        }
+
+        $this->cerrarFormSeccion();
+    }
+
+    public function eliminarSeccion(int $seccionId, SeccionService $service): void
+    {
+        Gate::authorize('manage', $this->curso);
+
+        $service->eliminar($this->curso->secciones()->findOrFail($seccionId));
+    }
+
+    public function moverSeccionArriba(int $seccionId, SeccionService $service): void
+    {
+        Gate::authorize('manage', $this->curso);
+
+        $service->moverArriba($this->curso->secciones()->findOrFail($seccionId));
+    }
+
+    public function moverSeccionAbajo(int $seccionId, SeccionService $service): void
+    {
+        Gate::authorize('manage', $this->curso);
+
+        $service->moverAbajo($this->curso->secciones()->findOrFail($seccionId));
     }
 
     public function responderForo(int $foroId, ForoService $service): void
@@ -376,30 +457,49 @@ new #[Layout('layouts.app')] class extends Component
     }
 
     /**
-     * Agrupa por número de semana (clave 0 = "Bienvenida", antes de la
-     * Semana 1, para el contenido sin clasificar) y ordena las semanas de
-     * forma ascendente.
+     * Agrupa por sección (clave 0 = "Bienvenida", para el contenido sin
+     * clasificar) en el mismo orden en que aparecen las secciones del
+     * curso (ver Seccion::orden) -- no por el id, que no refleja el
+     * reordenamiento manual del docente.
      *
      * @param  Collection<int, mixed>  $items
+     * @param  SupportCollection<int, Seccion>  $secciones
      * @return SupportCollection<int, Collection<int, mixed>>
      */
-    private function agruparPorSemana($items): SupportCollection
+    private function agruparPorSeccion($items, SupportCollection $secciones): SupportCollection
     {
-        return $items->groupBy(fn ($item) => $item->semana ?? 0)->sortKeys();
+        $porSeccion = $items->groupBy(fn ($item) => $item->seccion_id ?? 0);
+
+        $grupos = collect();
+
+        if ($porSeccion->has(0)) {
+            $grupos->put(0, $porSeccion->get(0));
+        }
+
+        foreach ($secciones as $seccion) {
+            if ($porSeccion->has($seccion->id)) {
+                $grupos->put($seccion->id, $porSeccion->get($seccion->id));
+            }
+        }
+
+        return $grupos;
     }
 
-    public function with(CursoVirtualService $cursos, PlantillaCursoVirtualService $plantillas): array
+    public function with(CursoVirtualService $cursos, PlantillaCursoVirtualService $plantillas, SeccionService $secciones): array
     {
         $user = Auth::user();
+        $seccionesDelCurso = $secciones->listarPorCurso($this->curso);
 
         return [
             'puedeGestionar' => Gate::allows('manage', $this->curso),
             'puedeGestionarPortada' => $user->hasRole('coordinador') || $user->hasRole('direccion'),
-            'materialesPorSemana' => $this->agruparPorSemana($this->curso->materiales),
-            'clasesGrabadasPorSemana' => $this->agruparPorSemana($this->curso->clasesGrabadas),
-            'tareasPorSemana' => $this->agruparPorSemana($this->curso->tareas()->latest('fecha_limite')->get()),
+            'secciones' => $seccionesDelCurso,
+            'seccionesPorId' => $seccionesDelCurso->keyBy('id'),
+            'materialesPorSeccion' => $this->agruparPorSeccion($this->curso->materiales, $seccionesDelCurso),
+            'clasesGrabadasPorSeccion' => $this->agruparPorSeccion($this->curso->clasesGrabadas, $seccionesDelCurso),
+            'tareasPorSeccion' => $this->agruparPorSeccion($this->curso->tareas()->latest('fecha_limite')->get(), $seccionesDelCurso),
             'publicaciones' => $this->curso->publicaciones()->with(['autor', 'comentarios.autor'])->latest()->get(),
-            'forosPorSemana' => $this->agruparPorSemana($this->curso->foros()->with(['autor', 'respuestas.autor'])->latest()->get()),
+            'forosPorSeccion' => $this->agruparPorSeccion($this->curso->foros()->with(['autor', 'respuestas.autor'])->latest()->get(), $seccionesDelCurso),
             'tiposMaterial' => TipoMaterialEnum::cases(),
             'tiposClaseGrabada' => TipoClaseGrabadaEnum::cases(),
             'tiposPublicacion' => TipoPublicacionEnum::cases(),
@@ -475,6 +575,67 @@ new #[Layout('layouts.app')] class extends Component
         @endforeach
     </div>
 
+    {{-- Secciones: bloques de contenido con nombre y/o fecha (estilo Moodle),
+         compartidos por Materiales/Clases grabadas/Tareas/Foros -- no aplica
+         a Publicaciones, que es un muro sin clasificar. --}}
+    @if ($tab !== 'publicaciones')
+        <div class="mb-6 rounded-2xl border border-border bg-surface shadow-sm p-4">
+            <div class="flex items-center justify-between">
+                <p class="text-xs font-semibold uppercase tracking-wide text-ink-faint">Secciones</p>
+                @can('manage', $curso)
+                    <button type="button" wire:click="abrirFormSeccion" class="text-xs font-medium text-accent hover:underline">+ Nueva sección</button>
+                @endcan
+            </div>
+
+            @if ($mostrarFormSeccion)
+                <form wire:submit="guardarSeccion" class="mt-3 space-y-3 rounded-md border border-border bg-surface-2 p-3">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                            <x-input-label for="seccionNombre" value="Nombre (opcional)" />
+                            <x-text-input wire:model="seccionNombre" id="seccionNombre" class="mt-1 block w-full" placeholder="Ej. Bienvenida, Fin de curso" />
+                            <x-input-error :messages="$errors->get('seccionNombre')" class="mt-1" />
+                        </div>
+                        <div>
+                            <x-input-label for="seccionFecha" value="Fecha de sesión (opcional)" />
+                            <x-date-input wire:model="seccionFecha" id="seccionFecha" class="mt-1 block w-full" />
+                            <x-input-error :messages="$errors->get('seccionFecha')" class="mt-1" />
+                        </div>
+                    </div>
+                    <p class="text-xs text-ink-faint">Necesita al menos uno de los dos: nombre, fecha, o ambos.</p>
+                    <div class="flex justify-end gap-2">
+                        <x-secondary-button type="button" wire:click="cerrarFormSeccion">Cancelar</x-secondary-button>
+                        <x-primary-button type="submit">Guardar</x-primary-button>
+                    </div>
+                </form>
+            @endif
+
+            @if ($secciones->isNotEmpty())
+                <div class="mt-3 divide-y divide-border">
+                    @foreach ($secciones as $seccion)
+                        <div class="flex items-center justify-between gap-2 py-2 text-sm">
+                            <span class="text-ink">{{ $seccion->titulo() }}</span>
+                            @can('manage', $curso)
+                                <div class="flex items-center gap-2 text-xs">
+                                    <button type="button" wire:click="moverSeccionArriba({{ $seccion->id }})" class="text-ink-faint hover:text-ink" aria-label="Mover arriba">↑</button>
+                                    <button type="button" wire:click="moverSeccionAbajo({{ $seccion->id }})" class="text-ink-faint hover:text-ink" aria-label="Mover abajo">↓</button>
+                                    <button type="button" wire:click="abrirFormSeccion({{ $seccion->id }})" class="font-medium text-accent hover:underline">Editar</button>
+                                    <button
+                                        type="button"
+                                        x-data
+                                        x-on:click="$store.confirm.preguntar('¿Eliminar la sección «{{ addslashes($seccion->titulo()) }}»? El contenido que tenga no se borra, vuelve a «Bienvenida».', () => $wire.eliminarSeccion({{ $seccion->id }}), { peligro: true, etiquetaConfirmar: 'Eliminar' })"
+                                        class="font-medium text-danger hover:underline"
+                                    >Eliminar</button>
+                                </div>
+                            @endcan
+                        </div>
+                    @endforeach
+                </div>
+            @elseif (! $mostrarFormSeccion)
+                <p class="mt-2 text-xs text-ink-faint">Sin secciones todavía: todo el contenido aparece en «Bienvenida».</p>
+            @endif
+        </div>
+    @endif
+
     {{-- Materiales --}}
     @if ($tab === 'materiales')
         <div class="space-y-4">
@@ -504,10 +665,15 @@ new #[Layout('layouts.app')] class extends Component
                         </div>
                     </div>
                     <div>
-                        <x-input-label for="materialSemana" value="Semana (opcional)" />
-                        <x-text-input wire:model="materialSemana" id="materialSemana" type="number" min="1" class="mt-1 block w-full" placeholder="Ej. 1" />
-                        <p class="mt-1 text-xs text-ink-faint">Déjalo vacío para que aparezca en «Bienvenida», antes de la Semana 1.</p>
-                        <x-input-error :messages="$errors->get('materialSemana')" class="mt-1" />
+                        <x-input-label for="materialSeccionId" value="Sección (opcional)" />
+                        <x-select-input
+                            wire:model="materialSeccionId"
+                            id="materialSeccionId"
+                            class="mt-1 block w-full"
+                            :options="$secciones->mapWithKeys(fn ($seccion) => [(string) $seccion->id => $seccion->titulo()])->prepend('Sin sección (Bienvenida)', '')"
+                        />
+                        <p class="mt-1 text-xs text-ink-faint">Déjalo vacío para que aparezca en «Bienvenida». Crea secciones nuevas desde «Secciones», arriba.</p>
+                        <x-input-error :messages="$errors->get('materialSeccionId')" class="mt-1" />
                     </div>
                     @if (in_array($materialTipo, ['pdf', 'archivo']))
                         <div>
@@ -533,11 +699,11 @@ new #[Layout('layouts.app')] class extends Component
             @endif
 
             <div class="space-y-4">
-                @forelse ($materialesPorSemana as $numeroSemana => $materialesDeSemana)
+                @forelse ($materialesPorSeccion as $idSeccion => $materialesDeSeccion)
                     <div>
-                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ $numeroSemana === 0 ? 'Bienvenida' : 'Semana '.$numeroSemana }}</p>
+                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ $idSeccion === 0 ? 'Bienvenida' : $seccionesPorId[$idSeccion]->titulo() }}</p>
                         <div class="divide-y divide-border rounded-2xl border border-border bg-surface shadow-sm">
-                            @foreach ($materialesDeSemana as $material)
+                            @foreach ($materialesDeSeccion as $material)
                                 <div class="flex items-center justify-between px-4 py-3 text-sm">
                                     <div class="flex items-center gap-3">
                                         <span class="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-mono text-ink-faint">{{ $material->tipo->label() }}</span>
@@ -593,10 +759,15 @@ new #[Layout('layouts.app')] class extends Component
                         </div>
                     </div>
                     <div>
-                        <x-input-label for="grabacionSemana" value="Semana (opcional)" />
-                        <x-text-input wire:model="grabacionSemana" id="grabacionSemana" type="number" min="1" class="mt-1 block w-full" placeholder="Ej. 1" />
-                        <p class="mt-1 text-xs text-ink-faint">Déjalo vacío para que aparezca en «Bienvenida», antes de la Semana 1.</p>
-                        <x-input-error :messages="$errors->get('grabacionSemana')" class="mt-1" />
+                        <x-input-label for="grabacionSeccionId" value="Sección (opcional)" />
+                        <x-select-input
+                            wire:model="grabacionSeccionId"
+                            id="grabacionSeccionId"
+                            class="mt-1 block w-full"
+                            :options="$secciones->mapWithKeys(fn ($seccion) => [(string) $seccion->id => $seccion->titulo()])->prepend('Sin sección (Bienvenida)', '')"
+                        />
+                        <p class="mt-1 text-xs text-ink-faint">Déjalo vacío para que aparezca en «Bienvenida».</p>
+                        <x-input-error :messages="$errors->get('grabacionSeccionId')" class="mt-1" />
                     </div>
                     @if ($grabacionTipo === 'archivo')
                         <div>
@@ -622,11 +793,11 @@ new #[Layout('layouts.app')] class extends Component
             @endif
 
             <div class="space-y-4">
-                @forelse ($clasesGrabadasPorSemana as $numeroSemana => $clasesDeSemana)
+                @forelse ($clasesGrabadasPorSeccion as $idSeccion => $clasesDeSeccion)
                     <div>
-                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ $numeroSemana === 0 ? 'Bienvenida' : 'Semana '.$numeroSemana }}</p>
+                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ $idSeccion === 0 ? 'Bienvenida' : $seccionesPorId[$idSeccion]->titulo() }}</p>
                         <div class="divide-y divide-border rounded-2xl border border-border bg-surface shadow-sm">
-                            @foreach ($clasesDeSemana as $claseGrabada)
+                            @foreach ($clasesDeSeccion as $claseGrabada)
                                 @php($incrustable = $claseGrabada->tipo === TipoClaseGrabadaEnum::ENLACE ? \App\Shared\Support\VideoEmbed::incrustable($claseGrabada->url) : null)
                                 <div @if ($incrustable) x-data="{ abierto: false }" @endif>
                                     <div class="flex items-center justify-between px-4 py-3 text-sm">
@@ -706,10 +877,15 @@ new #[Layout('layouts.app')] class extends Component
                         </div>
                     </div>
                     <div>
-                        <x-input-label for="tareaSemana" value="Semana (opcional)" />
-                        <x-text-input wire:model="tareaSemana" id="tareaSemana" type="number" min="1" class="mt-1 block w-full" placeholder="Ej. 1" />
-                        <p class="mt-1 text-xs text-ink-faint">Déjalo vacío para que aparezca en «Bienvenida», antes de la Semana 1.</p>
-                        <x-input-error :messages="$errors->get('tareaSemana')" class="mt-1" />
+                        <x-input-label for="tareaSeccionId" value="Sección (opcional)" />
+                        <x-select-input
+                            wire:model="tareaSeccionId"
+                            id="tareaSeccionId"
+                            class="mt-1 block w-full"
+                            :options="$secciones->mapWithKeys(fn ($seccion) => [(string) $seccion->id => $seccion->titulo()])->prepend('Sin sección (Bienvenida)', '')"
+                        />
+                        <p class="mt-1 text-xs text-ink-faint">Déjalo vacío para que aparezca en «Bienvenida».</p>
+                        <x-input-error :messages="$errors->get('tareaSeccionId')" class="mt-1" />
                     </div>
 
                     <x-aula-virtual.checklist-secciones :secciones="$cursosRelacionados" campo="tareaCursosSeleccionados" />
@@ -722,11 +898,11 @@ new #[Layout('layouts.app')] class extends Component
             @endif
 
             <div class="space-y-4">
-                @forelse ($tareasPorSemana as $numeroSemana => $tareasDeSemana)
+                @forelse ($tareasPorSeccion as $idSeccion => $tareasDeSeccion)
                     <div>
-                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ $numeroSemana === 0 ? 'Bienvenida' : 'Semana '.$numeroSemana }}</p>
+                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ $idSeccion === 0 ? 'Bienvenida' : $seccionesPorId[$idSeccion]->titulo() }}</p>
                         <div class="divide-y divide-border rounded-2xl border border-border bg-surface shadow-sm">
-                            @foreach ($tareasDeSemana as $tarea)
+                            @foreach ($tareasDeSeccion as $tarea)
                                 <a href="{{ route('aula-virtual.tarea', [$curso, $tarea]) }}" wire:navigate class="flex items-center justify-between px-4 py-3 text-sm hover:bg-surface-2">
                                     <div>
                                         <p class="text-ink">{{ $tarea->titulo }}</p>
@@ -835,10 +1011,15 @@ new #[Layout('layouts.app')] class extends Component
                         <textarea wire:model="foroDescripcion" id="foroDescripcion" rows="2" class="mt-1 block w-full rounded-md border-border bg-surface text-sm text-ink focus:border-accent focus:ring-accent"></textarea>
                     </div>
                     <div>
-                        <x-input-label for="foroSemana" value="Semana (opcional)" />
-                        <x-text-input wire:model="foroSemana" id="foroSemana" type="number" min="1" class="mt-1 block w-full" placeholder="Ej. 1" />
-                        <p class="mt-1 text-xs text-ink-faint">Déjalo vacío para que aparezca en «Bienvenida», antes de la Semana 1.</p>
-                        <x-input-error :messages="$errors->get('foroSemana')" class="mt-1" />
+                        <x-input-label for="foroSeccionId" value="Sección (opcional)" />
+                        <x-select-input
+                            wire:model="foroSeccionId"
+                            id="foroSeccionId"
+                            class="mt-1 block w-full"
+                            :options="$secciones->mapWithKeys(fn ($seccion) => [(string) $seccion->id => $seccion->titulo()])->prepend('Sin sección (Bienvenida)', '')"
+                        />
+                        <p class="mt-1 text-xs text-ink-faint">Déjalo vacío para que aparezca en «Bienvenida».</p>
+                        <x-input-error :messages="$errors->get('foroSeccionId')" class="mt-1" />
                     </div>
 
                     <x-aula-virtual.checklist-secciones :secciones="$cursosRelacionados" campo="foroCursosSeleccionados" />
@@ -851,11 +1032,11 @@ new #[Layout('layouts.app')] class extends Component
             @endif
 
             <div class="space-y-4">
-                @forelse ($forosPorSemana as $numeroSemana => $forosDeSemana)
+                @forelse ($forosPorSeccion as $idSeccion => $forosDeSeccion)
                     <div>
-                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ $numeroSemana === 0 ? 'Bienvenida' : 'Semana '.$numeroSemana }}</p>
+                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ $idSeccion === 0 ? 'Bienvenida' : $seccionesPorId[$idSeccion]->titulo() }}</p>
                         <div class="space-y-4">
-                            @foreach ($forosDeSemana as $foro)
+                            @foreach ($forosDeSeccion as $foro)
                                 <div class="rounded-2xl border border-border bg-surface shadow-sm p-4">
                                     <p class="text-ink">{{ $foro->titulo }}</p>
                                     <p class="text-xs text-ink-faint">

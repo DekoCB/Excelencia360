@@ -17,8 +17,9 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string $titulo
  * @property TipoMaterialEnum $tipo
  * @property string|null $url
- * @property int|null $semana
+ * @property int|null $seccion_id
  * @property int $orden
+ * @property-read Seccion|null $seccion
  */
 class Material extends Model implements HasMedia
 {
@@ -29,7 +30,7 @@ class Material extends Model implements HasMedia
 
     protected $fillable = [
         'curso_virtual_id',
-        'semana',
+        'seccion_id',
         'tipo',
         'titulo',
         'url',
@@ -56,5 +57,10 @@ class Material extends Model implements HasMedia
     public function cursoVirtual(): BelongsTo
     {
         return $this->belongsTo(CursoVirtual::class);
+    }
+
+    public function seccion(): BelongsTo
+    {
+        return $this->belongsTo(Seccion::class);
     }
 }

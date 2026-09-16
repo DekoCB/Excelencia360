@@ -7,6 +7,7 @@ namespace App\Modules\AulaVirtual\Services;
 use App\Modules\AulaVirtual\Enums\EstadoEntregaEnum;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
 use App\Modules\AulaVirtual\Models\EntregaTarea;
+use App\Modules\AulaVirtual\Models\Seccion;
 use App\Modules\AulaVirtual\Models\Tarea;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Notificaciones\Enums\TipoNotificacionEnum;
@@ -20,6 +21,7 @@ class TareaService
     public function __construct(
         private readonly CursoVirtualService $cursos,
         private readonly NotificacionService $notificaciones,
+        private readonly SeccionService $secciones,
     ) {}
 
     /**
@@ -43,7 +45,7 @@ class TareaService
     }
 
     /**
-     * @param  array{titulo: string, descripcion: ?string, fecha_limite: string, puntaje_max: int, semana?: ?int}  $datos
+     * @param  array{titulo: string, descripcion: ?string, fecha_limite: string, puntaje_max: int, seccion_id?: ?int}  $datos
      */
     public function crear(CursoVirtual $curso, array $datos): Tarea
     {
@@ -52,15 +54,22 @@ class TareaService
 
     /**
      * Crea la misma tarea en varios cursos virtuales a la vez (ej. las
-     * distintas aulas/grupos de un mismo curso).
+     * distintas aulas/grupos de un mismo curso). $seccion pertenece a un
+     * solo curso virtual (el que se estaba viendo), así que en cada
+     * curso destino se resuelve su equivalente por nombre/fecha -- ver
+     * SeccionService::obtenerOCrearEquivalente().
      *
      * @param  Collection<int, CursoVirtual>  $cursos
-     * @param  array{titulo: string, descripcion: ?string, fecha_limite: string, puntaje_max: int, semana?: ?int}  $datos
+     * @param  array{titulo: string, descripcion: ?string, fecha_limite: string, puntaje_max: int}  $datos
      * @return Collection<int, Tarea>
      */
-    public function crearParaVarios(Collection $cursos, array $datos): Collection
+    public function crearParaVarios(Collection $cursos, array $datos, ?Seccion $seccion = null): Collection
     {
-        return $cursos->map(fn (CursoVirtual $curso) => $this->crear($curso, $datos));
+        return $cursos->map(function (CursoVirtual $curso) use ($datos, $seccion) {
+            $seccionEquivalente = $this->secciones->obtenerOCrearEquivalente($curso, $seccion);
+
+            return $this->crear($curso, [...$datos, 'seccion_id' => $seccionEquivalente?->id]);
+        });
     }
 
     public function entregaDe(Tarea $tarea, Estudiante $estudiante): ?EntregaTarea

@@ -292,23 +292,23 @@ class EvaluacionesFlujoTest extends TestCase
             ->assertSee('https://forms.test/examen');
     }
 
-    public function test_el_docente_ve_las_evaluaciones_agrupadas_por_semana_en_orden_ascendente(): void
+    public function test_el_docente_ve_las_evaluaciones_agrupadas_por_fecha_en_orden_ascendente(): void
     {
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
         $horario = Horario::factory()->create(['docente_id' => $docente->id]);
 
         $service = $this->app->make(EvaluacionService::class);
-        $service->crear($horario, 'Evaluación semana 2', '2026-07-15', null, null, 2);
-        $service->crear($horario, 'Evaluación sin semana', '2026-07-10');
+        $service->crear($horario, 'Evaluación del 15', '2026-07-15');
+        $service->crear($horario, 'Evaluación del 10', '2026-07-10');
 
         $this->actingAs($docente);
 
         Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->assertSeeInOrder(['Bienvenida', 'Evaluación sin semana', 'Semana 2', 'Evaluación semana 2']);
+            ->assertSeeInOrder(['10 de julio', 'Evaluación del 10', '15 de julio', 'Evaluación del 15']);
     }
 
-    public function test_un_estudiante_ve_las_evaluaciones_para_rendir_agrupadas_por_semana(): void
+    public function test_un_estudiante_ve_las_evaluaciones_para_rendir_agrupadas_por_fecha(): void
     {
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
@@ -324,12 +324,12 @@ class EvaluacionesFlujoTest extends TestCase
         ]);
 
         $service = $this->app->make(EvaluacionService::class);
-        $evaluacion = $service->crear($horario, 'Evaluación semana 3', now()->format('Y-m-d'), 'https://forms.test/examen', null, 3);
+        $evaluacion = $service->crear($horario, 'Evaluación para rendir', now()->format('Y-m-d'), 'https://forms.test/examen');
         $service->publicar($evaluacion);
 
         $this->actingAs($usuario);
 
         Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->assertSeeInOrder(['Evaluaciones para rendir', 'Semana 3', 'Evaluación semana 3']);
+            ->assertSeeInOrder(['Evaluaciones para rendir', 'Evaluación para rendir']);
     }
 }

@@ -7,18 +7,21 @@ namespace App\Modules\AulaVirtual\Services;
 use App\Modules\AulaVirtual\Enums\TipoMaterialEnum;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
 use App\Modules\AulaVirtual\Models\Material;
+use App\Modules\AulaVirtual\Models\Seccion;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class MaterialService
 {
-    public function crear(CursoVirtual $curso, TipoMaterialEnum $tipo, string $titulo, ?string $url, ?UploadedFile $archivo, ?int $semana = null): Material
+    public function __construct(private readonly SeccionService $secciones) {}
+
+    public function crear(CursoVirtual $curso, TipoMaterialEnum $tipo, string $titulo, ?string $url, ?UploadedFile $archivo, ?int $seccionId = null): Material
     {
         $this->validarDatos($tipo, $url, $archivo);
 
         $material = $curso->materiales()->create([
-            'semana' => $semana,
+            'seccion_id' => $seccionId,
             'tipo' => $tipo,
             'titulo' => $titulo,
             'url' => $tipo->requiereArchivo() ? null : $url,
@@ -39,16 +42,23 @@ class MaterialService
     /**
      * Crea el mismo material en varios cursos virtuales a la vez (ej. un
      * docente que dicta la misma materia en distintas aulas/horarios),
-     * reutilizando el mismo archivo/URL en cada uno.
+     * reutilizando el mismo archivo/URL en cada uno. La sección elegida
+     * pertenece a un solo curso virtual (el que se estaba viendo), así
+     * que en cada curso destino se busca -- o se crea -- su equivalente
+     * por nombre/fecha en vez de reutilizar el mismo seccion_id.
      *
      * @param  Collection<int, CursoVirtual>  $cursos
      * @return Collection<int, Material>
      */
-    public function crearParaVarios(Collection $cursos, TipoMaterialEnum $tipo, string $titulo, ?string $url, ?UploadedFile $archivo, ?int $semana = null): Collection
+    public function crearParaVarios(Collection $cursos, TipoMaterialEnum $tipo, string $titulo, ?string $url, ?UploadedFile $archivo, ?Seccion $seccion = null): Collection
     {
         $this->validarDatos($tipo, $url, $archivo);
 
-        return $cursos->map(fn (CursoVirtual $curso) => $this->crear($curso, $tipo, $titulo, $url, $archivo, $semana));
+        return $cursos->map(function (CursoVirtual $curso) use ($tipo, $titulo, $url, $archivo, $seccion) {
+            $seccionEquivalente = $this->secciones->obtenerOCrearEquivalente($curso, $seccion);
+
+            return $this->crear($curso, $tipo, $titulo, $url, $archivo, $seccionEquivalente?->id);
+        });
     }
 
     public function eliminar(Material $material): void

@@ -11,7 +11,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property string $titulo
  * @property string|null $descripcion
- * @property int|null $semana
+ * @property int|null $semana Desplazamiento en semanas desde el inicio del ciclo, solo para calcular fecha_limite al aplicar (ver PlantillaCursoVirtualService::aplicar()) -- no es una sección.
+ * @property string|null $nombre_seccion
  * @property int $puntaje_max
  */
 class PlantillaTarea extends Model
@@ -23,6 +24,7 @@ class PlantillaTarea extends Model
     protected $fillable = [
         'plantilla_id',
         'semana',
+        'nombre_seccion',
         'titulo',
         'descripcion',
         'puntaje_max',

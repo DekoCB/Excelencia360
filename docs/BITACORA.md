@@ -141,6 +141,78 @@ puntos (entrada anterior).
 
 ---
 
+## 2026-09-16 (cont. 2)
+
+### Bloque C, puntos #6 y #7 — Materiales por sesión + secciones con nombre propio estilo Moodle
+
+Se atacaron juntos porque son la misma pieza: reemplazar la agrupación
+por "Semana N" (un entero fijo) por un modelo real de sección que el
+docente crea a mano, con nombre propio ("Bienvenida", "Fin de curso",
+etc.), fecha opcional, o ambos. Antes de programar se le preguntó al
+usuario cómo debían crearse las secciones — generarlas automáticamente
+desde el horario quedó descartado; eligió **creación manual, el docente
+elige la fecha si quiere**.
+
+**Modelo nuevo `Seccion`** (tabla `secciones`): pertenece a un
+`CursoVirtual`, con `nombre` y `fecha` ambos opcionales pero no los dos
+vacíos a la vez (`SeccionService::validarNombreOFecha()`), y `orden`
+para el reordenamiento manual. `Seccion::titulo()` devuelve el nombre si
+existe, si no la fecha formateada ("lunes 12 de enero"), si no
+"Sección" — así una sección solo-fecha (pensada como "clase del día")
+sigue siendo presentable sin que el docente tenga que inventarle un
+nombre.
+
+**Material, ClaseGrabada, Tarea y Foro** cambiaron su columna `semana`
+(int nullable) por `seccion_id` (FK nullable a `secciones`, `nullOnDelete`
+— borrar una sección no borra su contenido, lo deja en "Bienvenida" igual
+que antes con `seccion_id` nulo). Mismo patrón en los 4 servicios
+correspondientes y en el formulario de creación de cada uno dentro de
+`aula-virtual/show.blade.php`, que ahora tiene un panel "Secciones"
+nuevo arriba de las pestañas de contenido con crear/editar/reordenar
+(↑/↓)/eliminar.
+
+**"Crear para varios cursos a la vez" con secciones:** una sección
+pertenece a un solo curso virtual, así que replicar contenido a otros
+cursos no podía simplemente reusar el mismo `seccion_id`. Se agregó
+`SeccionService::obtenerOCrearEquivalente()`, que busca (o crea) en cada
+curso destino la sección equivalente por nombre+fecha antes de crear el
+contenido ahí — decisión de diseño propia, no pedida explícitamente,
+pero necesaria para que la función existente no quedara rota.
+
+**Plantillas de curso** (`PlantillaMaterial`, `PlantillaClaseGrabada`,
+`PlantillaTarea`, `PlantillaForo`) no tienen curso ni fecha real, así
+que solo guardan `nombre_seccion` (string). Al aplicar una plantilla,
+`SeccionService::obtenerOCrearPorNombre()` busca o crea la sección por
+nombre en el curso destino. Caso especial: `PlantillaTarea` necesita
+además recalcular la fecha límite según el ciclo destino, algo que antes
+hacía con `semana` (desplazamiento fijo en semanas); ahora ese
+desplazamiento se deriva de la sección real de la tarea al guardar la
+plantilla (`diffInWeeks` entre el inicio del ciclo origen y la fecha de
+la sección), y se sigue aplicando igual al aplicar — por eso
+`PlantillaTarea` es la única de las 4 que conserva `semana` (ya no como
+dato mostrado, solo como número interno para ese cálculo) además de
+ganar `nombre_seccion`.
+
+**Evaluaciones** ya tenía una fecha real propia y usaba `semana` solo
+como agrupador visual redundante; se eliminó la columna y el campo del
+formulario, y el agrupador de `evaluaciones/show.blade.php` pasó de
+agrupar por semana a agrupar por la fecha real de cada evaluación.
+
+9 tests que asumían `semana` (entero) se corrigieron para crear una
+`Seccion` real y afirmar sobre `seccion_id`/`nombre_seccion` en su lugar
+— no se relajó ninguna aserción, solo se adaptaron al nuevo modelo.
+Suite completo: 1080/1080 (el conteo bajó de 1083 porque algunos tests
+se renombraron en vez de duplicarse). Pint y Larastan limpios.
+Verificado en vivo: crear una sección, verla en el panel con sus
+controles, crear un material asignado a ella y confirmar que aparece
+agrupado bajo su propio encabezado (no bajo "Bienvenida").
+
+Queda pendiente el resto del Bloque C: #9 (asistencia por QR, propio y
+de docentes) y #11 (evaluaciones dentro de Cursos Virtuales, con modo
+Físico/Virtual y 3 tipos de pregunta).
+
+---
+
 ## 2026-09-15 (noche, cont. 8)
 
 ### Informe final, matriz de trazabilidad, fase 11 (optimización) y cierre de la búsqueda avanzada

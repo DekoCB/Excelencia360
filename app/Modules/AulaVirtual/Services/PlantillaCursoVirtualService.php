@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\DB;
  */
 class PlantillaCursoVirtualService
 {
+    public function __construct(private readonly SeccionService $secciones) {}
+
     /**
      * @return Collection<int, PlantillaCursoVirtual>
      */
@@ -41,7 +43,7 @@ class PlantillaCursoVirtualService
 
             foreach ($cursoVirtual->materiales as $material) {
                 $item = $plantilla->materiales()->create([
-                    'semana' => $material->semana,
+                    'nombre_seccion' => $material->seccion?->nombre,
                     'tipo' => $material->tipo->value,
                     'titulo' => $material->titulo,
                     'url' => $material->url,
@@ -53,7 +55,7 @@ class PlantillaCursoVirtualService
 
             foreach ($cursoVirtual->clasesGrabadas as $claseGrabada) {
                 $item = $plantilla->clasesGrabadas()->create([
-                    'semana' => $claseGrabada->semana,
+                    'nombre_seccion' => $claseGrabada->seccion?->nombre,
                     'tipo' => $claseGrabada->tipo->value,
                     'titulo' => $claseGrabada->titulo,
                     'url' => $claseGrabada->url,
@@ -66,9 +68,14 @@ class PlantillaCursoVirtualService
             foreach ($cursoVirtual->tareas as $tarea) {
                 // Sin fecha_limite: es específica del ciclo de origen, no
                 // tiene sentido reutilizarla. aplicar() la recalcula según
-                // el ciclo destino.
+                // el ciclo destino. semana: desplazamiento en semanas desde
+                // el inicio del ciclo origen (no es la sección), solo para
+                // ese recálculo -- ver PlantillaTarea.
                 $plantilla->tareas()->create([
-                    'semana' => $tarea->semana,
+                    'semana' => $tarea->seccion?->fecha
+                        ? $cursoVirtual->horario->ciclo->fecha_inicio->diffInWeeks($tarea->seccion->fecha)
+                        : null,
+                    'nombre_seccion' => $tarea->seccion?->nombre,
                     'titulo' => $tarea->titulo,
                     'descripcion' => $tarea->descripcion,
                     'puntaje_max' => $tarea->puntaje_max,
@@ -77,7 +84,7 @@ class PlantillaCursoVirtualService
 
             foreach ($cursoVirtual->foros as $foro) {
                 $plantilla->foros()->create([
-                    'semana' => $foro->semana,
+                    'nombre_seccion' => $foro->seccion?->nombre,
                     'titulo' => $foro->titulo,
                     'descripcion' => $foro->descripcion,
                 ]);
@@ -91,7 +98,10 @@ class PlantillaCursoVirtualService
      * Agrega el contenido de la plantilla al curso virtual destino (no
      * borra ni reemplaza lo que ya tuviera). La fecha límite de cada tarea
      * se recalcula a partir del inicio del ciclo destino y su semana, ya
-     * que la fecha original pertenece a otro ciclo.
+     * que la fecha original pertenece a otro ciclo. La sección de cada
+     * ítem se resuelve por nombre en el curso destino (creándola si hace
+     * falta): una plantilla no puede guardar una Seccion real, solo su
+     * nombre -- ver PlantillaMaterial y hermanas.
      */
     public function aplicar(PlantillaCursoVirtual $plantilla, CursoVirtual $cursoVirtual, User $autor): int
     {
@@ -100,8 +110,10 @@ class PlantillaCursoVirtualService
             $inicioCiclo = $cursoVirtual->horario->ciclo->fecha_inicio;
 
             foreach ($plantilla->materiales as $plantillaMaterial) {
+                $seccion = $this->secciones->obtenerOCrearPorNombre($cursoVirtual, $plantillaMaterial->nombre_seccion);
+
                 $material = $cursoVirtual->materiales()->create([
-                    'semana' => $plantillaMaterial->semana,
+                    'seccion_id' => $seccion?->id,
                     'tipo' => $plantillaMaterial->tipo->value,
                     'titulo' => $plantillaMaterial->titulo,
                     'url' => $plantillaMaterial->url,
@@ -113,8 +125,10 @@ class PlantillaCursoVirtualService
             }
 
             foreach ($plantilla->clasesGrabadas as $plantillaClase) {
+                $seccion = $this->secciones->obtenerOCrearPorNombre($cursoVirtual, $plantillaClase->nombre_seccion);
+
                 $claseGrabada = $cursoVirtual->clasesGrabadas()->create([
-                    'semana' => $plantillaClase->semana,
+                    'seccion_id' => $seccion?->id,
                     'tipo' => $plantillaClase->tipo->value,
                     'titulo' => $plantillaClase->titulo,
                     'url' => $plantillaClase->url,
@@ -126,8 +140,10 @@ class PlantillaCursoVirtualService
             }
 
             foreach ($plantilla->tareas as $plantillaTarea) {
+                $seccion = $this->secciones->obtenerOCrearPorNombre($cursoVirtual, $plantillaTarea->nombre_seccion);
+
                 $cursoVirtual->tareas()->create([
-                    'semana' => $plantillaTarea->semana,
+                    'seccion_id' => $seccion?->id,
                     'titulo' => $plantillaTarea->titulo,
                     'descripcion' => $plantillaTarea->descripcion,
                     'puntaje_max' => $plantillaTarea->puntaje_max,
@@ -137,8 +153,10 @@ class PlantillaCursoVirtualService
             }
 
             foreach ($plantilla->foros as $plantillaForo) {
+                $seccion = $this->secciones->obtenerOCrearPorNombre($cursoVirtual, $plantillaForo->nombre_seccion);
+
                 $cursoVirtual->foros()->create([
-                    'semana' => $plantillaForo->semana,
+                    'seccion_id' => $seccion?->id,
                     'autor_id' => $autor->id,
                     'titulo' => $plantillaForo->titulo,
                     'descripcion' => $plantillaForo->descripcion,

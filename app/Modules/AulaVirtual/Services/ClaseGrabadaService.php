@@ -7,18 +7,21 @@ namespace App\Modules\AulaVirtual\Services;
 use App\Modules\AulaVirtual\Enums\TipoClaseGrabadaEnum;
 use App\Modules\AulaVirtual\Models\ClaseGrabada;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
+use App\Modules\AulaVirtual\Models\Seccion;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class ClaseGrabadaService
 {
-    public function crear(CursoVirtual $curso, TipoClaseGrabadaEnum $tipo, string $titulo, ?string $url, ?UploadedFile $archivo, ?int $semana = null): ClaseGrabada
+    public function __construct(private readonly SeccionService $secciones) {}
+
+    public function crear(CursoVirtual $curso, TipoClaseGrabadaEnum $tipo, string $titulo, ?string $url, ?UploadedFile $archivo, ?int $seccionId = null): ClaseGrabada
     {
         $this->validarDatos($tipo, $url, $archivo);
 
         $claseGrabada = $curso->clasesGrabadas()->create([
-            'semana' => $semana,
+            'seccion_id' => $seccionId,
             'tipo' => $tipo,
             'titulo' => $titulo,
             'url' => $tipo->requiereArchivo() ? null : $url,
@@ -44,11 +47,15 @@ class ClaseGrabadaService
      * @param  Collection<int, CursoVirtual>  $cursos
      * @return Collection<int, ClaseGrabada>
      */
-    public function crearParaVarios(Collection $cursos, TipoClaseGrabadaEnum $tipo, string $titulo, ?string $url, ?UploadedFile $archivo, ?int $semana = null): Collection
+    public function crearParaVarios(Collection $cursos, TipoClaseGrabadaEnum $tipo, string $titulo, ?string $url, ?UploadedFile $archivo, ?Seccion $seccion = null): Collection
     {
         $this->validarDatos($tipo, $url, $archivo);
 
-        return $cursos->map(fn (CursoVirtual $curso) => $this->crear($curso, $tipo, $titulo, $url, $archivo, $semana));
+        return $cursos->map(function (CursoVirtual $curso) use ($tipo, $titulo, $url, $archivo, $seccion) {
+            $seccionEquivalente = $this->secciones->obtenerOCrearEquivalente($curso, $seccion);
+
+            return $this->crear($curso, $tipo, $titulo, $url, $archivo, $seccionEquivalente?->id);
+        });
     }
 
     public function eliminar(ClaseGrabada $claseGrabada): void

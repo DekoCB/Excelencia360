@@ -34,35 +34,6 @@ class EvaluacionServiceTest extends TestCase
         $this->assertDatabaseHas('evaluaciones', ['nombre' => 'Evaluación mensual — julio', 'estado' => 'borrador']);
     }
 
-    public function test_crear_una_evaluacion_persiste_la_semana_indicada(): void
-    {
-        $horario = Horario::factory()->create();
-
-        $evaluacion = $this->service()->crear($horario, 'Evaluación mensual — julio', '2026-07-15', null, null, 4);
-
-        $this->assertSame(4, $evaluacion->fresh()->semana);
-    }
-
-    public function test_actualizar_semana_cambia_la_semana_de_una_evaluacion(): void
-    {
-        $horario = Horario::factory()->create();
-        $evaluacion = $this->service()->crear($horario, 'Evaluación mensual — julio', '2026-07-15', null, null, 1);
-
-        $this->service()->actualizarSemana($evaluacion, 5);
-
-        $this->assertSame(5, $evaluacion->fresh()->semana);
-    }
-
-    public function test_actualizar_semana_a_null_la_deja_en_bienvenida(): void
-    {
-        $horario = Horario::factory()->create();
-        $evaluacion = $this->service()->crear($horario, 'Evaluación mensual — julio', '2026-07-15', null, null, 3);
-
-        $this->service()->actualizarSemana($evaluacion, null);
-
-        $this->assertNull($evaluacion->fresh()->semana);
-    }
-
     public function test_estudiantes_del_horario_solo_incluye_matriculados_aprobados(): void
     {
         $horario = Horario::factory()->create();

@@ -15,7 +15,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @property string $titulo
  * @property string|null $descripcion
- * @property int|null $semana
+ * @property int|null $seccion_id
+ * @property-read Seccion|null $seccion
  */
 class Foro extends Model
 {
@@ -24,7 +25,7 @@ class Foro extends Model
 
     protected $fillable = [
         'curso_virtual_id',
-        'semana',
+        'seccion_id',
         'autor_id',
         'titulo',
         'descripcion',
@@ -38,6 +39,11 @@ class Foro extends Model
     public function cursoVirtual(): BelongsTo
     {
         return $this->belongsTo(CursoVirtual::class);
+    }
+
+    public function seccion(): BelongsTo
+    {
+        return $this->belongsTo(Seccion::class);
     }
 
     public function autor(): BelongsTo

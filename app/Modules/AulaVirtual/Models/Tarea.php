@@ -16,12 +16,13 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $curso_virtual_id
- * @property int|null $semana
+ * @property int|null $seccion_id
  * @property string $titulo
  * @property string|null $descripcion
  * @property Carbon $fecha_limite
  * @property int $puntaje_max
  * @property-read CursoVirtual $cursoVirtual
+ * @property-read Seccion|null $seccion
  * @property-read Collection<int, EntregaTarea> $entregas
  */
 class Tarea extends Model
@@ -31,7 +32,7 @@ class Tarea extends Model
 
     protected $fillable = [
         'curso_virtual_id',
-        'semana',
+        'seccion_id',
         'titulo',
         'descripcion',
         'fecha_limite',
@@ -53,6 +54,11 @@ class Tarea extends Model
     public function cursoVirtual(): BelongsTo
     {
         return $this->belongsTo(CursoVirtual::class);
+    }
+
+    public function seccion(): BelongsTo
+    {
+        return $this->belongsTo(Seccion::class);
     }
 
     /**

@@ -15,7 +15,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string $titulo
  * @property TipoClaseGrabadaEnum $tipo
  * @property string|null $url
- * @property int|null $semana
+ * @property string|null $nombre_seccion
  * @property int $orden
  */
 class PlantillaClaseGrabada extends Model implements HasMedia
@@ -26,7 +26,7 @@ class PlantillaClaseGrabada extends Model implements HasMedia
 
     protected $fillable = [
         'plantilla_id',
-        'semana',
+        'nombre_seccion',
         'tipo',
         'titulo',
         'url',

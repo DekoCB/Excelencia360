@@ -47,6 +47,14 @@ class CursoVirtual extends Model
     }
 
     /**
+     * @return HasMany<Seccion, $this>
+     */
+    public function secciones(): HasMany
+    {
+        return $this->hasMany(Seccion::class)->orderBy('orden');
+    }
+
+    /**
      * @return HasMany<Material, $this>
      */
     public function materiales(): HasMany

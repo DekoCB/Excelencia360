@@ -8,6 +8,7 @@ use App\Modules\Academico\Models\Horario;
 use App\Modules\AulaVirtual\Enums\TipoClaseGrabadaEnum;
 use App\Modules\AulaVirtual\Enums\TipoMaterialEnum;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
+use App\Modules\AulaVirtual\Models\Seccion;
 use App\Modules\AulaVirtual\Services\ClaseGrabadaService;
 use App\Modules\AulaVirtual\Services\ForoService;
 use App\Modules\AulaVirtual\Services\MaterialService;
@@ -27,21 +28,22 @@ class PlantillaCursoVirtualServiceTest extends TestCase
         return $this->app->make(PlantillaCursoVirtualService::class);
     }
 
-    public function test_guardar_copia_materiales_clases_tareas_y_foros_con_su_semana(): void
+    public function test_guardar_copia_materiales_clases_tareas_y_foros_con_su_seccion(): void
     {
         $curso = CursoVirtual::factory()->create();
         $autor = User::factory()->create();
+        $seccion = Seccion::factory()->for($curso, 'cursoVirtual')->create(['nombre' => 'Semana 1', 'fecha' => null]);
 
-        $this->app->make(MaterialService::class)->crear($curso, TipoMaterialEnum::ENLACE, 'Video', 'https://ejemplo.test', null, 1);
-        $this->app->make(ClaseGrabadaService::class)->crear($curso, TipoClaseGrabadaEnum::ENLACE, 'Clase', 'https://youtube.test', null, 2);
+        $this->app->make(MaterialService::class)->crear($curso, TipoMaterialEnum::ENLACE, 'Video', 'https://ejemplo.test', null, $seccion->id);
+        $this->app->make(ClaseGrabadaService::class)->crear($curso, TipoClaseGrabadaEnum::ENLACE, 'Clase', 'https://youtube.test', null, $seccion->id);
         $this->app->make(TareaService::class)->crear($curso, [
             'titulo' => 'Ensayo',
             'descripcion' => null,
             'fecha_limite' => now()->addDay(),
             'puntaje_max' => 20,
-            'semana' => 1,
+            'seccion_id' => $seccion->id,
         ]);
-        $this->app->make(ForoService::class)->crear($curso, $autor->id, 'Dudas', null, 1);
+        $this->app->make(ForoService::class)->crear($curso, $autor->id, 'Dudas', null, $seccion->id);
 
         $plantilla = $this->service()->guardarDesdeCursoVirtual($curso, 'Plantilla estándar', $autor);
 
@@ -51,7 +53,7 @@ class PlantillaCursoVirtualServiceTest extends TestCase
         $this->assertSame(1, $plantilla->clasesGrabadas()->count());
         $this->assertSame(1, $plantilla->tareas()->count());
         $this->assertSame(1, $plantilla->foros()->count());
-        $this->assertSame(1, $plantilla->materiales()->first()->semana);
+        $this->assertSame('Semana 1', $plantilla->materiales()->first()->nombre_seccion);
     }
 
     public function test_guardar_copia_el_archivo_del_material_y_de_la_clase_grabada(): void
@@ -85,7 +87,7 @@ class PlantillaCursoVirtualServiceTest extends TestCase
     {
         $cursoOrigen = CursoVirtual::factory()->create();
         $autor = User::factory()->create();
-        $this->app->make(MaterialService::class)->crear($cursoOrigen, TipoMaterialEnum::ENLACE, 'Video', 'https://ejemplo.test', null, 1);
+        $this->app->make(MaterialService::class)->crear($cursoOrigen, TipoMaterialEnum::ENLACE, 'Video', 'https://ejemplo.test', null);
         $plantilla = $this->service()->guardarDesdeCursoVirtual($cursoOrigen, 'Plantilla', $autor);
 
         $cursoDestino = CursoVirtual::factory()->create();
@@ -101,12 +103,16 @@ class PlantillaCursoVirtualServiceTest extends TestCase
     {
         $cursoOrigen = CursoVirtual::factory()->create();
         $autor = User::factory()->create();
+
+        $fechaSeccion = $cursoOrigen->horario->ciclo->fecha_inicio->copy()->addWeeks(2);
+        $seccion = Seccion::factory()->for($cursoOrigen, 'cursoVirtual')->create(['nombre' => null, 'fecha' => $fechaSeccion->format('Y-m-d')]);
+
         $this->app->make(TareaService::class)->crear($cursoOrigen, [
             'titulo' => 'Ensayo',
             'descripcion' => null,
             'fecha_limite' => now()->addDay(),
             'puntaje_max' => 20,
-            'semana' => 2,
+            'seccion_id' => $seccion->id,
         ]);
         $plantilla = $this->service()->guardarDesdeCursoVirtual($cursoOrigen, 'Plantilla', $autor);
 

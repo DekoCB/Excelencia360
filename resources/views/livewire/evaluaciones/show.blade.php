@@ -30,15 +30,11 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $nuevoDisponibleHasta = '';
 
-    public string $nuevaSemana = '';
-
     public bool $mostrarFormNueva = false;
 
     public string $enlaceEditar = '';
 
     public string $disponibleHastaEditar = '';
-
-    public string $semanaEditar = '';
 
     /** @var array<int, string> */
     public array $notas = [];
@@ -70,7 +66,6 @@ new #[Layout('layouts.app')] class extends Component
             'nuevaFecha' => 'required|date',
             'nuevoEnlace' => 'nullable|url|max:500',
             'nuevoDisponibleHasta' => 'nullable|date',
-            'nuevaSemana' => 'nullable|integer|min:1',
         ]);
 
         $evaluacion = $service->crear(
@@ -79,10 +74,9 @@ new #[Layout('layouts.app')] class extends Component
             $this->nuevaFecha,
             $this->nuevoEnlace ?: null,
             $this->nuevoDisponibleHasta ?: null,
-            $this->nuevaSemana !== '' ? (int) $this->nuevaSemana : null,
         );
 
-        $this->reset(['nuevoNombre', 'nuevoEnlace', 'nuevoDisponibleHasta', 'nuevaSemana', 'mostrarFormNueva']);
+        $this->reset(['nuevoNombre', 'nuevoEnlace', 'nuevoDisponibleHasta', 'mostrarFormNueva']);
         $this->nuevaFecha = now()->format('Y-m-d');
         $this->evaluacionId = $evaluacion->id;
     }
@@ -115,7 +109,6 @@ new #[Layout('layouts.app')] class extends Component
         $this->observaciones = [];
         $this->enlaceEditar = (string) $evaluacion->enlace_externo;
         $this->disponibleHastaEditar = $evaluacion->disponible_hasta?->format('Y-m-d\TH:i') ?? '';
-        $this->semanaEditar = $evaluacion->semana !== null ? (string) $evaluacion->semana : '';
 
         foreach ($estudiantes as $estudiante) {
             $calificacion = $existentes->get($estudiante->id);
@@ -131,13 +124,11 @@ new #[Layout('layouts.app')] class extends Component
         $this->validate([
             'enlaceEditar' => 'nullable|url|max:500',
             'disponibleHastaEditar' => 'nullable|date',
-            'semanaEditar' => 'nullable|integer|min:1',
         ]);
 
         $evaluacion = Evaluacion::query()->where('horario_id', $this->horario->id)->findOrFail($this->evaluacionId);
 
         $service->actualizarEnlace($evaluacion, $this->enlaceEditar ?: null, $this->disponibleHastaEditar ?: null);
-        $service->actualizarSemana($evaluacion, $this->semanaEditar !== '' ? (int) $this->semanaEditar : null);
     }
 
     public function guardarNotas(EvaluacionService $service): void
@@ -211,16 +202,17 @@ new #[Layout('layouts.app')] class extends Component
     }
 
     /**
-     * Agrupa por número de semana (clave 0 = "Bienvenida", antes de la
-     * Semana 1, para el contenido sin clasificar) y ordena las semanas de
-     * forma ascendente.
+     * Agrupa por fecha real (a diferencia de Materiales/Tareas/Foros, una
+     * Evaluacion siempre tiene fecha propia -- no hace falta un "sin
+     * clasificar" aparte). La clave es 'Y-m-d' para que sortKeys() ordene
+     * cronológicamente; el formato legible se arma en la vista.
      *
      * @param  Collection<int, mixed>  $items
-     * @return SupportCollection<int, Collection<int, mixed>>
+     * @return SupportCollection<string, Collection<int, mixed>>
      */
-    private function agruparPorSemana($items): SupportCollection
+    private function agruparPorFecha($items): SupportCollection
     {
-        return $items->groupBy(fn ($item) => $item->semana ?? 0)->sortKeys();
+        return $items->groupBy(fn ($item) => $item->fecha->format('Y-m-d'))->sortKeys();
     }
 
     public function with(EvaluacionService $service, BloqueoAccesoService $bloqueos): array
@@ -241,18 +233,18 @@ new #[Layout('layouts.app')] class extends Component
                 'puedeRegistrar' => $puedeRegistrar,
                 'puedeSupervisar' => $puedeSupervisar,
                 'puedePublicar' => $puedePublicar,
-                'evaluacionesPorSemana' => $this->agruparPorSemana($evaluaciones),
+                'evaluacionesPorFecha' => $this->agruparPorFecha($evaluaciones),
                 'estudiantes' => $estudiantes,
                 'evaluacionSeleccionada' => $evaluacionSeleccionada,
                 'misCalificaciones' => collect(),
                 'promedio' => null,
-                'evaluacionesConEnlacePorSemana' => collect(),
+                'evaluacionesConEnlacePorFecha' => collect(),
             ];
         }
 
         $misCalificaciones = collect();
         $promedio = null;
-        $evaluacionesConEnlacePorSemana = collect();
+        $evaluacionesConEnlacePorFecha = collect();
         $estaBloqueado = false;
 
         if ($user->estudiante) {
@@ -262,7 +254,7 @@ new #[Layout('layouts.app')] class extends Component
             if (! $estaBloqueado) {
                 $misCalificaciones = $service->misCalificaciones($user->estudiante, $this->horario);
                 $promedio = $service->promedioDelEstudiante($user->estudiante, $this->horario);
-                $evaluacionesConEnlacePorSemana = $this->agruparPorSemana($service->evaluacionesConEnlaceDelHorario($this->horario));
+                $evaluacionesConEnlacePorFecha = $this->agruparPorFecha($service->evaluacionesConEnlaceDelHorario($this->horario));
             }
         }
 
@@ -270,12 +262,12 @@ new #[Layout('layouts.app')] class extends Component
             'puedeRegistrar' => false,
             'puedeSupervisar' => false,
             'puedePublicar' => false,
-            'evaluacionesPorSemana' => collect(),
+            'evaluacionesPorFecha' => collect(),
             'estudiantes' => collect(),
             'evaluacionSeleccionada' => null,
             'misCalificaciones' => $misCalificaciones,
             'promedio' => $promedio,
-            'evaluacionesConEnlacePorSemana' => $evaluacionesConEnlacePorSemana,
+            'evaluacionesConEnlacePorFecha' => $evaluacionesConEnlacePorFecha,
             'miEstudianteId' => $user->estudiante?->id,
             'estaBloqueado' => $estaBloqueado,
         ];
@@ -326,12 +318,6 @@ new #[Layout('layouts.app')] class extends Component
                             <p class="mt-1 text-xs text-ink-faint">Pasada esta fecha, el enlace deja de estar disponible para el estudiante.</p>
                             <x-input-error :messages="$errors->get('nuevoDisponibleHasta')" class="mt-1" />
                         </div>
-                        <div>
-                            <x-input-label for="nuevaSemana" value="Semana (opcional)" />
-                            <x-text-input wire:model="nuevaSemana" id="nuevaSemana" type="number" min="1" class="mt-1 block w-full" />
-                            <p class="mt-1 text-xs text-ink-faint">Déjalo vacío para que aparezca en «Bienvenida», antes de la Semana 1.</p>
-                            <x-input-error :messages="$errors->get('nuevaSemana')" class="mt-1" />
-                        </div>
                         <div class="flex justify-end gap-2">
                             <x-secondary-button type="button" wire:click="$set('mostrarFormNueva', false)">Cancelar</x-secondary-button>
                             <x-primary-button type="submit">Crear</x-primary-button>
@@ -340,11 +326,11 @@ new #[Layout('layouts.app')] class extends Component
                 @endif
 
                 <div class="space-y-4">
-                    @forelse ($evaluacionesPorSemana as $numeroSemana => $evaluacionesDeSemana)
+                    @forelse ($evaluacionesPorFecha as $fechaClave => $evaluacionesDeFecha)
                         <div>
-                            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ $numeroSemana === 0 ? 'Bienvenida' : 'Semana '.$numeroSemana }}</p>
+                            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ \Illuminate\Support\Carbon::parse($fechaClave)->translatedFormat('l d \d\e F') }}</p>
                             <div class="divide-y divide-border rounded-2xl border border-border bg-surface shadow-sm">
-                                @foreach ($evaluacionesDeSemana as $evaluacion)
+                                @foreach ($evaluacionesDeFecha as $evaluacion)
                                     <button
                                         type="button"
                                         wire:click="seleccionar({{ $evaluacion->id }})"
@@ -408,11 +394,6 @@ new #[Layout('layouts.app')] class extends Component
                                     <x-input-label for="disponibleHastaEditar" value="Disponible hasta (opcional)" />
                                     <x-datetime-input wire:model="disponibleHastaEditar" id="disponibleHastaEditar" class="mt-1 block w-full" />
                                     <x-input-error :messages="$errors->get('disponibleHastaEditar')" class="mt-1" />
-                                </div>
-                                <div>
-                                    <x-input-label for="semanaEditar" value="Semana (opcional)" />
-                                    <x-text-input wire:model="semanaEditar" id="semanaEditar" type="number" min="1" class="mt-1 block w-full" />
-                                    <x-input-error :messages="$errors->get('semanaEditar')" class="mt-1" />
                                 </div>
                             </div>
                             <div class="flex justify-end">
@@ -531,15 +512,15 @@ new #[Layout('layouts.app')] class extends Component
         </div>
     @else
         <div class="space-y-4">
-            @if ($evaluacionesConEnlacePorSemana->isNotEmpty())
+            @if ($evaluacionesConEnlacePorFecha->isNotEmpty())
                 <div class="rounded-2xl border border-border bg-surface shadow-sm p-4">
                     <p class="text-xs uppercase tracking-wide text-ink-faint">Evaluaciones para rendir</p>
                     <div class="mt-3 space-y-4">
-                        @foreach ($evaluacionesConEnlacePorSemana as $numeroSemana => $evaluacionesDeSemana)
+                        @foreach ($evaluacionesConEnlacePorFecha as $fechaClave => $evaluacionesDeFecha)
                             <div>
-                                <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ $numeroSemana === 0 ? 'Bienvenida' : 'Semana '.$numeroSemana }}</p>
+                                <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ \Illuminate\Support\Carbon::parse($fechaClave)->translatedFormat('l d \d\e F') }}</p>
                                 <div class="divide-y divide-border">
-                                    @foreach ($evaluacionesDeSemana as $evaluacion)
+                                    @foreach ($evaluacionesDeFecha as $evaluacion)
                                         <div class="flex items-center justify-between gap-4 py-2 text-sm">
                                             <div>
                                                 <p class="text-ink">{{ $evaluacion->nombre }}</p>

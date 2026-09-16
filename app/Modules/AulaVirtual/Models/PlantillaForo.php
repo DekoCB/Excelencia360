@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property string $titulo
  * @property string|null $descripcion
- * @property int|null $semana
+ * @property string|null $nombre_seccion
  */
 class PlantillaForo extends Model
 {
@@ -21,7 +21,7 @@ class PlantillaForo extends Model
 
     protected $fillable = [
         'plantilla_id',
-        'semana',
+        'nombre_seccion',
         'titulo',
         'descripcion',
     ];
