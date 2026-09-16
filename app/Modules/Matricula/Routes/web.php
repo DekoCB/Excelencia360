@@ -21,10 +21,12 @@ Route::middleware(['auth'])->prefix('matricula')->name('matricula.')->group(func
         ->middleware('can:matricula.crear')
         ->name('carga-masiva');
 
-    // Portal de Apoderados: también antes de {estudiante} por la misma
-    // razón que las de arriba.
+    // Portal de Apoderados / directorio de tutores: también antes de
+    // {estudiante} por la misma razón que las de arriba. Sin middleware
+    // "can" propio porque acepta dos permisos distintos según el modo
+    // (apoderado vs. directorio de staff) -- el propio componente valida
+    // eso en mount(), ver matricula/mis-hijos.blade.php.
     Volt::route('mis-hijos', 'matricula.mis-hijos')
-        ->middleware('can:matricula.ver_propio_hijo')
         ->name('mis-hijos');
 
     Volt::route('{estudiante}', 'matricula.show')

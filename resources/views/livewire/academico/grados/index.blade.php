@@ -53,7 +53,7 @@ new #[Layout('layouts.app')] class extends Component
         ]);
 
         if ($service->existeOrden((int) $this->orden, $this->editandoId)) {
-            $this->addError('orden', "Ya existe un grado con el orden {$this->orden}.");
+            $this->addError('orden', "Ya existe un semestre con el orden {$this->orden}.");
 
             return;
         }
@@ -70,7 +70,7 @@ new #[Layout('layouts.app')] class extends Component
         }
 
         $this->mostrarModal = false;
-        session()->flash('status', 'Grado guardado correctamente.');
+        session()->flash('status', 'Semestre guardado correctamente.');
     }
 
     public function with(GradoService $service): array
@@ -83,7 +83,7 @@ new #[Layout('layouts.app')] class extends Component
 
 <div>
     <x-slot name="header">
-        <h1 class="font-display text-2xl text-ink">Grados</h1>
+        <h1 class="font-display text-2xl text-ink">Semestres</h1>
         <p class="mt-1 text-sm text-ink-dim">Niveles que cursan los estudiantes.</p>
     </x-slot>
 
@@ -97,7 +97,7 @@ new #[Layout('layouts.app')] class extends Component
         <div class="mb-4 flex justify-end">
             <x-primary-button type="button" wire:click="abrirModal" class="gap-2">
                 <x-heroicon-o-plus class="h-4 w-4" />
-                Nuevo grado
+                Nuevo semestre
             </x-primary-button>
         </div>
     @endcan
@@ -135,7 +135,7 @@ new #[Layout('layouts.app')] class extends Component
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" class="px-4 py-8 text-center text-sm text-ink-faint">No hay grados registrados.</td></tr>
+                    <tr><td colspan="5" class="px-4 py-8 text-center text-sm text-ink-faint">No hay semestres registrados.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -163,7 +163,7 @@ new #[Layout('layouts.app')] class extends Component
             x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
             x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
         >
-                <h2 class="font-display text-lg text-ink">{{ $editandoId ? 'Editar grado' : 'Nuevo grado' }}</h2>
+                <h2 class="font-display text-lg text-ink">{{ $editandoId ? 'Editar semestre' : 'Nuevo semestre' }}</h2>
 
                 <form wire:submit="guardar" class="mt-4 space-y-4">
                     <div>
@@ -181,7 +181,7 @@ new #[Layout('layouts.app')] class extends Component
                     @if ($editandoId)
                         <label class="flex items-center gap-2 text-sm text-ink-dim">
                             <input type="checkbox" wire:model="activo" class="rounded border-border text-accent focus:ring-accent">
-                            Grado activo
+                            Semestre activo
                         </label>
                     @endif
 

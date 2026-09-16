@@ -71,13 +71,13 @@
         <tr>
             <td class="etiqueta">Modalidad</td>
             <td class="valor">{{ $modalidadTexto }}</td>
-            <td class="etiqueta">Grado</td>
+            <td class="etiqueta">Semestre</td>
             <td class="valor">{{ $matricula?->grado?->nombre ?? '—' }}</td>
         </tr>
         <tr>
             <td class="etiqueta">Periodo promocional</td>
             <td class="valor">{{ $periodoPromocional }}</td>
-            <td class="etiqueta">Ciclo</td>
+            <td class="etiqueta">Programa de estudio</td>
             <td class="valor">{{ $ciclo->nombre }}</td>
         </tr>
     </table>

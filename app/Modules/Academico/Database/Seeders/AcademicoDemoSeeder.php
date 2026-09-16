@@ -21,10 +21,10 @@ class AcademicoDemoSeeder extends Seeder
     public function run(): void
     {
         $grados = collect([
-            ['nombre' => 'Grado 1', 'orden' => 1],
-            ['nombre' => 'Grado 2', 'orden' => 2],
-            ['nombre' => 'Grado 3', 'orden' => 3],
-            ['nombre' => 'Grado 4', 'orden' => 4],
+            ['nombre' => 'Semestre 1', 'orden' => 1],
+            ['nombre' => 'Semestre 2', 'orden' => 2],
+            ['nombre' => 'Semestre 3', 'orden' => 3],
+            ['nombre' => 'Semestre 4', 'orden' => 4],
         ])->map(fn (array $datos) => Grado::query()->create($datos));
 
         $cursoComunicacion = Curso::query()->create([

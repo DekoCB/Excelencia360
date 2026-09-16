@@ -27,10 +27,10 @@
         <tr><td class="etiqueta">Estado</td><td>{{ $estudiante->estado->label() }}</td></tr>
     </table>
 
-    <div class="seccion">Grados cursados</div>
+    <div class="seccion">Semestres cursados</div>
     <table>
         <thead>
-            <tr><th>Grado</th><th>Ciclo</th><th>Modalidad</th><th>Fecha de matrícula</th><th>Fin de estudios</th><th>Estado</th></tr>
+            <tr><th>Semestre</th><th>Programa de estudio</th><th>Modalidad</th><th>Fecha de matrícula</th><th>Fin de estudios</th><th>Estado</th></tr>
         </thead>
         <tbody>
             @forelse ($matriculas as $matricula)
@@ -57,7 +57,7 @@
     @if ($resumenPagos['cuotasVencidas']->isNotEmpty())
         <div class="subseccion">Cuotas vencidas</div>
         <table>
-            <thead><tr><th>Cuota</th><th>Grado</th><th>Ciclo</th><th>Monto</th><th>Venció</th></tr></thead>
+            <thead><tr><th>Cuota</th><th>Semestre</th><th>Programa de estudio</th><th>Monto</th><th>Venció</th></tr></thead>
             <tbody>
                 @foreach ($resumenPagos['cuotasVencidas'] as $cuota)
                     <tr>
@@ -75,7 +75,7 @@
     @if ($resumenPagos['cuotasPendientes']->isNotEmpty())
         <div class="subseccion">Cuotas pendientes</div>
         <table>
-            <thead><tr><th>Cuota</th><th>Grado</th><th>Ciclo</th><th>Saldo</th><th>Vence</th></tr></thead>
+            <thead><tr><th>Cuota</th><th>Semestre</th><th>Programa de estudio</th><th>Saldo</th><th>Vence</th></tr></thead>
             <tbody>
                 @foreach ($resumenPagos['cuotasPendientes'] as $cuota)
                     <tr>
@@ -140,7 +140,7 @@
     </table>
     <div class="subseccion">Libretas generadas</div>
     <table>
-        <thead><tr><th>Ciclo</th><th>Generada</th><th>Entrega</th></tr></thead>
+        <thead><tr><th>Programa de estudio</th><th>Generada</th><th>Entrega</th></tr></thead>
         <tbody>
             @forelse ($libretas as $libreta)
                 <tr>
@@ -158,7 +158,7 @@
     @if ($examenesUbicacion->isNotEmpty())
         <div class="subseccion">Exámenes de ubicación</div>
         <table>
-            <thead><tr><th>Fecha</th><th>Costo</th><th>Resultado</th><th>Grado asignado</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Costo</th><th>Resultado</th><th>Semestre asignado</th></tr></thead>
             <tbody>
                 @foreach ($examenesUbicacion as $examen)
                     <tr>

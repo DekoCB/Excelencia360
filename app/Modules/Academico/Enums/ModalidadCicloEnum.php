@@ -20,8 +20,8 @@ enum ModalidadCicloEnum: string
     public function label(): string
     {
         return match ($this) {
-            self::SEIS_MESES => 'Grupo rotativo (6 meses)',
-            self::ANUAL => 'SIAGIE anual',
+            self::SEIS_MESES => 'Programa de Estudio (6 meses)',
+            self::ANUAL => 'Periodo académico anual',
         };
     }
 

@@ -27,7 +27,7 @@ class VacacionService
 
         if ($matricula === null || $matricula->ciclo->siagie?->tipo !== TipoSiagieEnum::ANUAL) {
             throw ValidationException::withMessages([
-                'estudiante' => 'Las vacaciones solo aplican a estudiantes matriculados en SIAGIE anual.',
+                'estudiante' => 'Las vacaciones solo aplican a estudiantes matriculados en periodo académico anual.',
             ]);
         }
 

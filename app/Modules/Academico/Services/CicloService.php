@@ -72,7 +72,7 @@ class CicloService
         if ($modalidad === ModalidadCicloEnum::SEIS_MESES) {
             if ($tipo === null) {
                 throw ValidationException::withMessages([
-                    'tipo' => 'Un ciclo de 6 meses (Grupo rotativo) necesita indicar a qué grupo (1 a 4) pertenece.',
+                    'tipo' => 'Un programa de estudio de 6 meses necesita indicar a cuál (1 a 4) pertenece.',
                 ]);
             }
 
@@ -109,7 +109,7 @@ class CicloService
 
         if ($diferenciaEnDias > 15) {
             throw ValidationException::withMessages([
-                'fecha_fin' => 'Un ciclo SIAGIE anual dura 8 meses de clases; la fecha de fin no cuadra con la de inicio (margen de 15 días).',
+                'fecha_fin' => 'Un ciclo de periodo académico anual dura 8 meses de clases; la fecha de fin no cuadra con la de inicio (margen de 15 días).',
             ]);
         }
     }
@@ -121,7 +121,7 @@ class CicloService
 
         if ($solapados->isNotEmpty()) {
             throw ValidationException::withMessages([
-                'fecha_inicio' => 'Ya existe un ciclo SIAGIE anual con fechas que se cruzan: '.$solapados->first()->nombre,
+                'fecha_inicio' => 'Ya existe un ciclo de periodo académico anual con fechas que se cruzan: '.$solapados->first()->nombre,
             ]);
         }
     }

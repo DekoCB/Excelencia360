@@ -99,6 +99,22 @@ class LandingPageTest extends TestCase
         $this->get('/')->assertSee(route('login'), false);
     }
 
+    public function test_el_menu_incluye_validacion_de_certificados_entre_blog_y_contactanos(): void
+    {
+        $html = $this->get('/')->assertOk()->getContent();
+
+        $posBlog = mb_strpos($html, '>Blog<');
+        $posValidacion = mb_strpos($html, '>Validación de Certificados<');
+        $posContacto = mb_strpos($html, '>Contáctanos<');
+
+        $this->assertNotFalse($posBlog);
+        $this->assertNotFalse($posValidacion);
+        $this->assertNotFalse($posContacto);
+        $this->assertTrue($posBlog < $posValidacion && $posValidacion < $posContacto);
+
+        $this->get('/')->assertSee(route('certificados.verificar'), false);
+    }
+
     public function test_dashboard_sigue_exigiendo_autenticacion(): void
     {
         $this->get(route('dashboard'))->assertRedirect(route('login'));

@@ -349,6 +349,39 @@ class AulaVirtualPermisosTest extends TestCase
             ->assertDontSee('Nueva clase grabada');
     }
 
+    public function test_una_clase_grabada_por_enlace_de_youtube_se_ve_incrustada(): void
+    {
+        $docente = User::factory()->create();
+        $docente->assignRole(RolEnum::DOCENTE->value);
+        $curso = $this->cursoDelDocente($docente);
+
+        $this->app->make(ClaseGrabadaService::class)
+            ->crear($curso, TipoClaseGrabadaEnum::ENLACE, 'Clase del 15 de julio', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', null);
+
+        $this->actingAs($docente);
+
+        Volt::test('aula-virtual.show', ['curso' => $curso])
+            ->set('tab', 'clases-grabadas')
+            ->assertSee('https://www.youtube.com/embed/dQw4w9WgXcQ', false)
+            ->assertDontSee('Abrir enlace');
+    }
+
+    public function test_una_clase_grabada_por_enlace_no_reconocido_mantiene_el_enlace_externo(): void
+    {
+        $docente = User::factory()->create();
+        $docente->assignRole(RolEnum::DOCENTE->value);
+        $curso = $this->cursoDelDocente($docente);
+
+        $this->app->make(ClaseGrabadaService::class)
+            ->crear($curso, TipoClaseGrabadaEnum::ENLACE, 'Clase por Zoom', 'https://zoom.us/rec/share/algo', null);
+
+        $this->actingAs($docente);
+
+        Volt::test('aula-virtual.show', ['curso' => $curso])
+            ->set('tab', 'clases-grabadas')
+            ->assertSee('Abrir enlace');
+    }
+
     public function test_el_foro_creado_con_semana_se_agrupa_bajo_su_semana(): void
     {
         $docente = User::factory()->create();

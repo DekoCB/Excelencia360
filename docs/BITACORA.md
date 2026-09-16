@@ -7,6 +7,81 @@ fecha y los commits que le corresponden.
 
 ---
 
+## 2026-09-16
+
+### Nuevo backlog de 14 puntos — Bloque A (cambios independientes) + entorno de Validación de Certificados
+
+El usuario trajo una lista de 14 cambios grandes (renombrado del núcleo
+académico, asistencia por QR, evaluaciones dentro de Aula Virtual,
+materiales por sesión, etc.). Dado el tamaño y el riesgo de intentarlo
+todo de una vez, se le propuso secuenciarlo por bloques; eligió empezar
+por el Bloque A (los cambios independientes y acotados), dejando la
+reestructuración académica grande para después.
+
+**#4 — Portal de Apoderados accesible para Dirección, renombrado a "Tutores/Apoderados":**
+La página `mis-hijos` daba 403 a Dirección porque, aunque tenía el
+permiso `matricula.ver_propio_hijo` (vía el rol `*`), no tenía ningún
+registro `Apoderado` propio vinculado. Se agregó un segundo modo
+("directorio de staff", gateado por `reportes.historial_estudiante` —
+el mismo permiso que ya gobierna la búsqueda general de
+historial-estudiante, así que no se concedió ningún acceso nuevo) con
+buscador por apoderado o por su hijo; el modo original ("mis hijos",
+acotado a la cuenta) sigue igual para un Apoderado de verdad. Renombrado
+en sidebar y encabezado. 5 tests nuevos.
+
+**#5 — Clases grabadas por enlace, reproducibles ahí mismo:**
+Nuevo `App\Shared\Support\VideoEmbed` reconoce YouTube/Vimeo/Google
+Drive/archivo de video directo y devuelve un iframe o `<video>`
+incrustado con un toggle "Ver video"/"Ocultar video"; un enlace no
+reconocido (Zoom, etc.) sigue abriendo en pestaña nueva como antes. 9
+tests nuevos.
+
+**#10 — Biblioteca virtual (PDF), ícono de reloj, historial de descargas:**
+`Libro` ahora acepta un PDF (MediaLibrary, colección `pdf`, reemplaza al
+subir uno nuevo). Nueva tabla `descargas_libro` registra quién descargó
+qué y cuándo, mostrado en una sección solo para quien gestiona. Ícono de
+"Mis préstamos" cambiado de libro a reloj. 8 tests nuevos.
+
+**#12 — Comprobantes de pago en 80mm y A4:**
+`ReciboService::emitir()` ahora genera y guarda dos PDFs por recibo: el
+A4 de siempre y uno nuevo en 80mm (plantilla compacta aparte,
+`pdf.recibo-80mm.blade.php`, tamaño de papel fijo vía
+`Pdf::setPaper([0,0,226.77,566.93])` — DomPDF no soporta alto
+indeterminado como un rollo térmico real). `recibos:regenerar` también
+regenera ambos, así que los 19 recibos reales existentes ya tienen su
+versión 80mm. Nuevo componente `x-recibo-enlaces` centraliza los dos
+enlaces en los 4 lugares que mostraban el recibo. 4 tests nuevos.
+
+**#13 — Código de Documento de Aprobación en la plantilla de Certificados:**
+Campo opcional nuevo en `PlantillaCertificado` (mismo patrón que
+`pie_nota`): si se completa, se imprime debajo del N.° del certificado;
+si se deja vacío, no aparece. 4 tests nuevos.
+
+**#14 — Constancias de Prácticas Preprofesionales y Profesionales:**
+Dos casos nuevos en `TipoDocumentoEnum`, con su plantilla por defecto y
+agregados a `constancias()` (de donde ya se derivan automáticamente los
+selectores de Constancias, sin listas duplicadas que actualizar a mano).
+La columna `tipo` (varchar(30) en 3 tablas) se quedaba corta para
+`constancia_practicas_preprofesionales` (37 caracteres): migración nueva
+la amplía a varchar(50) vía SQL crudo (el proyecto no tiene
+doctrine/dbal para el `->change()` de Blueprint), solo en MySQL —
+SQLite (tests) no impone el límite de un VARCHAR. 5 tests nuevos.
+
+**Entorno para #1 (Validación de Certificados):** la lógica de consulta
+espera el formato que el usuario va a enviar, pero se preparó lo que sí
+se sabía: enlace "Validación de Certificados" en el navbar público,
+entre Blog y Contáctanos, apuntando a la página de verificación pública
+ya existente. 1 test nuevo.
+
+Quedan pendientes, para después: #1 (lógica de consulta) y #2 (Excel de
+importación masiva) en cuanto el usuario mande los formatos; #3 (el QR
+redirige a Validación de Certificados, depende de #1); y el Bloque C
+completo (renombrado académico SIAGIE→Periodo Académico/Grupos→Programa
+de Estudio/Grados→Semestres, materiales por sesión, secciones estilo
+Moodle, asistencia por QR, evaluaciones dentro de Aula Virtual).
+
+---
+
 ## 2026-09-15 (noche, cont. 8)
 
 ### Informe final, matriz de trazabilidad, fase 11 (optimización) y cierre de la búsqueda avanzada

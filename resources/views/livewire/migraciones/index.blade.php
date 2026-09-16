@@ -232,7 +232,7 @@ new #[Layout('layouts.app')] class extends Component
 <div>
     <x-slot name="header">
         <h1 class="font-display text-2xl text-ink">Migraciones</h1>
-        <p class="mt-1 text-sm text-ink-dim">Pasar de grado a un estudiante, o a varios a la vez filtrados por Modalidad/Grupo/Sección/Grado.</p>
+        <p class="mt-1 text-sm text-ink-dim">Pasar de semestre a un estudiante, o a varios a la vez filtrados por Modalidad/Programa de Estudio/Sección/Semestre.</p>
     </x-slot>
 
     @if (session('status'))
@@ -295,7 +295,7 @@ new #[Layout('layouts.app')] class extends Component
                         <x-input-error :messages="$errors->get('cicloDestinoId')" class="mt-1" />
                     </div>
                     <div>
-                        <x-input-label for="gradoDestinoId" value="Grado destino" />
+                        <x-input-label for="gradoDestinoId" value="Semestre destino" />
                         <x-select-input
                             wire:model="gradoDestinoId"
                             id="gradoDestinoId"
@@ -310,7 +310,7 @@ new #[Layout('layouts.app')] class extends Component
                     <x-primary-button
                         type="button"
                         x-data
-                        x-on:click="$store.confirm.preguntar('¿Migrar a {{ addslashes($estudianteNombre) }} al grado destino elegido?', () => $wire.migrarIndividual(), { etiquetaConfirmar: 'Migrar' })"
+                        x-on:click="$store.confirm.preguntar('¿Migrar a {{ addslashes($estudianteNombre) }} al semestre destino elegido?', () => $wire.migrarIndividual(), { etiquetaConfirmar: 'Migrar' })"
                     >
                         Migrar
                     </x-primary-button>
@@ -324,7 +324,7 @@ new #[Layout('layouts.app')] class extends Component
         <div class="space-y-4">
             <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
                 <h2 class="font-display text-sm text-ink">Origen</h2>
-                <p class="mt-1 text-xs text-ink-faint">Primero elige la modalidad — el de 6 meses se filtra por Grupo, SIAGIE anual no tiene Grupos (no rota).</p>
+                <p class="mt-1 text-xs text-ink-faint">Primero elige la modalidad — el de 6 meses se filtra por Programa de Estudio, el periodo académico anual no tiene Programas de Estudio (no rota).</p>
                 <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <div>
                         <x-input-label for="modalidadOrigen" value="Modalidad" />
@@ -339,12 +339,12 @@ new #[Layout('layouts.app')] class extends Component
 
                     @if ($modalidadOrigen === 'seis_meses')
                         <div>
-                            <x-input-label for="cicloOrigenId" value="Grupo" />
+                            <x-input-label for="cicloOrigenId" value="Programa de estudio" />
                             <x-select-input
                                 wire:model.live="cicloOrigenId"
                                 id="cicloOrigenId"
                                 class="mt-1 block w-full"
-                                :options="collect($ciclosSeisMeses)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])->prepend('Todos los grupos', '')"
+                                :options="collect($ciclosSeisMeses)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])->prepend('Todos los programas de estudio', '')"
                             />
                         </div>
                     @elseif ($modalidadOrigen === 'anual')
@@ -353,7 +353,7 @@ new #[Layout('layouts.app')] class extends Component
                             @if ($cicloAnualVigente)
                                 <p class="mt-1 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-ink">{{ $cicloAnualVigente->anio }}</p>
                             @else
-                                <p class="mt-1 text-xs text-danger">No hay ningún ciclo SIAGIE anual registrado todavía. Créalo primero en Ciclos.</p>
+                                <p class="mt-1 text-xs text-danger">No hay ningún periodo académico anual registrado todavía. Créalo primero en Ciclos.</p>
                             @endif
                         </div>
                     @endif
@@ -369,7 +369,7 @@ new #[Layout('layouts.app')] class extends Component
                             />
                         </div>
                         <div>
-                            <x-input-label for="gradoOrigenId" value="Grado" />
+                            <x-input-label for="gradoOrigenId" value="Semestre" />
                             <x-select-input
                                 wire:model.live="gradoOrigenId"
                                 id="gradoOrigenId"
@@ -413,7 +413,7 @@ new #[Layout('layouts.app')] class extends Component
                             <x-input-error :messages="$errors->get('masivoCicloDestinoId')" class="mt-1" />
                         </div>
                         <div>
-                            <x-input-label for="masivoGradoDestinoId" value="Grado destino" />
+                            <x-input-label for="masivoGradoDestinoId" value="Semestre destino" />
                             <x-select-input
                                 wire:model="masivoGradoDestinoId"
                                 id="masivoGradoDestinoId"
@@ -428,7 +428,7 @@ new #[Layout('layouts.app')] class extends Component
                         <x-primary-button
                             type="button"
                             x-data
-                            x-on:click="$store.confirm.preguntar('¿Migrar a los {{ $cohorteMasiva->count() }} estudiantes seleccionados al grado destino elegido?', () => $wire.migrarMasivo(), { etiquetaConfirmar: 'Migrar' })"
+                            x-on:click="$store.confirm.preguntar('¿Migrar a los {{ $cohorteMasiva->count() }} estudiantes seleccionados al semestre destino elegido?', () => $wire.migrarMasivo(), { etiquetaConfirmar: 'Migrar' })"
                         >
                             Migrar {{ $cohorteMasiva->count() }} estudiante{{ $cohorteMasiva->count() === 1 ? '' : 's' }}
                         </x-primary-button>

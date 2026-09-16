@@ -279,12 +279,12 @@ new #[Layout('layouts.app')] class extends Component
                 <form wire:submit="guardar" class="mt-4 space-y-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <x-input-label for="cicloId" value="Grupo (opcional)" />
+                            <x-input-label for="cicloId" value="Programa de estudio (opcional)" />
                             <x-select-input
                                 wire:model.live="cicloId"
                                 id="cicloId"
                                 class="mt-1 block w-full"
-                                placeholder="Aula suelta, sin grupo"
+                                placeholder="Aula suelta, sin programa de estudio"
                                 :options="collect($ciclos)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])"
                             />
                             <x-input-error :messages="$errors->get('cicloId')" class="mt-1" />

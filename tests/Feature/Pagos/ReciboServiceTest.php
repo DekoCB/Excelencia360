@@ -48,6 +48,31 @@ class ReciboServiceTest extends TestCase
         $this->assertNotNull($recibo->getFirstMedia('pdf'));
     }
 
+    public function test_emitir_tambien_genera_la_version_80mm_para_impresora_termica(): void
+    {
+        $pago = Pago::factory()->create();
+
+        $recibo = $this->service()->emitir($pago, SerieReciboEnum::ORIGINAL);
+
+        $media80mm = $recibo->getFirstMedia('pdf_80mm');
+        $this->assertNotNull($media80mm);
+        $this->assertNotSame($recibo->getFirstMediaUrl('pdf'), $recibo->getFirstMediaUrl('pdf_80mm'));
+
+        // Un PDF válido, no cualquier contenido con esa extensión.
+        $this->assertStringStartsWith('%PDF-', file_get_contents($media80mm->getPath()));
+    }
+
+    public function test_el_html_del_recibo_80mm_incluye_los_datos_del_pago(): void
+    {
+        $pago = Pago::factory()->create();
+        $recibo = $this->service()->emitir($pago, SerieReciboEnum::ORIGINAL);
+
+        $html = view('pdf.recibo-80mm', ['pago' => $pago, 'recibo' => $recibo, 'serie' => SerieReciboEnum::ORIGINAL])->render();
+
+        $this->assertStringContainsString('001-000001', $html);
+        $this->assertStringContainsString($pago->estudiante->dni, $html);
+    }
+
     public function test_el_html_del_recibo_incluye_solo_la_serie_elegida(): void
     {
         $pago = Pago::factory()->create();
@@ -80,6 +105,7 @@ class ReciboServiceTest extends TestCase
 
         foreach ($ordenados as $recibo) {
             $this->assertNotNull($recibo->getFirstMedia('pdf'));
+            $this->assertNotNull($recibo->getFirstMedia('pdf_80mm'));
         }
     }
 }

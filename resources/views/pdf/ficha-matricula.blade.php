@@ -41,8 +41,8 @@
 
     <div class="seccion">Datos de la matrícula</div>
     <table>
-        <tr><td class="etiqueta">Ciclo</td><td>{{ $matricula->ciclo->nombre }}</td></tr>
-        <tr><td class="etiqueta">Grado</td><td>{{ $matricula->grado->nombre }}</td></tr>
+        <tr><td class="etiqueta">Programa de estudio</td><td>{{ $matricula->ciclo->nombre }}</td></tr>
+        <tr><td class="etiqueta">Semestre</td><td>{{ $matricula->grado->nombre }}</td></tr>
         <tr><td class="etiqueta">Fecha de matrícula</td><td>{{ $matricula->fecha_matricula->format('d/m/Y') }}</td></tr>
         <tr><td class="etiqueta">Estado</td><td>{{ $matricula->estado->label() }}</td></tr>
         @if ($matricula->observaciones)

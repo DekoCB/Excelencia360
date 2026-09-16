@@ -79,7 +79,7 @@ class SiagiePermisosTest extends TestCase
         $ciclo = Ciclo::query()->where('siagie_id', $siagie->id)->first();
 
         $this->assertNotNull($ciclo);
-        $this->assertSame('SIAGIE Anual - 2026', $ciclo->nombre);
+        $this->assertSame('Periodo Académico Anual - 2026', $ciclo->nombre);
     }
 
     public function test_el_listado_muestra_los_siagies_disponibles(): void

@@ -54,7 +54,7 @@
             </div>
             <div><dt class="text-ink-faint">Correo</dt><dd class="text-ink">{{ $estudiante->email ?? '—' }}</dd></div>
             <div class="sm:col-span-2"><dt class="text-ink-faint">Dirección</dt><dd class="text-ink">{{ $estudiante->direccion ?? '—' }}</dd></div>
-            <div><dt class="text-ink-faint">Grado actual</dt><dd class="text-ink">{{ $estudiante->gradoActual?->nombre ?? '—' }}</dd></div>
+            <div><dt class="text-ink-faint">Semestre actual</dt><dd class="text-ink">{{ $estudiante->gradoActual?->nombre ?? '—' }}</dd></div>
             <div>
                 <dt class="text-ink-faint">Ciclos completados</dt>
                 <dd class="text-ink">{{ $estudiante->ciclos_completados }}{{ $matriculas->last()?->ciclo?->modalidad?->value !== 'anual' ? ' / 4' : '' }}</dd>
@@ -138,7 +138,7 @@
                 @foreach ($examenes as $examen)
                     <div class="py-3 text-sm">
                         <p class="text-ink">{{ $examen->fecha->format('d/m/Y') }} · S/ {{ number_format((float) $examen->costo, 2) }}</p>
-                        <p class="text-ink-faint">Resultado: {{ $examen->resultado ?? '—' }} @if($examen->gradoAsignado) · Grado asignado: {{ $examen->gradoAsignado->nombre }} @endif</p>
+                        <p class="text-ink-faint">Resultado: {{ $examen->resultado ?? '—' }} @if($examen->gradoAsignado) · Semestre asignado: {{ $examen->gradoAsignado->nombre }} @endif</p>
                     </div>
                 @endforeach
             </div>
@@ -228,7 +228,7 @@
                                     @endif
                                 @endcan
                             @empty
-                                <p class="text-xs text-ink-faint">Este grado no tiene cursos con horario en este ciclo todavía.</p>
+                                <p class="text-xs text-ink-faint">Este semestre no tiene cursos con horario en este programa de estudio todavía.</p>
                             @endforelse
                         </div>
                     </div>

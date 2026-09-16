@@ -116,7 +116,7 @@ new #[Layout('layouts.app')] class extends Component
 <div>
     <x-slot name="header">
         <h1 class="font-display text-2xl text-ink">Historial del estudiante</h1>
-        <p class="mt-1 text-sm text-ink-dim">Busca por nombre o DNI para ver grados cursados, pagos, documentos y notas en un solo lugar.</p>
+        <p class="mt-1 text-sm text-ink-dim">Busca por nombre o DNI para ver semestres cursados, pagos, documentos y notas en un solo lugar.</p>
     </x-slot>
 
     <div class="space-y-6">

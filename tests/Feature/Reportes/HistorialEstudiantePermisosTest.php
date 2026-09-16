@@ -157,7 +157,7 @@ class HistorialEstudiantePermisosTest extends TestCase
             ->set('terminoBusqueda', 'Villar Soto')
             ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->assertHasNoErrors()
-            ->assertSee('SIAGIE anual');
+            ->assertSee('Periodo académico anual');
     }
 
     public function test_el_historial_muestra_el_siagie_de_la_matricula(): void
@@ -179,7 +179,7 @@ class HistorialEstudiantePermisosTest extends TestCase
             ->set('terminoBusqueda', 'Ramos Chumbe')
             ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->assertHasNoErrors()
-            ->assertSee('SIAGIE 2026-1');
+            ->assertSee('Periodo académico 2026-1');
     }
 
     public function test_el_historial_muestra_el_detalle_de_pagos_ya_cobrados(): void

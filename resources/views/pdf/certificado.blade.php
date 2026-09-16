@@ -109,6 +109,10 @@
 
     <p class="pie-codigo">N.° {{ $certificado->numero }}</p>
 
+    @if ($plantilla->codigo_documento_aprobacion)
+        <p class="pie-codigo">{{ $plantilla->codigo_documento_aprobacion }}</p>
+    @endif
+
     @if ($plantilla->pie_nota)
         <p class="verificacion">
             {{-- Escanear lleva directo al resultado (ver

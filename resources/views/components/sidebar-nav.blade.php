@@ -42,7 +42,7 @@
         </a>
     @endcan
 
-    @can('matricula.ver_propio_hijo')
+    @canany(['matricula.ver_propio_hijo', 'reportes.historial_estudiante'])
         <div class="mt-4 border-t border-border pt-4">
             <p class="sidebar-section-title px-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">
                 Portal de Apoderados
@@ -59,9 +59,9 @@
             ])
         >
             <x-heroicon-o-user-group class="h-5 w-5 shrink-0" />
-            <span class="sidebar-label">Mis hijos</span>
+            <span class="sidebar-label">Tutores/Apoderados</span>
         </a>
-    @endcan
+    @endcanany
 
     @can('matricula.ver')
         <div class="mt-4 border-t border-border pt-4">
@@ -190,7 +190,7 @@
                 'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('biblioteca.mis-prestamos'),
             ])
         >
-            <x-heroicon-o-book-open class="h-5 w-5 shrink-0" />
+            <x-heroicon-o-clock class="h-5 w-5 shrink-0" />
             <span class="sidebar-label">Mis préstamos</span>
         </a>
     @endcan
@@ -400,9 +400,9 @@
         </div>
 
         @foreach ([
-            ['route' => 'academico.siagie.index', 'prefix' => 'academico.siagie.*', 'label' => 'SIAGIE', 'icon' => 'identification'],
-            ['route' => 'academico.ciclos.index', 'prefix' => 'academico.ciclos.*', 'label' => 'Grupos', 'icon' => 'arrow-path'],
-            ['route' => 'academico.grados.index', 'prefix' => 'academico.grados.*', 'label' => 'Grados', 'icon' => 'academic-cap'],
+            ['route' => 'academico.siagie.index', 'prefix' => 'academico.siagie.*', 'label' => 'Periodo Académico', 'icon' => 'identification'],
+            ['route' => 'academico.ciclos.index', 'prefix' => 'academico.ciclos.*', 'label' => 'Programa de Estudio', 'icon' => 'arrow-path'],
+            ['route' => 'academico.grados.index', 'prefix' => 'academico.grados.*', 'label' => 'Semestres', 'icon' => 'academic-cap'],
             ['route' => 'academico.cursos.index', 'prefix' => 'academico.cursos.*', 'label' => 'Cursos', 'icon' => 'book-open'],
             ['route' => 'academico.aulas.index', 'prefix' => 'academico.aulas.*', 'label' => 'Aulas', 'icon' => 'building-office-2'],
             ['route' => 'academico.horarios.index', 'prefix' => 'academico.horarios.*', 'label' => 'Horarios', 'icon' => 'clock'],

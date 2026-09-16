@@ -76,6 +76,39 @@ class CertificadoServiceTest extends TestCase
         $this->assertStringContainsString($certificado->codigo_verificacion, $html);
     }
 
+    public function test_el_codigo_de_documento_de_aprobacion_se_imprime_solo_si_esta_definido(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $emisor = User::factory()->create();
+        $certificado = app(CertificadoService::class)->emitir($estudiante, null, null, null, $emisor)
+            ->load(['estudiante', 'matricula.grado', 'matricula.ciclo']);
+
+        $sinCodigo = PlantillaCertificado::paraTipo($certificado->tipo);
+        $htmlSinCodigo = view('pdf.certificado', [
+            'certificado' => $certificado,
+            'plantilla' => $sinCodigo,
+            'cuerpo' => 'Cuerpo de prueba.',
+        ])->render();
+        $this->assertStringNotContainsString('R.D. N.°', $htmlSinCodigo);
+
+        app(CertificadoService::class)->guardarPlantilla($certificado->tipo, [
+            'institucion' => $sinCodigo->institucion,
+            'titulo' => $sinCodigo->titulo,
+            'cuerpo' => $sinCodigo->cuerpo,
+            'pie_nota' => $sinCodigo->pie_nota,
+            'codigo_documento_aprobacion' => 'R.D. N.° 245-2026-DRE-PUNO',
+            'color_acento' => $sinCodigo->color_acento,
+        ]);
+
+        $conCodigo = PlantillaCertificado::paraTipo($certificado->tipo);
+        $htmlConCodigo = view('pdf.certificado', [
+            'certificado' => $certificado,
+            'plantilla' => $conCodigo,
+            'cuerpo' => 'Cuerpo de prueba.',
+        ])->render();
+        $this->assertStringContainsString('R.D. N.° 245-2026-DRE-PUNO', $htmlConCodigo);
+    }
+
     public function test_numeros_correlativos_no_se_repiten_dentro_del_mismo_anio(): void
     {
         $emisor = User::factory()->create();

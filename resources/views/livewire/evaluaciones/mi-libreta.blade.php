@@ -95,7 +95,7 @@ new #[Layout('layouts.app')] class extends Component
     @else
         @if ($this->ciclosMatriculados()->count() > 1)
             <div class="mb-4 max-w-xs">
-                <x-input-label for="cicloId" value="Ciclo" />
+                <x-input-label for="cicloId" value="Programa de estudio" />
                 <x-select-input
                     wire:model.live="cicloId"
                     id="cicloId"

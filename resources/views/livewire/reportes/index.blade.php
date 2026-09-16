@@ -264,12 +264,12 @@ new #[Layout('layouts.app')] class extends Component
                 />
             </div>
             <div>
-                <x-input-label for="siagieId" value="SIAGIE" />
+                <x-input-label for="siagieId" value="Periodo académico" />
                 <x-select-input
                     wire:model.live="siagieId"
                     id="siagieId"
                     class="mt-1 block w-48"
-                    :options="collect($siagiesDisponibles)->mapWithKeys(fn ($siagie) => [$siagie->id => $siagie->nombreCompleto()])->prepend('Todos los SIAGIE', '')"
+                    :options="collect($siagiesDisponibles)->mapWithKeys(fn ($siagie) => [$siagie->id => $siagie->nombreCompleto()])->prepend('Todos los periodos académicos', '')"
                 />
             </div>
             {{--
@@ -280,23 +280,23 @@ new #[Layout('layouts.app')] class extends Component
                 primer render y nunca ve las nuevas tras un morph.
             --}}
             <div wire:key="ciclo-select-{{ $siagieId }}">
-                <x-input-label for="cicloId" value="Grupo" />
+                <x-input-label for="cicloId" value="Programa de estudio" />
                 <x-select-input
                     wire:model.live="cicloId"
                     id="cicloId"
                     class="mt-1 block w-56"
                     :disabled="$siagieId === ''"
-                    :options="collect($ciclosDisponibles)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])->prepend('Todos los grupos', '')"
+                    :options="collect($ciclosDisponibles)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])->prepend('Todos los programas de estudio', '')"
                 />
             </div>
             <div wire:key="grado-select-{{ $cicloId }}">
-                <x-input-label for="gradoId" value="Grado" />
+                <x-input-label for="gradoId" value="Semestre" />
                 <x-select-input
                     wire:model.live="gradoId"
                     id="gradoId"
                     class="mt-1 block w-48"
                     :disabled="$cicloId === ''"
-                    :options="collect($gradosDisponibles)->mapWithKeys(fn ($grado) => [$grado->id => $grado->nombre])->prepend('Todos los grados', '')"
+                    :options="collect($gradosDisponibles)->mapWithKeys(fn ($grado) => [$grado->id => $grado->nombre])->prepend('Todos los semestres', '')"
                 />
             </div>
             <div wire:key="curso-select-{{ $gradoId }}">

@@ -83,11 +83,15 @@ class CertificadosPermisosTest extends TestCase
             ->set('plantillaInstitucion', 'CEBA Actualizado')
             ->set('plantillaTitulo', 'Certificado Actualizado')
             ->set('plantillaCuerpo', 'Cuerpo actualizado para {{estudiante}}.')
+            ->set('plantillaCodigoDocumentoAprobacion', 'R.D. N.° 245-2026-DRE-PUNO')
             ->set('plantillaColorAcento', '#123456')
             ->call('guardarPlantilla')
             ->assertHasNoErrors();
 
-        $this->assertDatabaseHas('plantilla_certificados', ['institucion' => 'CEBA Actualizado']);
+        $this->assertDatabaseHas('plantilla_certificados', [
+            'institucion' => 'CEBA Actualizado',
+            'codigo_documento_aprobacion' => 'R.D. N.° 245-2026-DRE-PUNO',
+        ]);
 
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);

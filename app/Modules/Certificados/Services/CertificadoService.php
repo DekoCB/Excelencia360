@@ -274,7 +274,7 @@ class CertificadoService
     }
 
     /**
-     * @param  array{institucion: string, titulo: string, cuerpo: string, pie_nota: ?string, color_acento: string}  $datos
+     * @param  array{institucion: string, titulo: string, cuerpo: string, pie_nota: ?string, codigo_documento_aprobacion: ?string, color_acento: string}  $datos
      */
     public function guardarPlantilla(TipoDocumentoEnum $tipo, array $datos): PlantillaCertificado
     {

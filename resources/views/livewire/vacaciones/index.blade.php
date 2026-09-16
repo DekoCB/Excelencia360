@@ -91,7 +91,7 @@ new #[Layout('layouts.app')] class extends Component
 <div>
     <x-slot name="header">
         <h1 class="font-display text-2xl text-ink">Vacaciones</h1>
-        <p class="mt-1 text-sm text-ink-dim">Periodos de 2 meses de descanso, exclusivos para estudiantes en SIAGIE anual. Es solo informativo: no afecta asistencia ni aula virtual.</p>
+        <p class="mt-1 text-sm text-ink-dim">Periodos de 2 meses de descanso, exclusivos para estudiantes en periodo académico anual. Es solo informativo: no afecta asistencia ni aula virtual.</p>
     </x-slot>
 
     @if (session('status'))
@@ -173,7 +173,7 @@ new #[Layout('layouts.app')] class extends Component
 
             <div class="mt-4 space-y-4">
                 <div>
-                    <x-input-label value="Estudiante (SIAGIE anual)" />
+                    <x-input-label value="Estudiante (periodo académico anual)" />
                     @if ($estudianteId)
                         <div class="mt-1 flex items-center justify-between rounded-md bg-accent-soft px-3 py-2 text-sm text-accent">
                             {{ $estudianteNombre }}
@@ -194,7 +194,7 @@ new #[Layout('layouts.app')] class extends Component
                                 @endforeach
                             </div>
                         @elseif ($terminoBusqueda !== '')
-                            <p class="mt-1 text-xs text-ink-faint">Sin resultados en SIAGIE anual.</p>
+                            <p class="mt-1 text-xs text-ink-faint">Sin resultados en periodo académico anual.</p>
                         @endif
                     @endif
                     <x-input-error :messages="$errors->get('estudianteId')" class="mt-1" />

@@ -7,11 +7,13 @@ namespace App\Modules\Biblioteca\Services;
 use App\Models\User;
 use App\Modules\Biblioteca\Enums\EstadoEjemplarEnum;
 use App\Modules\Biblioteca\Enums\EstadoPrestamoEnum;
+use App\Modules\Biblioteca\Models\DescargaLibro;
 use App\Modules\Biblioteca\Models\Ejemplar;
 use App\Modules\Biblioteca\Models\Libro;
 use App\Modules\Biblioteca\Models\Prestamo;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -61,6 +63,38 @@ class BibliotecaService
             'codigo_inventario' => $codigoInventario,
             'estado' => EstadoEjemplarEnum::DISPONIBLE,
         ]);
+    }
+
+    /**
+     * Biblioteca virtual: el PDF del libro completo (no un ejemplar --
+     * un archivo digital no se "presta" ni tiene código de inventario).
+     * Reemplaza el anterior si ya había uno, porque la colección es
+     * singleFile().
+     */
+    public function subirPdf(Libro $libro, UploadedFile $archivo): void
+    {
+        $libro->addMedia($archivo)->toMediaCollection('pdf');
+    }
+
+    public function registrarDescarga(Libro $libro, User $usuario): DescargaLibro
+    {
+        return DescargaLibro::query()->create([
+            'libro_id' => $libro->id,
+            'user_id' => $usuario->id,
+            'descargado_en' => now(),
+        ]);
+    }
+
+    /**
+     * Paginado por la misma razón que catalogo(): un log que crece sin
+     * límite con el tiempo.
+     */
+    public function historialDescargas(int $perPage = 15): LengthAwarePaginator
+    {
+        return DescargaLibro::query()
+            ->with(['libro', 'usuario'])
+            ->latest('descargado_en')
+            ->paginate($perPage, ['*'], 'descargasPage');
     }
 
     /**

@@ -199,21 +199,21 @@ new #[Layout('layouts.app')] class extends Component
     @if ($mostrarFiltrosAvanzados)
         <div class="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-surface-2 p-4">
             <div wire:key="ciclo-select-matricula">
-                <x-input-label for="cicloFiltro" value="Grupo (periodo académico)" />
+                <x-input-label for="cicloFiltro" value="Programa de estudio" />
                 <x-select-input
                     wire:model.live="cicloFiltro"
                     id="cicloFiltro"
                     class="mt-1 block w-56"
-                    :options="collect($ciclosDisponibles)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])->prepend('Todos los grupos', '')"
+                    :options="collect($ciclosDisponibles)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])->prepend('Todos los programas de estudio', '')"
                 />
             </div>
             <div wire:key="grado-select-matricula-{{ $cicloFiltro }}">
-                <x-input-label for="gradoFiltro" value="Grado" />
+                <x-input-label for="gradoFiltro" value="Semestre" />
                 <x-select-input
                     wire:model.live="gradoFiltro"
                     id="gradoFiltro"
                     class="mt-1 block w-48"
-                    :options="collect($gradosDisponibles)->mapWithKeys(fn ($grado) => [$grado->id => $grado->nombre])->prepend('Todos los grados', '')"
+                    :options="collect($gradosDisponibles)->mapWithKeys(fn ($grado) => [$grado->id => $grado->nombre])->prepend('Todos los semestres', '')"
                 />
             </div>
             <div wire:key="curso-select-matricula-{{ $gradoFiltro }}">

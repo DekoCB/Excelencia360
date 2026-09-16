@@ -627,21 +627,42 @@ new #[Layout('layouts.app')] class extends Component
                         <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ $numeroSemana === 0 ? 'Bienvenida' : 'Semana '.$numeroSemana }}</p>
                         <div class="divide-y divide-border rounded-2xl border border-border bg-surface shadow-sm">
                             @foreach ($clasesDeSemana as $claseGrabada)
-                                <div class="flex items-center justify-between px-4 py-3 text-sm">
-                                    <div class="flex items-center gap-3">
-                                        <span class="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-mono text-ink-faint">{{ $claseGrabada->tipo->label() }}</span>
-                                        <span class="text-ink">{{ $claseGrabada->titulo }}</span>
+                                @php($incrustable = $claseGrabada->tipo === TipoClaseGrabadaEnum::ENLACE ? \App\Shared\Support\VideoEmbed::incrustable($claseGrabada->url) : null)
+                                <div @if ($incrustable) x-data="{ abierto: false }" @endif>
+                                    <div class="flex items-center justify-between px-4 py-3 text-sm">
+                                        <div class="flex items-center gap-3">
+                                            <span class="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-mono text-ink-faint">{{ $claseGrabada->tipo->label() }}</span>
+                                            <span class="text-ink">{{ $claseGrabada->titulo }}</span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            @if ($claseGrabada->tipo->requiereArchivo() && $claseGrabada->getFirstMedia('video'))
+                                                <a href="{{ $claseGrabada->getFirstMediaUrl('video') }}" target="_blank" class="text-xs font-medium text-accent hover:underline">Ver video</a>
+                                            @elseif ($incrustable)
+                                                <button type="button" x-on:click="abierto = ! abierto" class="text-xs font-medium text-accent hover:underline" x-text="abierto ? 'Ocultar video' : 'Ver video'"></button>
+                                            @elseif ($claseGrabada->url)
+                                                <a href="{{ $claseGrabada->url }}" target="_blank" class="text-xs font-medium text-accent hover:underline">Abrir enlace</a>
+                                            @endif
+                                            @can('manage', $curso)
+                                                <button x-on:click="$store.confirm.preguntar('¿Eliminar esta clase grabada?', () => $wire.eliminarGrabacion({{ $claseGrabada->id }}), { peligro: true, etiquetaConfirmar: 'Eliminar' })" class="text-xs font-medium text-danger hover:underline">Eliminar</button>
+                                            @endcan
+                                        </div>
                                     </div>
-                                    <div class="flex items-center gap-3">
-                                        @if ($claseGrabada->tipo->requiereArchivo() && $claseGrabada->getFirstMedia('video'))
-                                            <a href="{{ $claseGrabada->getFirstMediaUrl('video') }}" target="_blank" class="text-xs font-medium text-accent hover:underline">Ver video</a>
-                                        @elseif ($claseGrabada->url)
-                                            <a href="{{ $claseGrabada->url }}" target="_blank" class="text-xs font-medium text-accent hover:underline">Abrir enlace</a>
-                                        @endif
-                                        @can('manage', $curso)
-                                            <button x-on:click="$store.confirm.preguntar('¿Eliminar esta clase grabada?', () => $wire.eliminarGrabacion({{ $claseGrabada->id }}), { peligro: true, etiquetaConfirmar: 'Eliminar' })" class="text-xs font-medium text-danger hover:underline">Eliminar</button>
-                                        @endcan
-                                    </div>
+                                    @if ($incrustable)
+                                        <div x-show="abierto" x-cloak class="px-4 pb-4">
+                                            <div class="aspect-video w-full overflow-hidden rounded-lg border border-border bg-black">
+                                                @if ($incrustable['tipo'] === 'iframe')
+                                                    <iframe
+                                                        src="{{ $incrustable['src'] }}"
+                                                        class="h-full w-full"
+                                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                        allowfullscreen
+                                                    ></iframe>
+                                                @else
+                                                    <video src="{{ $incrustable['src'] }}" controls class="h-full w-full"></video>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endif
                                 </div>
                             @endforeach
                         </div>

@@ -91,7 +91,7 @@ class SiagieService
 
         if ($existe) {
             throw ValidationException::withMessages([
-                'anio' => "Ya existe un SIAGIE {$tipo->label()} para el año {$anio}.",
+                'anio' => "Ya existe un periodo académico {$tipo->label()} para el año {$anio}.",
             ]);
         }
     }
@@ -103,7 +103,7 @@ class SiagieService
     {
         if (($datos['fecha_inicio'] ?? null) === null || ($datos['fecha_fin'] ?? null) === null) {
             throw ValidationException::withMessages([
-                'fecha_inicio' => 'El SIAGIE Anual necesita fecha de inicio y de fin (su periodo de clases real).',
+                'fecha_inicio' => 'El periodo académico Anual necesita fecha de inicio y de fin (su periodo de clases real).',
             ]);
         }
 
@@ -118,7 +118,7 @@ class SiagieService
             ]);
 
             $ciclo = $this->ciclos->crear([
-                'nombre' => "SIAGIE Anual - {$datos['anio']}",
+                'nombre' => "Periodo Académico Anual - {$datos['anio']}",
                 'modalidad' => ModalidadCicloEnum::ANUAL,
                 'tipo' => null,
                 'anio' => $datos['anio'],
@@ -139,7 +139,7 @@ class SiagieService
     {
         if (($datos['fecha_inicio'] ?? null) === null || ($datos['fecha_fin'] ?? null) === null) {
             throw ValidationException::withMessages([
-                'fecha_inicio' => 'El SIAGIE Anual necesita fecha de inicio y de fin (su periodo de clases real).',
+                'fecha_inicio' => 'El periodo académico Anual necesita fecha de inicio y de fin (su periodo de clases real).',
             ]);
         }
 

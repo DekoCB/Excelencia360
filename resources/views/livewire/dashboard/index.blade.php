@@ -567,7 +567,7 @@ new #[Layout('layouts.app')] class extends Component
 
         @if ($esCoordinador && count($asistenciaPorGrado) > 0)
             <div class="rounded-2xl border border-border bg-surface p-4 shadow-sm">
-                <h2 class="mb-3 text-sm font-semibold text-ink">Asistencia por grado (% presente/justificado)</h2>
+                <h2 class="mb-3 text-sm font-semibold text-ink">Asistencia por semestre (% presente/justificado)</h2>
                 <x-chart-canvas
                     type="bar"
                     :labels="collect($asistenciaPorGrado)->pluck('label')->all()"

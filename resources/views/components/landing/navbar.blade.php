@@ -11,6 +11,7 @@
         ['href' => $inicio.'#cursos', 'etiqueta' => 'Cursos'],
         ['href' => $inicio.'#servicios', 'etiqueta' => 'Servicios'],
         ['href' => $inicio.'#blog', 'etiqueta' => 'Blog'],
+        ['href' => route('certificados.verificar'), 'etiqueta' => 'Validación de Certificados'],
         ['href' => $inicio.'#contacto', 'etiqueta' => 'Contáctanos'],
     ];
     $claseEnlace = 'rounded-md px-3 py-2 text-sm font-medium text-e360-text transition-colors hover:bg-e360-primary-tint/60 hover:text-e360-primary-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-e360-secondary';

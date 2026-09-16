@@ -80,6 +80,8 @@ class PlantillaCertificadoTest extends TestCase
         $this->assertContains('constancia_matricula', $valores);
         $this->assertContains('constancia_egresado', $valores);
         $this->assertContains('constancia_buena_conducta', $valores);
+        $this->assertContains('constancia_practicas_preprofesionales', $valores);
+        $this->assertContains('constancia_practicas_profesionales', $valores);
         $this->assertNotContains('constancia_vacante', $valores);
     }
 
@@ -92,6 +94,7 @@ class PlantillaCertificadoTest extends TestCase
             'titulo' => 'Constancia de estudios',
             'cuerpo' => 'Certificamos que {{estudiante}} ({{dni}}) {{detalle_matricula}}',
             'pie_nota' => 'Nota al pie personalizada.',
+            'codigo_documento_aprobacion' => 'R.D. N.° 245-2026-DRE-PUNO',
             'color_acento' => '#FF0000',
         ]);
 
@@ -99,6 +102,14 @@ class PlantillaCertificadoTest extends TestCase
         $this->assertSame('CEBA Peruano Británico', $plantilla->institucion);
         $this->assertSame('Constancia de estudios', $plantilla->titulo);
         $this->assertSame('#FF0000', $plantilla->color_acento);
+        $this->assertSame('R.D. N.° 245-2026-DRE-PUNO', $plantilla->codigo_documento_aprobacion);
+    }
+
+    public function test_el_codigo_de_documento_de_aprobacion_es_opcional_y_null_por_defecto(): void
+    {
+        $plantilla = PlantillaCertificado::paraTipo(TipoDocumentoEnum::CERTIFICADO_ESTUDIOS);
+
+        $this->assertNull($plantilla->codigo_documento_aprobacion);
     }
 
     public function test_guardar_plantilla_de_un_tipo_no_afecta_a_los_demas(): void

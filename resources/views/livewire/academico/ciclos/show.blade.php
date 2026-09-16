@@ -47,7 +47,7 @@ new #[Layout('layouts.app')] class extends Component
 
 <div class="max-w-3xl space-y-6">
     <x-slot name="header">
-        <a href="{{ route('academico.ciclos.index') }}" wire:navigate class="text-sm text-ink-faint hover:text-ink">← Grupos</a>
+        <a href="{{ route('academico.ciclos.index') }}" wire:navigate class="text-sm text-ink-faint hover:text-ink">← Programa de Estudio</a>
         <h1 class="mt-1 font-display text-2xl text-ink">{{ $ciclo->nombre }}</h1>
         <p class="mt-1 text-sm text-ink-dim">
             {{ $ciclo->modalidad->label() }}{{ $ciclo->tipo ? ' · '.$ciclo->tipo->label() : '' }} · {{ $ciclo->fecha_inicio->format('d/m/Y') }} – {{ $ciclo->fecha_fin->format('d/m/Y') }}

@@ -648,7 +648,7 @@ new #[Layout('layouts.app')] class extends Component
                     <p>
                         <span class="font-semibold text-accent">Cuota N.° {{ $cuotaDetectada->numero }}</span>
                         de {{ $cuotaDetectada->planPago->numero_cuotas }}
-                        · Grupo {{ $cuotaDetectada->planPago->matricula->ciclo->nombre }}
+                        · Programa de estudio {{ $cuotaDetectada->planPago->matricula->ciclo->nombre }}
                         · vence {{ $cuotaDetectada->fecha_vencimiento->format('d/m/Y') }}
                     </p>
                     <p class="mt-1 text-ink-dim">
@@ -826,9 +826,7 @@ new #[Layout('layouts.app')] class extends Component
                                 'bg-warn/10 text-warn' => $pago->estado->value === 'pendiente',
                                 'bg-danger/10 text-danger' => $pago->estado->value === 'rechazado',
                             ])>{{ $pago->estado->label() }}</span>
-                            @if ($pago->recibo && $pago->recibo->getFirstMedia('pdf'))
-                                <a href="{{ $pago->recibo->getFirstMediaUrl('pdf') }}" target="_blank" class="block text-xs font-medium text-accent hover:underline">Recibo</a>
-                            @endif
+                            <x-recibo-enlaces :recibo="$pago->recibo" />
                         </div>
                     </div>
                 @empty
@@ -956,9 +954,7 @@ new #[Layout('layouts.app')] class extends Component
                                                     {{ $pago->partes->map(fn ($parte) => 'S/ '.number_format((float) $parte->monto, 2).' '.$parte->metodoConNota())->implode(' + ') }}
                                                 </p>
                                             @endif
-                                            @if ($pago->recibo && $pago->recibo->getFirstMedia('pdf'))
-                                                <a href="{{ $pago->recibo->getFirstMediaUrl('pdf') }}" target="_blank" class="text-xs font-medium text-accent hover:underline">Recibo</a>
-                                            @endif
+                                            <x-recibo-enlaces :recibo="$pago->recibo" />
                                         </div>
                                         <p class="font-display text-ink">S/ {{ number_format((float) $pago->monto, 2) }}</p>
                                     </div>
@@ -976,12 +972,12 @@ new #[Layout('layouts.app')] class extends Component
                 <div class="space-y-4 rounded-2xl border border-border bg-surface shadow-sm p-6">
                     <div class="flex flex-wrap items-end gap-4">
                         <div>
-                            <x-input-label for="cobrosCicloId" value="Grupo" />
+                            <x-input-label for="cobrosCicloId" value="Programa de estudio" />
                             <x-select-input
                                 wire:model.live="cobrosCicloId"
                                 id="cobrosCicloId"
                                 class="mt-1 block w-56"
-                                :options="collect($cobrosCiclos)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])->prepend('Todos los grupos', '')"
+                                :options="collect($cobrosCiclos)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])->prepend('Todos los programas de estudio', '')"
                             />
                         </div>
                         {{--
@@ -991,13 +987,13 @@ new #[Layout('layouts.app')] class extends Component
                             tras el morph -- ver el mismo fix en Reportes).
                         --}}
                         <div wire:key="cobros-grado-select-{{ $cobrosCicloId }}">
-                            <x-input-label for="cobrosGradoId" value="Grado" />
+                            <x-input-label for="cobrosGradoId" value="Semestre" />
                             <x-select-input
                                 wire:model.live="cobrosGradoId"
                                 id="cobrosGradoId"
                                 class="mt-1 block w-48"
                                 :disabled="$cobrosCicloId === ''"
-                                :options="collect($cobrosGrados)->mapWithKeys(fn ($grado) => [$grado->id => $grado->nombre])->prepend('Todos los grados', '')"
+                                :options="collect($cobrosGrados)->mapWithKeys(fn ($grado) => [$grado->id => $grado->nombre])->prepend('Todos los semestres', '')"
                             />
                         </div>
                         <div wire:key="cobros-curso-select-{{ $cobrosGradoId }}">

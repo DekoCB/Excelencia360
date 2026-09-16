@@ -261,7 +261,7 @@ class DashboardTest extends TestCase
         $this->actingAs($coordinador)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('Asistencia por grado')
+            ->assertSee('Asistencia por semestre')
             ->assertSee('1ro de Secundaria');
     }
 

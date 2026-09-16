@@ -1229,11 +1229,11 @@ class MatriculaPermisosTest extends TestCase
         $this->actingAs($usuario);
 
         Volt::test('matricula.index')
-            ->assertDontSee('Grupo (periodo académico)')
+            ->assertDontSee('Programa de estudio')
             ->set('mostrarFiltrosAvanzados', true)
-            ->assertSee('Grupo (periodo académico)')
+            ->assertSee('Programa de estudio')
             ->set('mostrarFiltrosAvanzados', false)
-            ->assertDontSee('Grupo (periodo académico)');
+            ->assertDontSee('Programa de estudio');
     }
 
     public function test_elegir_un_ciclo_reinicia_grado_y_curso(): void

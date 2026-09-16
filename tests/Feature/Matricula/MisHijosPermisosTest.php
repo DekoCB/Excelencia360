@@ -157,7 +157,7 @@ class MisHijosPermisosTest extends TestCase
         $this->actingAs($apoderado)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('Mis hijos');
+            ->assertSee('Tutores/Apoderados');
     }
 
     public function test_el_enlace_mis_hijos_no_aparece_en_el_menu_para_docente(): void
@@ -168,6 +168,58 @@ class MisHijosPermisosTest extends TestCase
         $this->actingAs($docente)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertDontSee('Mis hijos');
+            ->assertDontSee('Tutores/Apoderados');
+    }
+
+    public function test_direccion_entra_sin_hijos_propios_y_ve_el_buscador(): void
+    {
+        $direccion = User::factory()->create();
+        $direccion->assignRole(RolEnum::DIRECCION->value);
+
+        $this->actingAs($direccion)
+            ->get(route('matricula.mis-hijos'))
+            ->assertOk()
+            ->assertSee('Buscar tutor/apoderado o estudiante');
+    }
+
+    public function test_direccion_puede_buscar_y_ver_a_cualquier_hijo_por_su_apoderado(): void
+    {
+        $hijo = Estudiante::factory()->create(['nombres' => 'Ana', 'apellidos' => 'Quispe Mamani']);
+        Apoderado::factory()->create(['estudiante_id' => $hijo->id, 'nombres' => 'Rosa Mamani', 'user_id' => null]);
+
+        $direccion = User::factory()->create();
+        $direccion->assignRole(RolEnum::DIRECCION->value);
+
+        $this->actingAs($direccion);
+
+        Volt::test('matricula.mis-hijos')
+            ->set('terminoBusqueda', 'Rosa Mamani')
+            ->assertSee('Ana Quispe Mamani')
+            ->call('seleccionarHijo', $hijo->id)
+            ->assertHasNoErrors()
+            ->assertSee('DNI '.$hijo->dni);
+    }
+
+    public function test_coordinador_tambien_entra_al_directorio(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+
+        $this->actingAs($coordinador)
+            ->get(route('matricula.mis-hijos'))
+            ->assertOk()
+            ->assertSee('Buscar tutor/apoderado o estudiante');
+    }
+
+    public function test_administrativo_sin_hijos_propios_no_entra(): void
+    {
+        // Administrativo tiene matricula.ver pero no reportes.historial_estudiante
+        // (ni matricula.ver_propio_hijo): no debe ganar acceso nuevo al directorio.
+        $administrativo = User::factory()->create();
+        $administrativo->assignRole(RolEnum::ADMINISTRATIVO->value);
+
+        $this->actingAs($administrativo)
+            ->get(route('matricula.mis-hijos'))
+            ->assertForbidden();
     }
 }

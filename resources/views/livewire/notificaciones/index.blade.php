@@ -111,7 +111,7 @@ new #[Layout('layouts.app')] class extends Component
 <div>
     <x-slot name="header">
         <h1 class="font-display text-2xl text-ink">Notificaciones</h1>
-        <p class="mt-1 text-sm text-ink-dim">Envíos masivos de WhatsApp segmentados por grado, ciclo o estado de deuda.</p>
+        <p class="mt-1 text-sm text-ink-dim">Envíos masivos de WhatsApp segmentados por semestre, programa de estudio o estado de deuda.</p>
     </x-slot>
 
     @if (session('status'))
@@ -158,12 +158,12 @@ new #[Layout('layouts.app')] class extends Component
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <x-input-label for="gradoId" value="Grado (opcional)" />
+                    <x-input-label for="gradoId" value="Semestre (opcional)" />
                     <x-select-input
                         wire:model.live="gradoId"
                         id="gradoId"
                         class="mt-1 block w-full"
-                        :options="collect($grados)->mapWithKeys(fn ($grado) => [$grado->id => $grado->nombre])->prepend('Todos los grados', '')"
+                        :options="collect($grados)->mapWithKeys(fn ($grado) => [$grado->id => $grado->nombre])->prepend('Todos los semestres', '')"
                     />
                 </div>
                 <div>

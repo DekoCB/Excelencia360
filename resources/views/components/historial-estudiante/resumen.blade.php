@@ -33,7 +33,7 @@
 </div>
 
 <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
-    <h2 class="text-sm font-semibold text-ink">Grados cursados</h2>
+    <h2 class="text-sm font-semibold text-ink">Semestres cursados</h2>
     <div class="mt-4 divide-y divide-border">
         @forelse ($historial['matriculas'] as $matricula)
             <div class="flex items-center justify-between py-3 text-sm">
@@ -45,7 +45,7 @@
                             · Fin de estudios: {{ $matricula->fecha_fin_estudio->format('d/m/Y') }}
                         @endif
                         @if ($matricula->siagieCompleto())
-                            · SIAGIE {{ $matricula->siagieCompleto() }}
+                            · Periodo académico {{ $matricula->siagieCompleto() }}
                         @endif
                     </p>
                 </div>
@@ -141,9 +141,7 @@
                         'bg-warn/10 text-warn' => $pago->estado->value === 'pendiente',
                         'bg-danger/10 text-danger' => $pago->estado->value === 'rechazado',
                     ])>{{ $pago->estado->label() }}</span>
-                    @if ($pago->recibo && $pago->recibo->getFirstMedia('pdf'))
-                        <a href="{{ $pago->recibo->getFirstMediaUrl('pdf') }}" target="_blank" class="block text-xs font-medium text-accent hover:underline">Recibo</a>
-                    @endif
+                    <x-recibo-enlaces :recibo="$pago->recibo" />
                 </div>
             </div>
         @empty
@@ -203,7 +201,7 @@
             @foreach ($historial['examenesUbicacion'] as $examen)
                 <div class="py-2 text-sm">
                     <p class="text-ink">{{ $examen->fecha->format('d/m/Y') }} · S/ {{ number_format((float) $examen->costo, 2) }}</p>
-                    <p class="text-ink-faint">Resultado: {{ $examen->resultado ?? '—' }} @if ($examen->gradoAsignado) · Grado asignado: {{ $examen->gradoAsignado->nombre }} @endif</p>
+                    <p class="text-ink-faint">Resultado: {{ $examen->resultado ?? '—' }} @if ($examen->gradoAsignado) · Semestre asignado: {{ $examen->gradoAsignado->nombre }} @endif</p>
                 </div>
             @endforeach
         </div>

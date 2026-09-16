@@ -496,7 +496,7 @@ new #[Layout('layouts.app')] class extends Component
                 <form wire:submit="guardar" class="mt-4 space-y-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <x-input-label for="cicloId" value="Ciclo" />
+                            <x-input-label for="cicloId" value="Programa de estudio" />
                             <x-select-input
                                 wire:model="cicloId"
                                 id="cicloId"
@@ -506,7 +506,7 @@ new #[Layout('layouts.app')] class extends Component
                             <x-input-error :messages="$errors->get('cicloId')" class="mt-1" />
                         </div>
                         <div>
-                            <x-input-label for="gradoId" value="Grado" />
+                            <x-input-label for="gradoId" value="Semestre" />
                             <x-select-input
                                 wire:model="gradoId"
                                 id="gradoId"

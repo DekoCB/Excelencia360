@@ -167,7 +167,7 @@ new #[Layout('layouts.app')] class extends Component
 <div>
     <x-slot name="header">
         <h1 class="font-display text-2xl text-ink">Cursos</h1>
-        <p class="mt-1 text-sm text-ink-dim">Catálogo de cursos por grado.</p>
+        <p class="mt-1 text-sm text-ink-dim">Catálogo de cursos por semestre.</p>
     </x-slot>
 
     {{-- Ver academico/grados/index.blade.php: el botón no puede vivir en x-slot="header". --}}
@@ -198,7 +198,7 @@ new #[Layout('layouts.app')] class extends Component
                 <tr>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Código</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Nombre</th>
-                    <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Grado</th>
+                    <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Semestre</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Docente</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Horas</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Estado</th>
@@ -269,7 +269,7 @@ new #[Layout('layouts.app')] class extends Component
                     </div>
 
                     <div>
-                        <x-input-label for="gradoId" value="Grado" />
+                        <x-input-label for="gradoId" value="Semestre" />
                         <x-select-input
                             wire:model.live="gradoId"
                             id="gradoId"

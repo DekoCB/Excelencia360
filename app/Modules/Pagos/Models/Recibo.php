@@ -52,6 +52,7 @@ class Recibo extends Model implements HasMedia
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('pdf')->singleFile();
+        $this->addMediaCollection('pdf_80mm')->singleFile();
     }
 
     public function pago(): BelongsTo

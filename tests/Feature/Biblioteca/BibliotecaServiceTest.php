@@ -10,6 +10,8 @@ use App\Modules\Biblioteca\Models\Libro;
 use App\Modules\Biblioteca\Models\Prestamo;
 use App\Modules\Biblioteca\Services\BibliotecaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
@@ -51,6 +53,61 @@ class BibliotecaServiceTest extends TestCase
 
         $this->assertSame(EstadoEjemplarEnum::DISPONIBLE, $ejemplar->estado);
         $this->assertSame($libro->id, $ejemplar->libro_id);
+    }
+
+    public function test_subir_pdf_lo_deja_disponible_en_la_coleccion_pdf(): void
+    {
+        Storage::fake('public');
+
+        $libro = Libro::factory()->create();
+
+        $this->service()->subirPdf($libro, UploadedFile::fake()->create('libro.pdf', 500, 'application/pdf'));
+
+        $this->assertNotNull($libro->fresh()->getFirstMedia('pdf'));
+    }
+
+    public function test_subir_un_pdf_nuevo_reemplaza_al_anterior(): void
+    {
+        Storage::fake('public');
+
+        $libro = Libro::factory()->create();
+        $service = $this->service();
+
+        $service->subirPdf($libro, UploadedFile::fake()->create('viejo.pdf', 200, 'application/pdf'));
+        $service->subirPdf($libro, UploadedFile::fake()->create('nuevo.pdf', 200, 'application/pdf'));
+
+        $libro->refresh();
+        $this->assertCount(1, $libro->getMedia('pdf'));
+        $this->assertSame('nuevo.pdf', $libro->getFirstMedia('pdf')->file_name);
+    }
+
+    public function test_registrar_descarga_crea_el_registro_de_historial(): void
+    {
+        $libro = Libro::factory()->create();
+        $usuario = User::factory()->create();
+
+        $descarga = $this->service()->registrarDescarga($libro, $usuario);
+
+        $this->assertDatabaseHas('descargas_libro', [
+            'id' => $descarga->id,
+            'libro_id' => $libro->id,
+            'user_id' => $usuario->id,
+        ]);
+    }
+
+    public function test_historial_descargas_trae_las_mas_recientes_primero(): void
+    {
+        $libro = Libro::factory()->create();
+        $usuario = User::factory()->create();
+        $service = $this->service();
+
+        $primera = $service->registrarDescarga($libro, $usuario);
+        $primera->update(['descargado_en' => now()->subDays(2)]);
+        $segunda = $service->registrarDescarga($libro, $usuario);
+
+        $resultado = $service->historialDescargas();
+
+        $this->assertSame($segunda->id, $resultado->first()->id);
     }
 
     public function test_prestar_marca_el_ejemplar_como_prestado_y_crea_el_registro(): void

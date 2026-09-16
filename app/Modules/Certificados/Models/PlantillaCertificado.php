@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $titulo
  * @property string $cuerpo
  * @property string|null $pie_nota
+ * @property string|null $codigo_documento_aprobacion
  * @property string $color_acento
  */
 class PlantillaCertificado extends Model
@@ -35,6 +36,7 @@ class PlantillaCertificado extends Model
         'titulo',
         'cuerpo',
         'pie_nota',
+        'codigo_documento_aprobacion',
         'color_acento',
     ];
 
@@ -127,6 +129,28 @@ class PlantillaCertificado extends Model
                     ."modalidad virtual.\n\n"
                     .'Se expide el presente a solicitud de la parte interesada para los fines que estime '
                     .'conveniente, mientras se tramita el certificado de estudios correspondiente.',
+                'pie_nota' => $pieNota,
+                'color_acento' => $colorAcentoConstancia,
+            ],
+            TipoDocumentoEnum::CONSTANCIA_PRACTICAS_PREPROFESIONALES => [
+                'institucion' => $institucion,
+                'titulo' => 'Constancia de prácticas preprofesionales',
+                'cuerpo' => 'Por medio de la presente hacemos constar que el(la) alumno(a) {{estudiante}}, '
+                    .'identificado(a) con DNI N.° {{dni}}, de nacionalidad peruana, ha realizado '
+                    .'satisfactoriamente sus prácticas preprofesionales correspondientes al {{grado}} en el '
+                    ."presente periodo {{periodo}}, en la modalidad virtual.\n\n"
+                    .'Se expide el presente a solicitud de la parte interesada para los fines que estime conveniente.',
+                'pie_nota' => $pieNota,
+                'color_acento' => $colorAcentoConstancia,
+            ],
+            TipoDocumentoEnum::CONSTANCIA_PRACTICAS_PROFESIONALES => [
+                'institucion' => $institucion,
+                'titulo' => 'Constancia de prácticas profesionales',
+                'cuerpo' => 'Por medio de la presente hacemos constar que el(la) alumno(a) {{estudiante}}, '
+                    .'identificado(a) con DNI N.° {{dni}}, de nacionalidad peruana, ha realizado '
+                    .'satisfactoriamente sus prácticas profesionales correspondientes al {{grado}} en el '
+                    ."presente periodo {{periodo}}, en la modalidad virtual.\n\n"
+                    .'Se expide el presente a solicitud de la parte interesada para los fines que estime conveniente.',
                 'pie_nota' => $pieNota,
                 'color_acento' => $colorAcentoConstancia,
             ],

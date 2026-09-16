@@ -23,10 +23,10 @@ enum TipoCicloEnum: string
     public function label(): string
     {
         return match ($this) {
-            self::GRUPO_1 => 'Grupo 1 (Enero - Junio)',
-            self::GRUPO_2 => 'Grupo 2 (Mayo - Octubre)',
-            self::GRUPO_3 => 'Grupo 3 (Julio - Diciembre)',
-            self::GRUPO_4 => 'Grupo 4 (Noviembre - Abril)',
+            self::GRUPO_1 => 'Programa 1 (Enero - Junio)',
+            self::GRUPO_2 => 'Programa 2 (Mayo - Octubre)',
+            self::GRUPO_3 => 'Programa 3 (Julio - Diciembre)',
+            self::GRUPO_4 => 'Programa 4 (Noviembre - Abril)',
         };
     }
 

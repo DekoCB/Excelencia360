@@ -63,7 +63,7 @@ new #[Layout('layouts.guest')] class extends Component
                     <p><span class="text-ink-faint">Estudiante:</span> {{ $resultado->estudiante?->nombreCompleto() ?? '—' }}</p>
                     <p><span class="text-ink-faint">N.° de certificado:</span> {{ $resultado->numero }}</p>
                     @if ($resultado->matricula)
-                        <p><span class="text-ink-faint">Grado:</span> {{ $resultado->matricula->grado->nombre }}</p>
+                        <p><span class="text-ink-faint">Semestre:</span> {{ $resultado->matricula->grado->nombre }}</p>
                         <p><span class="text-ink-faint">Ciclo:</span> {{ $resultado->matricula->ciclo->nombre }}</p>
                     @endif
                     <p><span class="text-ink-faint">Fecha de emisión:</span> {{ $resultado->fecha_emision->format('d/m/Y') }}</p>

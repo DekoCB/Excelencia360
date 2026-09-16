@@ -19,6 +19,8 @@ enum TipoDocumentoEnum: string
     case CONSTANCIA_BUENA_CONDUCTA = 'constancia_buena_conducta';
     case CONSTANCIA_MATRICULA = 'constancia_matricula';
     case CONSTANCIA_EGRESADO = 'constancia_egresado';
+    case CONSTANCIA_PRACTICAS_PREPROFESIONALES = 'constancia_practicas_preprofesionales';
+    case CONSTANCIA_PRACTICAS_PROFESIONALES = 'constancia_practicas_profesionales';
     case LIBRETA_NOTAS = 'libreta_notas';
 
     public function label(): string
@@ -30,6 +32,8 @@ enum TipoDocumentoEnum: string
             self::CONSTANCIA_BUENA_CONDUCTA => 'Constancia de buena conducta',
             self::CONSTANCIA_MATRICULA => 'Constancia de matrícula',
             self::CONSTANCIA_EGRESADO => 'Constancia de egresado',
+            self::CONSTANCIA_PRACTICAS_PREPROFESIONALES => 'Constancia de prácticas preprofesionales',
+            self::CONSTANCIA_PRACTICAS_PROFESIONALES => 'Constancia de prácticas profesionales',
             self::LIBRETA_NOTAS => 'Libreta de notas',
         };
     }
@@ -75,6 +79,13 @@ enum TipoDocumentoEnum: string
      */
     public static function constancias(): array
     {
-        return [self::CONSTANCIA_ESTUDIOS, self::CONSTANCIA_MATRICULA, self::CONSTANCIA_EGRESADO, self::CONSTANCIA_BUENA_CONDUCTA];
+        return [
+            self::CONSTANCIA_ESTUDIOS,
+            self::CONSTANCIA_MATRICULA,
+            self::CONSTANCIA_EGRESADO,
+            self::CONSTANCIA_BUENA_CONDUCTA,
+            self::CONSTANCIA_PRACTICAS_PREPROFESIONALES,
+            self::CONSTANCIA_PRACTICAS_PROFESIONALES,
+        ];
     }
 }

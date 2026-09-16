@@ -3,12 +3,15 @@
 namespace Tests\Feature\Biblioteca;
 
 use App\Models\User;
+use App\Modules\Biblioteca\Models\DescargaLibro;
 use App\Modules\Biblioteca\Models\Ejemplar;
 use App\Modules\Biblioteca\Models\Libro;
 use App\Modules\Biblioteca\Models\Prestamo;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Shared\Enums\RolEnum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Volt;
 use Tests\TestCase;
 
@@ -159,5 +162,116 @@ class BibliotecaPermisosTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertSee('Biblioteca');
+    }
+
+    public function test_coordinador_puede_subir_el_pdf_de_un_libro(): void
+    {
+        Storage::fake('public');
+
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $libro = Libro::factory()->create();
+
+        $this->actingAs($coordinador);
+
+        Volt::test('biblioteca.index')
+            ->call('abrirFormPdf', $libro->id)
+            ->set('pdfArchivo', UploadedFile::fake()->create('libro.pdf', 500, 'application/pdf'))
+            ->call('subirPdf')
+            ->assertHasNoErrors();
+
+        $this->assertNotNull($libro->fresh()->getFirstMedia('pdf'));
+    }
+
+    public function test_no_permite_subir_un_php_disfrazado_de_pdf(): void
+    {
+        Storage::fake('public');
+
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $libro = Libro::factory()->create();
+
+        $this->actingAs($coordinador);
+
+        Volt::test('biblioteca.index')
+            ->call('abrirFormPdf', $libro->id)
+            ->set('pdfArchivo', UploadedFile::fake()->create('malicioso.php', 10, 'application/x-php'))
+            ->call('subirPdf')
+            ->assertHasErrors('pdfArchivo');
+
+        $this->assertNull($libro->fresh()->getFirstMedia('pdf'));
+    }
+
+    public function test_un_docente_no_puede_subir_el_pdf_de_un_libro(): void
+    {
+        Storage::fake('public');
+
+        $docente = User::factory()->create();
+        $docente->assignRole(RolEnum::DOCENTE->value);
+        $libro = Libro::factory()->create();
+
+        $this->actingAs($docente);
+
+        Volt::test('biblioteca.index')
+            ->call('abrirFormPdf', $libro->id)
+            ->assertForbidden();
+    }
+
+    public function test_un_estudiante_puede_descargar_el_pdf_y_queda_en_el_historial(): void
+    {
+        Storage::fake('public');
+
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $libro = Libro::factory()->create();
+        $libro->addMedia(UploadedFile::fake()->create('libro.pdf', 500, 'application/pdf'))->toMediaCollection('pdf');
+
+        $estudiante = User::factory()->create();
+        $estudiante->assignRole(RolEnum::ESTUDIANTE->value);
+
+        $this->actingAs($estudiante);
+
+        $testable = Volt::test('biblioteca.index')->call('descargarPdf', $libro->id);
+
+        $this->assertArrayHasKey('download', $testable->effects);
+
+        $this->assertDatabaseHas('descargas_libro', [
+            'libro_id' => $libro->id,
+            'user_id' => $estudiante->id,
+        ]);
+    }
+
+    public function test_descargar_un_libro_sin_pdf_da_404(): void
+    {
+        $estudiante = User::factory()->create();
+        $estudiante->assignRole(RolEnum::ESTUDIANTE->value);
+        $libro = Libro::factory()->create();
+
+        $this->actingAs($estudiante);
+
+        Volt::test('biblioteca.index')
+            ->call('descargarPdf', $libro->id)
+            ->assertStatus(404);
+    }
+
+    public function test_solo_quien_gestiona_ve_el_historial_de_descargas(): void
+    {
+        DescargaLibro::factory()->create();
+
+        $estudiante = User::factory()->create();
+        $estudiante->assignRole(RolEnum::ESTUDIANTE->value);
+
+        $this->actingAs($estudiante)
+            ->get(route('biblioteca.index'))
+            ->assertOk()
+            ->assertDontSee('Historial de descargas');
+
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+
+        $this->actingAs($coordinador)
+            ->get(route('biblioteca.index'))
+            ->assertOk()
+            ->assertSee('Historial de descargas');
     }
 }

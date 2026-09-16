@@ -8,19 +8,22 @@ use App\Modules\Biblioteca\Services\BibliotecaService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
 /**
  * Catálogo, visible para cualquiera con biblioteca.ver. Quien además
  * tiene biblioteca.gestionar ve, en esta misma página, cómo agregar
- * libros/ejemplares y la lista de préstamos activos con prestar/devolver/
- * marcar perdido. Dos listas paginadas por separado (catálogo y préstamos
- * activos), cada una con su propio nombre de página -- si compartieran el
- * mismo parámetro ?page=, paginar una movería la otra.
+ * libros/ejemplares, subir el PDF de un libro (biblioteca virtual), la
+ * lista de préstamos activos con prestar/devolver/marcar perdido, y el
+ * historial de quién ha descargado qué. Tres listas paginadas por
+ * separado (catálogo, préstamos activos, historial de descargas), cada
+ * una con su propio nombre de página -- si compartieran el mismo
+ * parámetro ?page=, paginar una movería las otras.
  */
 new #[Layout('layouts.app')] class extends Component
 {
-    use WithPagination;
+    use WithFileUploads, WithPagination;
 
     public string $termino = '';
 
@@ -45,6 +48,10 @@ new #[Layout('layouts.app')] class extends Component
     public ?int $ejemplarEnPrestamoId = null;
 
     public string $dniSolicitante = '';
+
+    public ?int $libroConFormPdfId = null;
+
+    public $pdfArchivo = null;
 
     public function mount(): void
     {
@@ -119,6 +126,46 @@ new #[Layout('layouts.app')] class extends Component
         session()->flash('status', 'Ejemplar agregado.');
     }
 
+    public function abrirFormPdf(int $libroId): void
+    {
+        abort_unless(Auth::user()->hasPermissionTo('biblioteca.gestionar'), 403);
+
+        $this->libroConFormPdfId = $libroId;
+        $this->pdfArchivo = null;
+    }
+
+    public function cerrarFormPdf(): void
+    {
+        $this->reset(['libroConFormPdfId', 'pdfArchivo']);
+        $this->resetErrorBag();
+    }
+
+    public function subirPdf(BibliotecaService $service): void
+    {
+        abort_unless(Auth::user()->hasPermissionTo('biblioteca.gestionar'), 403);
+
+        $this->validate([
+            'pdfArchivo' => 'required|file|mimes:pdf|max:20480',
+        ]);
+
+        $libro = Libro::query()->findOrFail($this->libroConFormPdfId);
+        $service->subirPdf($libro, $this->pdfArchivo);
+
+        $this->cerrarFormPdf();
+        session()->flash('status', 'PDF del libro guardado.');
+    }
+
+    public function descargarPdf(int $libroId, BibliotecaService $service)
+    {
+        $libro = Libro::query()->findOrFail($libroId);
+        $media = $libro->getFirstMedia('pdf');
+        abort_if($media === null, 404);
+
+        $service->registrarDescarga($libro, Auth::user());
+
+        return response()->download($media->getPath(), $media->file_name);
+    }
+
     public function abrirFormPrestamo(int $ejemplarId): void
     {
         abort_unless(Auth::user()->hasPermissionTo('biblioteca.gestionar'), 403);
@@ -178,6 +225,7 @@ new #[Layout('layouts.app')] class extends Component
             'puedeGestionar' => $puedeGestionar,
             'libros' => $service->catalogo($this->termino !== '' ? $this->termino : null),
             'prestamosActivos' => $puedeGestionar ? $service->prestamosActivos() : collect(),
+            'historialDescargas' => $puedeGestionar ? $service->historialDescargas() : collect(),
         ];
     }
 }; ?>
@@ -247,11 +295,34 @@ new #[Layout('layouts.app')] class extends Component
                     <div>
                         <p class="text-sm font-semibold text-ink">{{ $libro->titulo }}</p>
                         <p class="text-xs text-ink-faint">{{ $libro->autor }}@if ($libro->categoria) · {{ $libro->categoria }} @endif@if ($libro->anio_publicacion) · {{ $libro->anio_publicacion }} @endif</p>
+                        @if ($libro->getFirstMedia('pdf'))
+                            <button type="button" wire:click="descargarPdf({{ $libro->id }})" class="mt-1 inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
+                                <x-heroicon-o-arrow-down-tray class="h-3.5 w-3.5" />
+                                Descargar PDF
+                            </button>
+                        @endif
                     </div>
-                    @if ($puedeGestionar)
-                        <x-secondary-button type="button" wire:click="abrirFormEjemplar({{ $libro->id }})">+ Ejemplar</x-secondary-button>
-                    @endif
+                    <div class="flex gap-2">
+                        @if ($puedeGestionar)
+                            <x-secondary-button type="button" wire:click="abrirFormPdf({{ $libro->id }})">
+                                {{ $libro->getFirstMedia('pdf') ? 'Reemplazar PDF' : '+ PDF' }}
+                            </x-secondary-button>
+                            <x-secondary-button type="button" wire:click="abrirFormEjemplar({{ $libro->id }})">+ Ejemplar</x-secondary-button>
+                        @endif
+                    </div>
                 </div>
+
+                @if ($puedeGestionar && $libroConFormPdfId === $libro->id)
+                    <form wire:submit="subirPdf" class="mt-3 flex flex-wrap items-end gap-2 rounded-md border border-border bg-surface-2 p-3">
+                        <div class="flex-1">
+                            <x-input-label for="pdfArchivo" value="Archivo PDF" />
+                            <input wire:model="pdfArchivo" id="pdfArchivo" type="file" accept="application/pdf" class="mt-1 block w-full text-sm text-ink-dim file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-2 file:text-sm file:text-ink">
+                            <x-input-error :messages="$errors->get('pdfArchivo')" class="mt-1" />
+                        </div>
+                        <x-secondary-button type="button" wire:click="cerrarFormPdf">Cancelar</x-secondary-button>
+                        <x-primary-button type="submit">Guardar</x-primary-button>
+                    </form>
+                @endif
 
                 @if ($puedeGestionar && $libroEnGestionId === $libro->id)
                     <form wire:submit="guardarEjemplar" class="mt-3 flex flex-wrap items-end gap-2 rounded-md border border-border bg-surface-2 p-3">
@@ -326,5 +397,22 @@ new #[Layout('layouts.app')] class extends Component
         </div>
 
         <div class="mt-4">{{ $prestamosActivos->links() }}</div>
+
+        <h2 class="mb-3 mt-8 font-display text-lg text-ink">Historial de descargas</h2>
+
+        <div class="space-y-2">
+            @forelse ($historialDescargas as $descarga)
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-surface p-3">
+                    <div>
+                        <p class="text-sm font-semibold text-ink">{{ $descarga->libro->titulo }}</p>
+                        <p class="text-xs text-ink-faint">Descargado por {{ $descarga->usuario->name }} · {{ $descarga->descargado_en->format('d/m/Y H:i') }}</p>
+                    </div>
+                </div>
+            @empty
+                <p class="rounded-lg border border-dashed border-border p-8 text-center text-sm text-ink-faint">Todavía no hay descargas registradas.</p>
+            @endforelse
+        </div>
+
+        <div class="mt-4">{{ $historialDescargas->links() }}</div>
     @endif
 </div>

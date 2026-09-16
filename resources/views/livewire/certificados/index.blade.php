@@ -52,6 +52,8 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $plantillaPieNota = '';
 
+    public string $plantillaCodigoDocumentoAprobacion = '';
+
     public string $plantillaColorAcento = '#137A6C';
 
     // Marcar entregado (certificado o libreta, con foto opcional)
@@ -89,6 +91,7 @@ new #[Layout('layouts.app')] class extends Component
         $this->plantillaTitulo = $plantilla->titulo;
         $this->plantillaCuerpo = $plantilla->cuerpo;
         $this->plantillaPieNota = (string) $plantilla->pie_nota;
+        $this->plantillaCodigoDocumentoAprobacion = (string) $plantilla->codigo_documento_aprobacion;
         $this->plantillaColorAcento = $plantilla->color_acento;
     }
 
@@ -101,6 +104,7 @@ new #[Layout('layouts.app')] class extends Component
             'plantillaTitulo' => 'required|string|max:100',
             'plantillaCuerpo' => 'required|string|max:2000',
             'plantillaPieNota' => 'nullable|string|max:500',
+            'plantillaCodigoDocumentoAprobacion' => 'nullable|string|max:150',
             'plantillaColorAcento' => 'required|string|regex:/^#[0-9A-Fa-f]{6}$/',
         ]);
 
@@ -109,6 +113,7 @@ new #[Layout('layouts.app')] class extends Component
             'titulo' => $this->plantillaTitulo,
             'cuerpo' => $this->plantillaCuerpo,
             'pie_nota' => $this->plantillaPieNota ?: null,
+            'codigo_documento_aprobacion' => $this->plantillaCodigoDocumentoAprobacion ?: null,
             'color_acento' => $this->plantillaColorAcento,
         ]);
 
@@ -124,6 +129,7 @@ new #[Layout('layouts.app')] class extends Component
             'plantillaTitulo' => 'required|string|max:100',
             'plantillaCuerpo' => 'required|string|max:2000',
             'plantillaPieNota' => 'nullable|string|max:500',
+            'plantillaCodigoDocumentoAprobacion' => 'nullable|string|max:150',
             'plantillaColorAcento' => 'required|string|regex:/^#[0-9A-Fa-f]{6}$/',
         ]);
 
@@ -133,6 +139,7 @@ new #[Layout('layouts.app')] class extends Component
             'titulo' => $this->plantillaTitulo,
             'cuerpo' => $this->plantillaCuerpo,
             'pie_nota' => $this->plantillaPieNota ?: null,
+            'codigo_documento_aprobacion' => $this->plantillaCodigoDocumentoAprobacion ?: null,
             'color_acento' => $this->plantillaColorAcento,
         ]);
 
@@ -617,6 +624,13 @@ new #[Layout('layouts.app')] class extends Component
                 <x-input-label for="plantillaPieNota" value="Nota al pie (opcional)" />
                 <textarea wire:model="plantillaPieNota" id="plantillaPieNota" rows="2" class="mt-1 block w-full rounded-md border-border bg-surface text-sm text-ink focus:border-accent focus:ring-accent"></textarea>
                 <x-input-error :messages="$errors->get('plantillaPieNota')" class="mt-1" />
+            </div>
+
+            <div>
+                <x-input-label for="plantillaCodigoDocumentoAprobacion" value="Código de documento de aprobación (opcional)" />
+                <x-text-input wire:model="plantillaCodigoDocumentoAprobacion" id="plantillaCodigoDocumentoAprobacion" class="mt-1 block w-full" placeholder="Ej. R.D. N.° 245-2026-DRE-PUNO" />
+                <p class="mt-1 text-xs text-ink-faint">Resolución u otro documento que autoriza este formato. Se imprime debajo del número del documento; si se deja vacío, no aparece.</p>
+                <x-input-error :messages="$errors->get('plantillaCodigoDocumentoAprobacion')" class="mt-1" />
             </div>
 
             <div>

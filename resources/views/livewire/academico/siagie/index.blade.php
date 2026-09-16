@@ -55,7 +55,7 @@ new #[Layout('layouts.app')] class extends Component
         ]);
 
         $this->mostrarModal = false;
-        session()->flash('status', 'SIAGIE creado correctamente.');
+        session()->flash('status', 'Periodo académico creado correctamente.');
     }
 
     public function with(SiagieService $service): array
@@ -69,15 +69,15 @@ new #[Layout('layouts.app')] class extends Component
 
 <div>
     <x-slot name="header">
-        <h1 class="font-display text-2xl text-ink">SIAGIE</h1>
-        <p class="mt-1 text-sm text-ink-dim">Los periodos SIAGIE del MINEDU (1.er periodo, 2.° periodo, Anual) — independientes del Grupo rotativo de la institución.</p>
+        <h1 class="font-display text-2xl text-ink">Periodo Académico</h1>
+        <p class="mt-1 text-sm text-ink-dim">Los periodos académicos (1.er periodo, 2.° periodo, Anual) — independientes del Programa de Estudio rotativo de la institución.</p>
     </x-slot>
 
     @can('academico.gestionar')
         <div class="mb-4 flex justify-end">
             <x-primary-button type="button" wire:click="abrirModal" class="gap-2">
                 <x-heroicon-o-plus class="h-4 w-4" />
-                Nuevo SIAGIE
+                Nuevo periodo académico
             </x-primary-button>
         </div>
     @endcan
@@ -111,7 +111,7 @@ new #[Layout('layouts.app')] class extends Component
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="4" class="px-4 py-8 text-center text-sm text-ink-faint">No hay periodos SIAGIE registrados.</td></tr>
+                    <tr><td colspan="4" class="px-4 py-8 text-center text-sm text-ink-faint">No hay periodos académicos registrados.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -139,7 +139,7 @@ new #[Layout('layouts.app')] class extends Component
             x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
             x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
         >
-            <h2 class="font-display text-lg text-ink">Nuevo SIAGIE</h2>
+            <h2 class="font-display text-lg text-ink">Nuevo periodo académico</h2>
 
             <form wire:submit="guardar" class="mt-4 space-y-4">
                 <div class="grid grid-cols-2 gap-4">
@@ -161,7 +161,7 @@ new #[Layout('layouts.app')] class extends Component
                 </div>
 
                 @if ($tipo === 'anual')
-                    <p class="text-xs text-ink-dim">El SIAGIE Anual crea además su propio Grupo (Ciclo), con horarios reales: declara de qué mes a qué mes dura el periodo de clases (8 meses; los 2 restantes son vacaciones).</p>
+                    <p class="text-xs text-ink-dim">El periodo académico Anual crea además su propio Programa de Estudio, con horarios reales: declara de qué mes a qué mes dura el periodo de clases (8 meses; los 2 restantes son vacaciones).</p>
                 @else
                     <p class="text-xs text-ink-dim">Las fechas son opcionales para este tipo — es solo una clasificación, sin horarios propios.</p>
                 @endif
@@ -180,7 +180,7 @@ new #[Layout('layouts.app')] class extends Component
 
                 <div class="flex justify-end gap-3 pt-2">
                     <x-secondary-button type="button" wire:click="$set('mostrarModal', false)">Cancelar</x-secondary-button>
-                    <x-primary-button type="submit">Crear SIAGIE</x-primary-button>
+                    <x-primary-button type="submit">Crear periodo académico</x-primary-button>
                 </div>
             </form>
         </div>
