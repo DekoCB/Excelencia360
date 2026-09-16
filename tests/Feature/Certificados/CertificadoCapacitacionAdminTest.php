@@ -9,7 +9,11 @@ use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Shared\Enums\RolEnum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Volt;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\TestCase;
 
 class CertificadoCapacitacionAdminTest extends TestCase
@@ -156,5 +160,53 @@ class CertificadoCapacitacionAdminTest extends TestCase
             ->call('eliminarCurso', $curso->id);
 
         $this->assertDatabaseMissing('cursos_capacitacion', ['id' => $curso->id]);
+    }
+
+    /**
+     * @param  list<string>  $encabezados
+     * @param  list<list<string>>  $filas
+     */
+    private function archivoExcel(array $encabezados, array $filas): UploadedFile
+    {
+        $hoja = new Spreadsheet;
+        $hoja->getActiveSheet()->fromArray($encabezados, null, 'A1');
+        $hoja->getActiveSheet()->fromArray($filas, null, 'A2');
+
+        $ruta = tempnam(sys_get_temp_dir(), 'capacitacion_test_').'.xlsx';
+        (new Xlsx($hoja))->save($ruta);
+
+        $archivo = UploadedFile::fake()->createWithContent('capacitacion.xlsx', file_get_contents($ruta));
+        unlink($ruta);
+
+        return $archivo;
+    }
+
+    public function test_coordinador_importa_certificados_de_capacitacion_desde_un_archivo(): void
+    {
+        Storage::fake('local');
+
+        $estudiante = Estudiante::factory()->create(['dni' => '72552221']);
+
+        $archivo = $this->archivoExcel(
+            ['DNI', 'Nombres', 'Apellidos', 'Numero de Registro', 'Nombre del Curso', 'Horas Lectivas', 'Documento de Autorizacion'],
+            [['72552221', 'Ademir Erikson', 'Portillo Livisi', '3002324002', 'Ofimática Nivel Avanzado', '130', 'R.D.R. N°2182-2023-DREP']],
+        );
+
+        $this->actingAs($this->coordinador());
+
+        Volt::test('certificados.index')
+            ->set('archivoCapacitacion', $archivo)
+            ->call('importarCapacitacionDesdeExcel')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('certificados', [
+            'estudiante_id' => $estudiante->id,
+            'tipo' => 'certificado_capacitacion',
+            'numero_registro' => '3002324002',
+        ]);
+        $this->assertDatabaseHas('cursos_capacitacion', [
+            'nombre' => 'Ofimática Nivel Avanzado',
+            'horas_lectivas' => 130,
+        ]);
     }
 }

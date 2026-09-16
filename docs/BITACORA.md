@@ -7,6 +7,40 @@ fecha y los commits que le corresponden.
 
 ---
 
+## 2026-09-17 (cont.)
+
+### Bloque B, punto #2 — Importación masiva de Certificados de Capacitación
+
+El usuario aclaró que el punto #2 del backlog original ("Excel de
+importación masiva") no era para matricular estudiantes, sino para
+emitir en lote los certificados de capacitación del punto #1 —
+confirmó usar exactamente las mismas columnas que ya mostraba la
+captura de #1: DNI, Nombres, Apellidos, Numero de Registro, Nombre del
+Curso, Horas Lectivas y Documento de Autorizacion.
+
+Nuevo `CertificadoService::emitirCapacitacionDesdeFilas()`, mismo
+patrón que `EvaluacionService::calificarDesdeFilas()` (cada fila se
+procesa de forma independiente, una fila inválida no afecta a las
+demás): el estudiante se busca por DNI (debe existir ya, Nombres/
+Apellidos del archivo son solo de referencia para quien arma la
+plantilla); el curso se busca por nombre y, si no existe todavía, se
+crea con las horas lectivas y el documento de autorización de esa
+fila — si ya existe, no se sobrescribe con lo que traiga la fila
+(evita que un typo en una sola fila corrompa el catálogo). Nuevo panel
+"Importar certificados de capacitación en lote" en la pestaña "Emitir
+certificado", con el mismo componente de importación
+(`HojaConEncabezadosImport`, copia local del módulo Certificados,
+mismo criterio que Evaluaciones/Matrícula: cada módulo tiene la suya en
+vez de compartir una clase entre módulos).
+
+8 tests nuevos. Suite completo: 1142/1142. Pint y Larastan limpios.
+Verificado en vivo: se importó un archivo real
+con las columnas exactas que pidió el usuario (con tildes/espacios,
+para probar que el formateo automático de encabezados de Laravel Excel
+las normaliza bien) y el certificado quedó emitido correctamente.
+
+---
+
 ## 2026-09-17
 
 ### Bloque B, punto #1 — Certificado de Capacitación y su validación pública

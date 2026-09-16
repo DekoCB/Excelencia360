@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Certificados\Enums\TipoDocumentoEnum;
+use App\Modules\Certificados\Imports\HojaConEncabezadosImport;
 use App\Modules\Certificados\Models\Certificado;
 use App\Modules\Certificados\Models\CursoCapacitacion;
 use App\Modules\Certificados\Models\PlantillaCertificado;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
+use Maatwebsite\Excel\Facades\Excel;
 
 new #[Layout('layouts.app')] class extends Component
 {
@@ -38,6 +40,12 @@ new #[Layout('layouts.app')] class extends Component
     public string $numeroRegistro = '';
 
     public string $observaciones = '';
+
+    // Importación masiva de certificados de capacitación
+    public $archivoCapacitacion = null;
+
+    /** @var array{exitosos: int, errores: list<array{fila: int, mensaje: string}>}|null */
+    public ?array $resultadoImportacionCapacitacion = null;
 
     // Catálogo de cursos de capacitación
     public bool $mostrarFormCurso = false;
@@ -209,6 +217,27 @@ new #[Layout('layouts.app')] class extends Component
         $this->reset(['estudianteSeleccionadoId', 'estudianteSeleccionadoNombre', 'matriculaId', 'cursoCapacitacionId', 'numeroRegistro', 'observaciones']);
         $this->tipoDocumentoEmitir = TipoDocumentoEnum::CERTIFICADO_ESTUDIOS->value;
         session()->flash('status', 'Documento emitido.');
+    }
+
+    /**
+     * Emisión masiva de certificados de capacitación: el archivo trae
+     * dni, nombres, apellidos, numero_de_registro, nombre_del_curso,
+     * horas_lectivas y documento_de_autorizacion -- ver
+     * CertificadoService::emitirCapacitacionDesdeFilas() para las reglas.
+     */
+    public function importarCapacitacionDesdeExcel(CertificadoService $service): void
+    {
+        abort_unless(Auth::user()->hasPermissionTo('certificados.emitir'), 403);
+
+        $this->validate([
+            'archivoCapacitacion' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:2048'],
+        ]);
+
+        $import = new HojaConEncabezadosImport;
+        Excel::import($import, $this->archivoCapacitacion);
+
+        $this->resultadoImportacionCapacitacion = $service->emitirCapacitacionDesdeFilas($import->filas, Auth::user());
+        $this->reset('archivoCapacitacion');
     }
 
     public function emitirDeSolicitud(int $solicitudId, CertificadoService $service): void
@@ -578,6 +607,66 @@ new #[Layout('layouts.app')] class extends Component
             <div class="flex justify-end">
                 <x-primary-button type="button" wire:click="emitir">Emitir documento</x-primary-button>
             </div>
+        </div>
+
+        <div class="max-w-xl mt-6 rounded-2xl border border-border bg-surface shadow-sm p-6">
+            <h3 class="font-display text-sm text-ink">Importar certificados de capacitación en lote</h3>
+            <p class="mt-1 text-xs text-ink-faint">
+                El archivo debe tener las columnas
+                <code class="rounded bg-surface-2 px-1">DNI</code>,
+                <code class="rounded bg-surface-2 px-1">Nombres</code>,
+                <code class="rounded bg-surface-2 px-1">Apellidos</code>,
+                <code class="rounded bg-surface-2 px-1">Numero de Registro</code>,
+                <code class="rounded bg-surface-2 px-1">Nombre del Curso</code>,
+                <code class="rounded bg-surface-2 px-1">Horas Lectivas</code> y
+                <code class="rounded bg-surface-2 px-1">Documento de Autorizacion</code>
+                (mismos campos que muestra la validación pública). Nombres y apellidos son solo de
+                referencia -- el estudiante se busca por DNI, que debe estar ya registrado. Si el
+                curso todavía no existe en el catálogo, se crea con las horas lectivas y el
+                documento de autorización de esa fila.
+            </p>
+
+            <form wire:submit="importarCapacitacionDesdeExcel" class="mt-3 flex flex-wrap items-end gap-3">
+                <div class="flex-1">
+                    <input
+                        type="file"
+                        wire:model="archivoCapacitacion"
+                        id="archivoCapacitacion"
+                        accept=".xlsx,.xls,.csv"
+                        class="block w-full text-sm text-ink-dim file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-1.5 file:text-sm file:text-ink"
+                    >
+                    <div wire:loading wire:target="archivoCapacitacion" class="mt-1 text-xs text-ink-faint">Subiendo…</div>
+                    <x-input-error :messages="$errors->get('archivoCapacitacion')" class="mt-1" />
+                </div>
+                <x-secondary-button type="submit" wire:loading.attr="disabled" wire:target="importarCapacitacionDesdeExcel">
+                    <span wire:loading.remove wire:target="importarCapacitacionDesdeExcel">Importar</span>
+                    <span wire:loading wire:target="importarCapacitacionDesdeExcel">Importando…</span>
+                </x-secondary-button>
+            </form>
+
+            @if ($resultadoImportacionCapacitacion)
+                <div class="mt-3 rounded-md border border-ok/30 bg-ok/10 px-3 py-2 text-xs text-ok">
+                    {{ $resultadoImportacionCapacitacion['exitosos'] }} certificado{{ $resultadoImportacionCapacitacion['exitosos'] === 1 ? '' : 's' }} emitido{{ $resultadoImportacionCapacitacion['exitosos'] === 1 ? '' : 's' }} correctamente.
+                </div>
+
+                @if (count($resultadoImportacionCapacitacion['errores']) > 0)
+                    <div class="mt-2">
+                        <p class="text-xs font-semibold text-danger">{{ count($resultadoImportacionCapacitacion['errores']) }} fila{{ count($resultadoImportacionCapacitacion['errores']) === 1 ? '' : 's' }} con errores:</p>
+                        <div class="mt-1 max-h-48 overflow-y-auto rounded-md border border-border">
+                            <table class="min-w-full divide-y divide-border text-xs">
+                                <tbody class="divide-y divide-border">
+                                    @foreach ($resultadoImportacionCapacitacion['errores'] as $error)
+                                        <tr>
+                                            <td class="px-3 py-1.5 font-mono text-ink-dim">Fila {{ $error['fila'] }}</td>
+                                            <td class="px-3 py-1.5 text-danger">{{ $error['mensaje'] }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
+            @endif
         </div>
     @endif
 

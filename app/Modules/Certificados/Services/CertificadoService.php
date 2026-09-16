@@ -22,9 +22,12 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
+use Throwable;
 
 class CertificadoService
 {
@@ -262,6 +265,87 @@ class CertificadoService
 
             return $duplicado;
         });
+    }
+
+    /**
+     * Emisión masiva de certificados de capacitación desde un CSV/Excel:
+     * columnas dni, nombres, apellidos, numero_de_registro, nombre_del_curso,
+     * horas_lectivas, documento_de_autorizacion (encabezados tal como se
+     * muestran en la UI de importación -- WithHeadingRow los normaliza a
+     * minúsculas y sin tildes). nombres/apellidos son solo de referencia
+     * para quien arma el archivo: el estudiante se busca por dni, igual que
+     * EvaluacionService::calificarDesdeFilas(). El curso se busca por
+     * nombre_del_curso y se crea si no existe todavía (usando
+     * horas_lectivas/documento_de_autorizacion de esa fila); si ya existe,
+     * no se sobrescribe con lo que traiga la fila -- evita que un typo en
+     * una fila corrompa el catálogo. Cada fila se procesa de forma
+     * independiente: una fila inválida no afecta a las demás.
+     *
+     * @param  SupportCollection<int, SupportCollection<string, mixed>>  $filas
+     * @return array{exitosos: int, errores: list<array{fila: int, mensaje: string}>}
+     */
+    public function emitirCapacitacionDesdeFilas(SupportCollection $filas, User $emisor): array
+    {
+        $exitosos = 0;
+        $errores = [];
+
+        foreach ($filas as $indice => $fila) {
+            try {
+                $dni = trim((string) ($fila->get('dni') ?? ''));
+
+                if ($dni === '') {
+                    throw new InvalidArgumentException('La columna «dni» es obligatoria.');
+                }
+
+                $estudiante = Estudiante::query()->where('dni', $dni)->first();
+
+                if (! $estudiante) {
+                    throw new InvalidArgumentException("No hay ningún estudiante registrado con el DNI {$dni}.");
+                }
+
+                $numeroRegistro = trim((string) ($fila->get('numero_de_registro') ?? ''));
+
+                if ($numeroRegistro === '') {
+                    throw new InvalidArgumentException('La columna «numero_de_registro» es obligatoria.');
+                }
+
+                if (Certificado::query()->where('numero_registro', $numeroRegistro)->exists()) {
+                    throw new InvalidArgumentException("Ya existe un certificado con el número de registro {$numeroRegistro}.");
+                }
+
+                $nombreCurso = trim((string) ($fila->get('nombre_del_curso') ?? ''));
+
+                if ($nombreCurso === '') {
+                    throw new InvalidArgumentException('La columna «nombre_del_curso» es obligatoria.');
+                }
+
+                $curso = CursoCapacitacion::query()->where('nombre', $nombreCurso)->first();
+
+                if (! $curso) {
+                    $horasLectivas = (int) ($fila->get('horas_lectivas') ?? 0);
+
+                    if ($horasLectivas < 1) {
+                        throw new InvalidArgumentException("El curso «{$nombreCurso}» no existe todavía: agrega «horas_lectivas» en esta fila para crearlo.");
+                    }
+
+                    $documentoAutorizacion = trim((string) ($fila->get('documento_de_autorizacion') ?? ''));
+
+                    $curso = CursoCapacitacion::query()->create([
+                        'nombre' => $nombreCurso,
+                        'horas_lectivas' => $horasLectivas,
+                        'documento_autorizacion' => $documentoAutorizacion !== '' ? $documentoAutorizacion : null,
+                    ]);
+                }
+
+                $this->emitir($estudiante, null, null, null, $emisor, TipoDocumentoEnum::CERTIFICADO_CAPACITACION, $curso, $numeroRegistro);
+
+                $exitosos++;
+            } catch (Throwable $e) {
+                $errores[] = ['fila' => $indice + 2, 'mensaje' => $e->getMessage()];
+            }
+        }
+
+        return ['exitosos' => $exitosos, 'errores' => $errores];
     }
 
     public function rechazarSolicitud(SolicitudCertificado $solicitud, string $motivo, User $revisor): void
