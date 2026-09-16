@@ -123,6 +123,37 @@ new #[Layout('layouts.app')] class extends Component
         $this->cargarRegistros($service);
     }
 
+    /**
+     * El docente escanea el QR de asistencia del estudiante (ver
+     * x-qr-scanner) para marcarlo en la sesión de hoy. Solo tiene sentido
+     * si la fecha seleccionada es hoy -- escanear hacia una fecha pasada o
+     * futura no representa una llegada real.
+     */
+    public function escanearQr(string $codigo, AsistenciaService $service): void
+    {
+        Gate::authorize('asistencia.registrar-horario', $this->horario);
+        abort_unless($this->fecha === now()->format('Y-m-d'), 403);
+
+        $estudiante = $service->estudianteParaQrToken($codigo);
+
+        if (! $estudiante) {
+            session()->flash('qr_error', 'Código QR no reconocido.');
+
+            return;
+        }
+
+        if (! $service->estaMatriculadoEnHorario($estudiante, $this->horario)) {
+            session()->flash('qr_error', "{$estudiante->nombreCompleto()} no está matriculado en este curso.");
+
+            return;
+        }
+
+        $asistencia = $service->autorregistrar($this->horario, $estudiante);
+
+        $this->estados[$estudiante->id] = $asistencia->estado->value;
+        session()->flash('status', "{$estudiante->nombreCompleto()} — {$asistencia->estado->label()}.");
+    }
+
     public function abrirSolicitud(int $asistenciaId): void
     {
         $this->solicitudAsistenciaId = $asistenciaId;
@@ -284,6 +315,20 @@ new #[Layout('layouts.app')] class extends Component
 
         @if ($guardado)
             <p class="mb-4 rounded-md bg-accent-soft px-3 py-2 text-sm text-accent">Asistencia guardada.</p>
+        @endif
+
+        @if (session('status'))
+            <p class="mb-4 rounded-md bg-accent-soft px-3 py-2 text-sm text-accent">{{ session('status') }}</p>
+        @endif
+
+        @if (session('qr_error'))
+            <p class="mb-4 rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">{{ session('qr_error') }}</p>
+        @endif
+
+        @if ($puedeRegistrar && $fecha === now()->format('Y-m-d'))
+            <div class="mb-4">
+                <x-qr-scanner metodo="escanearQr" />
+            </div>
         @endif
 
         <div class="divide-y divide-border rounded-2xl border border-border bg-surface shadow-sm">

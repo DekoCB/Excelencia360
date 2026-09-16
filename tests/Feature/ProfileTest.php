@@ -3,6 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Modules\Docentes\Models\Docente;
+use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
+use App\Modules\Matricula\Models\Estudiante;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -25,6 +28,43 @@ class ProfileTest extends TestCase
             ->assertSeeVolt('profile.update-password-form')
             ->assertSeeVolt('profile.active-sessions-form')
             ->assertSeeVolt('profile.delete-user-form');
+    }
+
+    public function test_un_usuario_sin_ficha_de_estudiante_ni_docente_no_ve_su_codigo_de_asistencia(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/profile')
+            ->assertDontSee('Mi código de asistencia');
+    }
+
+    public function test_un_estudiante_ve_su_codigo_qr_de_asistencia_en_su_perfil(): void
+    {
+        $user = User::factory()->create();
+        $estudiante = Estudiante::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)
+            ->get('/profile')
+            ->assertSee('Mi código de asistencia')
+            ->assertSee('tu docente');
+
+        $this->assertNotNull($estudiante->fresh()->qr_token);
+    }
+
+    public function test_un_docente_ve_su_codigo_qr_de_asistencia_en_su_perfil(): void
+    {
+        $this->seed(RolesAndPermissionsSeeder::class);
+
+        $user = User::factory()->create();
+        $docente = Docente::factory()->create(['user_id' => $user->id]);
+
+        $this->actingAs($user)
+            ->get('/profile')
+            ->assertSee('Mi código de asistencia')
+            ->assertSee('el personal de oficina');
+
+        $this->assertNotNull($docente->fresh()->qr_token);
     }
 
     public function test_profile_information_can_be_updated(): void

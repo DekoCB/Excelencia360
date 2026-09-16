@@ -67,6 +67,38 @@ class AsistenciaDocenteService
         });
     }
 
+    public function docenteParaQrToken(string $token): ?Docente
+    {
+        return Docente::query()->where('qr_token', $token)->first();
+    }
+
+    /**
+     * El personal de oficina escanea el QR del docente al llegar. Si ya
+     * hay un registro para hoy (por ejemplo, alguien lo marcó a mano antes
+     * de que llegara a escanear), no lo pisa -- mismo criterio que
+     * AsistenciaService::autorregistrar() para estudiantes.
+     */
+    public function registrarPorQr(User $registradoPor, Docente $docente): AsistenciaDocente
+    {
+        $fecha = now()->format('Y-m-d');
+
+        $existente = AsistenciaDocente::query()
+            ->where('docente_id', $docente->id)
+            ->where('fecha', $fecha)
+            ->first();
+
+        if ($existente) {
+            return $existente;
+        }
+
+        return AsistenciaDocente::query()->create([
+            'docente_id' => $docente->id,
+            'fecha' => $fecha,
+            'estado' => EstadoAsistenciaEnum::PRESENTE,
+            'registrado_por' => $registradoPor->id,
+        ]);
+    }
+
     /**
      * @return Collection<int, AsistenciaDocente>
      */

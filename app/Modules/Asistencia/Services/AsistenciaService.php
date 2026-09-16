@@ -84,6 +84,16 @@ class AsistenciaService
             ->get();
     }
 
+    public function estudianteParaQrToken(string $token): ?Estudiante
+    {
+        return Estudiante::query()->where('qr_token', $token)->first();
+    }
+
+    public function estaMatriculadoEnHorario(Estudiante $estudiante, Horario $horario): bool
+    {
+        return Matricula::query()->delHorario($horario)->where('estudiante_id', $estudiante->id)->exists();
+    }
+
     /**
      * @return SupportCollection<int, string>
      */
@@ -221,10 +231,12 @@ class AsistenciaService
     }
 
     /**
-     * El estudiante se marca a sí mismo en la sesión de hoy de $horario.
-     * Si el docente (o Dirección) ya registró algo para esa fecha, no lo
-     * pisa — el autorregistro solo llena el hueco, nunca corrige por
-     * encima de lo que el staff ya decidió.
+     * Marca a un estudiante en la sesión de hoy de $horario -- ya sea que
+     * se autorregistre él mismo (marcar.blade.php, confirmando su DNI) o
+     * que lo escanee su docente (show.blade.php, leyendo su QR de
+     * asistencia). Si el docente (o Dirección) ya registró algo para esa
+     * fecha, no lo pisa — solo llena el hueco, nunca corrige por encima de
+     * lo que el staff ya decidió.
      */
     public function autorregistrar(Horario $horario, Estudiante $estudiante): Asistencia
     {

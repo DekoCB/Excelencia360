@@ -44,6 +44,30 @@ new #[Layout('layouts.app')] class extends Component
         $this->reset(['estados', 'observaciones', 'justificantes']);
     }
 
+    /**
+     * El personal de oficina escanea el QR de asistencia del docente al
+     * llegar (ver x-qr-scanner), en vez de seleccionarlo a mano en la
+     * lista. Solo tiene sentido si la fecha seleccionada es hoy.
+     */
+    public function escanearQr(string $codigo, AsistenciaDocenteService $service): void
+    {
+        abort_unless(Auth::user()->hasPermissionTo('asistencia_docentes.registrar'), 403);
+        abort_unless($this->fecha === now()->format('Y-m-d'), 403);
+
+        $docente = $service->docenteParaQrToken($codigo);
+
+        if (! $docente) {
+            session()->flash('qr_error', 'Código QR no reconocido.');
+
+            return;
+        }
+
+        $asistencia = $service->registrarPorQr(Auth::user(), $docente);
+
+        $this->estados[$docente->id] = $asistencia->estado->value;
+        session()->flash('status', "{$docente->usuario->name} — {$asistencia->estado->label()}.");
+    }
+
     public function guardar(AsistenciaDocenteService $service): void
     {
         abort_unless(Auth::user()->hasPermissionTo('asistencia_docentes.registrar'), 403);
@@ -115,11 +139,21 @@ new #[Layout('layouts.app')] class extends Component
         <x-alert class="mb-4">{{ session('status') }}</x-alert>
     @endif
 
+    @if (session('qr_error'))
+        <p class="mb-4 rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">{{ session('qr_error') }}</p>
+    @endif
+
     @if ($puedeVerTodo)
         <div class="mb-4">
             <x-input-label for="fecha" value="Fecha" />
             <x-text-input wire:model.live="fecha" id="fecha" type="date" class="mt-1 block w-auto" />
         </div>
+
+        @if ($puedeRegistrar && $fecha === now()->format('Y-m-d'))
+            <div class="mb-4">
+                <x-qr-scanner metodo="escanearQr" />
+            </div>
+        @endif
 
         <form wire:submit="guardar" class="space-y-3">
             <div class="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">

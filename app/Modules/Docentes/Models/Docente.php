@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Docentes\Database\Factories\DocenteFactory;
 use App\Modules\Identidad\Support\Auditable;
+use App\Shared\Support\TieneQrToken;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,6 +25,7 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int $user_id
+ * @property string|null $qr_token
  * @property ?string $especialidad
  * @property ?string $grado_academico
  * @property ?Carbon $fecha_ingreso
@@ -31,7 +33,7 @@ use Illuminate\Support\Carbon;
  */
 class Docente extends Model
 {
-    use Auditable, HasFactory;
+    use Auditable, HasFactory, TieneQrToken;
 
     protected $fillable = [
         'user_id',

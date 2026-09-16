@@ -7,6 +7,71 @@ fecha y los commits que le corresponden.
 
 ---
 
+## 2026-09-16 (cont. 3)
+
+### Bloque C, punto #9 — Asistencia por QR (estudiantes y docentes)
+
+Antes de programar se le preguntó al usuario quién escanea el QR (el
+estudiante mostraría un QR fijo tipo carnet; ¿lo escanea el propio
+docente desde su celular, o un dispositivo compartido en el aula?) y
+lo mismo para docentes (¿lo escanea el personal de oficina, o el
+docente se autoregistra?). Eligió, para ambos casos, la opción que
+reutiliza la sesión ya autenticada de quien hoy hace el registro
+manual: **el docente escanea desde su propio celular** en la misma
+página donde ya pasa lista, y **el personal de oficina escanea al
+docente** en la misma página donde ya marca la asistencia de todos —
+en los dos casos el QR reemplaza el paso manual de tipear/seleccionar,
+no cambia quién es responsable de registrar.
+
+**Token de QR, no el DNI:** cada `Estudiante` y `Docente` gana un
+`qr_token` propio (nuevo trait `App\Shared\Support\TieneQrToken`,
+generado perezosamente la primera vez que se pide, no en la creación
+del modelo — así no hace falta backfill ni tocar los servicios que ya
+los crean). Se usó un token aparte en vez del DNI (que ya es el dato
+que el estudiante tipea a mano en el autorregistro por
+`asistencia.marcar`) porque un QR puede terminar fotografiado o
+capturado en pantalla, y el DNI es más sensible que conviene no
+exponer ahí.
+
+**Generación del QR:** se reutilizó tal cual `App\Shared\Support\
+QrCode::pngBase64()`, la misma clase que ya dibuja el QR de
+verificación de certificados (bacon/bacon-qr-code + GD a mano, sin
+librerías nuevas). Cada estudiante/docente ve su QR en una tarjeta
+nueva "Mi código de asistencia" en Mi perfil.
+
+**Escaneo (lectura de cámara):** no existía nada de esto en el
+proyecto — la parte de certificados solo genera, nunca decodifica. Se
+agregó `jsqr` (única dependencia npm nueva, sin dependencias propias)
+y un componente Alpine (`lectorQr` en app.js) que lee la cámara cuadro
+a cuadro sobre un `<canvas>` oculto y llama al método Livewire
+indicado; nuevo `<x-qr-scanner metodo="...">` genérico para no
+duplicar esa lógica entre el escaneo de estudiantes y el de docentes.
+
+**Persistencia:** para estudiantes, el escaneo llama al mismo
+`AsistenciaService::autorregistrar()` que ya usaba el autorregistro por
+DNI (mismo criterio: nunca pisa un registro que el docente ya hizo a
+mano, marca tardanza según el margen de tolerancia existente) — el
+docente solo puede escanear si el estudiante está matriculado en ese
+horario y si la fecha seleccionada es hoy. Para docentes, nuevo
+`AsistenciaDocenteService::registrarPorQr()` (no había autorregistro
+previo que reutilizar): marca presente con la hora real de escaneo,
+tampoco pisa un registro ya existente para el día. Ambos casos
+degradan con un aviso visible (código no reconocido / no matriculado)
+en vez de fallar en silencio.
+
+17 tests nuevos (trait de token, servicio y permisos de ambos módulos
+de asistencia, tarjeta en Mi perfil). Suite completo: 1097/1097. Pint
+y Larastan limpios. Verificado en vivo: QR visible en Mi perfil de un
+estudiante y de un docente, botón "Escanear QR" visible solo en la
+fecha de hoy en ambas páginas de asistencia, y manejo correcto del
+error cuando el navegador no puede acceder a la cámara (probado en
+Chromium headless, sin dispositivo de cámara disponible).
+
+Queda pendiente el último punto del Bloque C: #11 (evaluaciones dentro
+de Cursos Virtuales, con modo Físico/Virtual y 3 tipos de pregunta).
+
+---
+
 ## 2026-09-16
 
 ### Nuevo backlog de 14 puntos — Bloque A (cambios independientes) + entorno de Validación de Certificados

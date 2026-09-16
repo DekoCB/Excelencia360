@@ -1,5 +1,6 @@
 import './bootstrap';
 import Chart from 'chart.js/auto';
+import jsQR from 'jsqr';
 import { VortexScene, VORTEX_LOGIN_CONFIG } from './vortex-dust';
 
 /**
@@ -107,6 +108,82 @@ document.addEventListener('alpine:init', () => {
         destroy() {
             this.ro?.disconnect();
             this.scene?.dispose();
+        },
+    }));
+
+    /**
+     * lectorQr: lee un QR con la cámara del dispositivo (jsQR decodifica
+     * cuadro por cuadro sobre un <canvas> oculto) y llama al método
+     * Livewire indicado con el texto decodificado. Usado por
+     * x-qr-scanner para asistencia de estudiantes y de docentes -- ambos
+     * comparten la misma cámara/decodificación, solo cambia a qué método
+     * del componente Livewire padre se le pasa el resultado.
+     */
+    Alpine.data('lectorQr', (metodo) => ({
+        activo: false,
+        error: null,
+        stream: null,
+        cuadroPendiente: null,
+        ultimoCodigo: null,
+        ultimoEscaneoEn: 0,
+
+        async iniciar() {
+            this.error = null;
+
+            try {
+                this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            } catch (e) {
+                this.error = 'No se pudo acceder a la cámara. Revisa los permisos del navegador.';
+                return;
+            }
+
+            this.activo = true;
+            this.$refs.video.srcObject = this.stream;
+            await this.$refs.video.play();
+            this.leerCuadro();
+        },
+
+        detener() {
+            this.activo = false;
+            if (this.cuadroPendiente) cancelAnimationFrame(this.cuadroPendiente);
+            this.stream?.getTracks().forEach((track) => track.stop());
+            this.stream = null;
+        },
+
+        leerCuadro() {
+            if (! this.activo) return;
+
+            const video = this.$refs.video;
+
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                const canvas = this.$refs.canvas;
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                const contexto = canvas.getContext('2d');
+                contexto.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                const imagen = contexto.getImageData(0, 0, canvas.width, canvas.height);
+                const resultado = jsQR(imagen.data, imagen.width, imagen.height);
+
+                if (resultado?.data) {
+                    this.alDetectar(resultado.data);
+                }
+            }
+
+            this.cuadroPendiente = requestAnimationFrame(() => this.leerCuadro());
+        },
+
+        alDetectar(codigo) {
+            // Evita reenviar el mismo código en cuadros consecutivos mientras
+            // el carnet sigue frente a la cámara -- el docente recién lo
+            // aparta cuando ve la confirmación.
+            const ahora = Date.now();
+            if (codigo === this.ultimoCodigo && (ahora - this.ultimoEscaneoEn) < 3000) return;
+
+            this.ultimoCodigo = codigo;
+            this.ultimoEscaneoEn = ahora;
+            this.$wire.call(metodo, codigo);
         },
     }));
 

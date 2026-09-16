@@ -10,6 +10,7 @@ use App\Modules\Identidad\Support\Auditable;
 use App\Modules\Matricula\Database\Factories\EstudianteFactory;
 use App\Modules\Matricula\Enums\EstadoCivilEnum;
 use App\Modules\Matricula\Enums\EstadoEstudianteEnum;
+use App\Shared\Support\TieneQrToken;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,6 +24,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 /**
  * @property int $id
  * @property string $dni
+ * @property string|null $qr_token
  * @property string $nombres
  * @property string $apellidos
  * @property Carbon $fecha_nacimiento
@@ -36,7 +38,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 class Estudiante extends Model implements HasMedia
 {
     /** @use HasFactory<EstudianteFactory> */
-    use Auditable, HasFactory, InteractsWithMedia, SoftDeletes;
+    use Auditable, HasFactory, InteractsWithMedia, SoftDeletes, TieneQrToken;
 
     protected $fillable = [
         'user_id',
