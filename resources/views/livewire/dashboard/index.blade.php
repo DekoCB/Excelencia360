@@ -508,7 +508,7 @@ new #[Layout('layouts.app')] class extends Component
                 <x-dashboard.stat-card label="Estudiantes activos" :value="$estudiantesActivos" icon="user-group" color="accent" />
                 <x-dashboard.stat-card label="Docentes" :value="$docentesActivos" icon="academic-cap" color="accent" />
                 <x-dashboard.stat-card
-                    href="{{ route('evaluaciones.index') }}"
+                    href="{{ route('aula-virtual.index') }}"
                     label="Evaluaciones sin publicar"
                     :value="$evaluacionesSinPublicar"
                     icon="clipboard-document-list"
@@ -594,7 +594,7 @@ new #[Layout('layouts.app')] class extends Component
                     icon="pencil-square"
                     :color="$tareasPorCalificar > 0 ? 'warn' : 'accent'"
                 />
-                <a href="{{ route('evaluaciones.index') }}" wire:navigate class="rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md">
+                <a href="{{ route('aula-virtual.index') }}" wire:navigate class="rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md">
                     <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 text-accent">
                         <x-heroicon-o-clipboard-document-check class="h-5 w-5" />
                     </span>

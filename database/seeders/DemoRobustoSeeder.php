@@ -24,6 +24,7 @@ use App\Modules\AulaVirtual\Services\MaterialService;
 use App\Modules\AulaVirtual\Services\PublicacionService;
 use App\Modules\AulaVirtual\Services\TareaService;
 use App\Modules\Certificados\Services\CertificadoService;
+use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Models\Evaluacion;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
 use App\Modules\Evaluaciones\Services\LibretaService;
@@ -547,6 +548,7 @@ class DemoRobustoSeeder extends Seeder
     {
         $service = app(EvaluacionService::class);
         $libretaService = app(LibretaService::class);
+        $cursoVirtualService = app(CursoVirtualService::class);
 
         foreach ($horarios as $indice => $horario) {
             $estudiantes = $service->estudiantesDelHorario($horario);
@@ -555,8 +557,10 @@ class DemoRobustoSeeder extends Seeder
                 continue;
             }
 
-            $evaluacionUno = $service->crear($horario, 'Evaluación mensual 1', now()->subWeeks(3)->format('Y-m-d'));
-            $evaluacionDos = $service->crear($horario, 'Evaluación mensual 2', now()->subWeek()->format('Y-m-d'));
+            $cursoVirtual = $cursoVirtualService->activarParaHorario($horario);
+
+            $evaluacionUno = $service->crear($cursoVirtual, 'Evaluación mensual 1', now()->subWeeks(3)->format('Y-m-d'), TipoEvaluacionEnum::FISICO);
+            $evaluacionDos = $service->crear($cursoVirtual, 'Evaluación mensual 2', now()->subWeek()->format('Y-m-d'), TipoEvaluacionEnum::FISICO);
 
             foreach ($estudiantes as $estudiante) {
                 $service->calificar($evaluacionUno, $estudiante, (float) random_int(8, 20), null, $horario->docente_id);

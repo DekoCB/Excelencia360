@@ -5,6 +5,9 @@ namespace Tests\Feature\Evaluaciones;
 use App\Models\User;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\AulaVirtual\Models\CursoVirtual;
+use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
+use App\Modules\Evaluaciones\Models\Evaluacion;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Models\Estudiante;
@@ -28,6 +31,26 @@ class EvaluacionesBloqueoTest extends TestCase
         $this->seed(RolesAndPermissionsSeeder::class);
     }
 
+    private function cursoVirtualDe(Horario $horario): CursoVirtual
+    {
+        return CursoVirtual::query()->firstOrCreate(['horario_id' => $horario->id]);
+    }
+
+    private function crear(Horario $horario, string $nombre, string $fecha, ?string $enlaceExterno = null): Evaluacion
+    {
+        return $this->app->make(EvaluacionService::class)->crear(
+            $this->cursoVirtualDe($horario),
+            $nombre,
+            $fecha,
+            TipoEvaluacionEnum::FISICO,
+            null,
+            $enlaceExterno,
+        );
+    }
+
+    /**
+     * @return array{0: User, 1: Estudiante, 2: Horario}
+     */
     private function estudianteBloqueado(): array
     {
         $usuario = User::factory()->create();
@@ -52,13 +75,14 @@ class EvaluacionesBloqueoTest extends TestCase
     public function test_un_estudiante_bloqueado_no_ve_sus_notas(): void
     {
         [$usuario, $estudiante, $horario] = $this->estudianteBloqueado();
+        $curso = $this->cursoVirtualDe($horario);
 
-        $evaluacion = $this->app->make(EvaluacionService::class)->crear($horario, 'Evaluación mensual', now()->format('Y-m-d'));
+        $evaluacion = $this->crear($horario, 'Evaluación mensual', now()->format('Y-m-d'));
         $this->app->make(EvaluacionService::class)->calificar($evaluacion, $estudiante, 18.0, null, null);
         $this->app->make(EvaluacionService::class)->publicar($evaluacion);
 
         $this->actingAs($usuario)
-            ->get(route('evaluaciones.show', $horario))
+            ->get(route('aula-virtual.evaluacion', [$curso, $evaluacion]))
             ->assertOk()
             ->assertSee('no están disponibles')
             ->assertDontSee('18.00');
@@ -76,13 +100,14 @@ class EvaluacionesBloqueoTest extends TestCase
             'grado_id' => $horario->grado_id,
             'ciclo_id' => $horario->ciclo_id,
         ]);
+        $curso = $this->cursoVirtualDe($horario);
 
-        $evaluacion = $this->app->make(EvaluacionService::class)->crear($horario, 'Evaluación mensual', now()->format('Y-m-d'));
+        $evaluacion = $this->crear($horario, 'Evaluación mensual', now()->format('Y-m-d'));
         $this->app->make(EvaluacionService::class)->calificar($evaluacion, $estudiante, 18.0, null, null);
         $this->app->make(EvaluacionService::class)->publicar($evaluacion);
 
         $this->actingAs($usuario)
-            ->get(route('evaluaciones.show', $horario))
+            ->get(route('aula-virtual.evaluacion', [$curso, $evaluacion]))
             ->assertOk()
             ->assertSee('18.00')
             ->assertDontSee('no están disponibles');
@@ -99,6 +124,9 @@ class EvaluacionesBloqueoTest extends TestCase
             ->assertSee('libreta no está disponible');
     }
 
+    /**
+     * @return array{0: User, 1: Estudiante, 2: Horario}
+     */
     private function estudianteConUnaCuotaVencidaEnCicloActivo(): array
     {
         $usuario = User::factory()->create();
@@ -121,15 +149,16 @@ class EvaluacionesBloqueoTest extends TestCase
     public function test_una_sola_cuota_vencida_del_ciclo_actual_bloquea_ver_las_notas_aunque_no_llegue_al_umbral_general(): void
     {
         [$usuario, $estudiante, $horario] = $this->estudianteConUnaCuotaVencidaEnCicloActivo();
+        $curso = $this->cursoVirtualDe($horario);
 
-        $evaluacion = $this->app->make(EvaluacionService::class)->crear($horario, 'Evaluación mensual', now()->format('Y-m-d'));
+        $evaluacion = $this->crear($horario, 'Evaluación mensual', now()->format('Y-m-d'));
         $this->app->make(EvaluacionService::class)->calificar($evaluacion, $estudiante, 18.0, null, null);
         $this->app->make(EvaluacionService::class)->publicar($evaluacion);
 
         $this->assertFalse($this->app->make(BloqueoAccesoService::class)->estaBloqueado($estudiante));
 
         $this->actingAs($usuario)
-            ->get(route('evaluaciones.show', $horario))
+            ->get(route('aula-virtual.evaluacion', [$curso, $evaluacion]))
             ->assertOk()
             ->assertSee('no están disponibles')
             ->assertDontSee('18.00');
@@ -148,29 +177,29 @@ class EvaluacionesBloqueoTest extends TestCase
     public function test_un_estudiante_bloqueado_no_ve_el_enlace_externo_de_una_evaluacion(): void
     {
         [$usuario, , $horario] = $this->estudianteBloqueado();
+        $curso = $this->cursoVirtualDe($horario);
 
         // Publicada a propósito: así el "no lo ve" se debe únicamente al
         // bloqueo por deuda, sin mezclarlo con el nuevo requisito de que
         // la evaluación esté publicada.
-        $evaluacion = $this->app->make(EvaluacionService::class)->crear($horario, 'Evaluación mensual', now()->format('Y-m-d'), 'https://forms.test/examen');
+        $evaluacion = $this->crear($horario, 'Evaluación mensual', now()->format('Y-m-d'), 'https://forms.test/examen');
         $this->app->make(EvaluacionService::class)->publicar($evaluacion);
 
         $this->actingAs($usuario);
-        Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->assertDontSee('Evaluaciones para rendir')
+        Volt::test('aula-virtual.evaluacion', ['curso' => $curso, 'evaluacion' => $evaluacion])
             ->assertDontSee('https://forms.test/examen');
     }
 
     public function test_una_sola_cuota_vencida_del_ciclo_actual_bloquea_ver_el_enlace_externo(): void
     {
         [$usuario, , $horario] = $this->estudianteConUnaCuotaVencidaEnCicloActivo();
+        $curso = $this->cursoVirtualDe($horario);
 
-        $evaluacion = $this->app->make(EvaluacionService::class)->crear($horario, 'Evaluación mensual', now()->format('Y-m-d'), 'https://forms.test/examen');
+        $evaluacion = $this->crear($horario, 'Evaluación mensual', now()->format('Y-m-d'), 'https://forms.test/examen');
         $this->app->make(EvaluacionService::class)->publicar($evaluacion);
 
         $this->actingAs($usuario);
-        Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->assertDontSee('Evaluaciones para rendir')
+        Volt::test('aula-virtual.evaluacion', ['curso' => $curso, 'evaluacion' => $evaluacion])
             ->assertDontSee('https://forms.test/examen');
     }
 
@@ -197,12 +226,13 @@ class EvaluacionesBloqueoTest extends TestCase
         $planAnterior = PlanPago::factory()->create(['matricula_id' => $matriculaAnterior->id]);
         Cuota::factory()->vencida()->create(['plan_pago_id' => $planAnterior->id, 'numero' => 1]);
 
-        $evaluacion = $this->app->make(EvaluacionService::class)->crear($horario, 'Evaluación mensual', now()->format('Y-m-d'));
+        $curso = $this->cursoVirtualDe($horario);
+        $evaluacion = $this->crear($horario, 'Evaluación mensual', now()->format('Y-m-d'));
         $this->app->make(EvaluacionService::class)->calificar($evaluacion, $estudiante, 18.0, null, null);
         $this->app->make(EvaluacionService::class)->publicar($evaluacion);
 
         $this->actingAs($usuario)
-            ->get(route('evaluaciones.show', $horario))
+            ->get(route('aula-virtual.evaluacion', [$curso, $evaluacion]))
             ->assertOk()
             ->assertSee('18.00')
             ->assertDontSee('no están disponibles');

@@ -6,7 +6,9 @@ namespace App\Modules\Evaluaciones\Services;
 
 use App\Modules\Academico\Enums\TipoSiagieEnum;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\AulaVirtual\Models\CursoVirtual;
 use App\Modules\Evaluaciones\Enums\EstadoEvaluacionEnum;
+use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Models\Calificacion;
 use App\Modules\Evaluaciones\Models\Evaluacion;
 use App\Modules\Matricula\Models\Estudiante;
@@ -82,16 +84,36 @@ class EvaluacionService
         return Horario::query()->with(['curso', 'grado', 'ciclo', 'docente', 'dias'])->get();
     }
 
-    public function crear(Horario $horario, string $nombre, string $fecha, ?string $enlaceExterno = null, ?string $disponibleHasta = null): Evaluacion
+    /**
+     * El enlace externo solo tiene sentido para una evaluación Física (la
+     * Virtual se rinde dentro de la app, ver PreguntaService): se ignora
+     * en vez de rechazarse si igual llega uno para no obligar al
+     * formulario a condicionar el campo antes de enviar.
+     */
+    public function crear(CursoVirtual $curso, string $nombre, string $fecha, TipoEvaluacionEnum $tipo, ?int $seccionId = null, ?string $enlaceExterno = null, ?string $disponibleHasta = null): Evaluacion
     {
         return Evaluacion::query()->create([
-            'horario_id' => $horario->id,
+            'horario_id' => $curso->horario_id,
+            'curso_virtual_id' => $curso->id,
+            'seccion_id' => $seccionId,
             'nombre' => $nombre,
+            'tipo' => $tipo,
             'fecha' => $fecha,
-            'enlace_externo' => $enlaceExterno,
+            'enlace_externo' => $tipo === TipoEvaluacionEnum::FISICO ? $enlaceExterno : null,
             'disponible_hasta' => $disponibleHasta,
             'estado' => EstadoEvaluacionEnum::BORRADOR,
         ]);
+    }
+
+    /**
+     * @return Collection<int, Evaluacion>
+     */
+    public function evaluacionesDelCursoVirtual(CursoVirtual $curso): Collection
+    {
+        return Evaluacion::query()
+            ->where('curso_virtual_id', $curso->id)
+            ->orderByDesc('fecha')
+            ->get();
     }
 
     public function actualizarEnlace(Evaluacion $evaluacion, ?string $enlaceExterno, ?string $disponibleHasta = null): Evaluacion
@@ -226,7 +248,7 @@ class EvaluacionService
             $usuarios,
             TipoNotificacionEnum::EVALUACION_PUBLICADA,
             "Se publicó la evaluación \"{$evaluacion->nombre}\"",
-            route('evaluaciones.show', $evaluacion->horario),
+            route('aula-virtual.evaluacion', [$evaluacion->cursoVirtual, $evaluacion]),
         );
     }
 

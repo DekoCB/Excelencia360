@@ -4,6 +4,8 @@ namespace Tests\Feature\Evaluaciones;
 
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\AulaVirtual\Models\CursoVirtual;
+use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
 use App\Modules\Evaluaciones\Services\LibretaService;
 use App\Modules\Matricula\Models\Estudiante;
@@ -20,6 +22,11 @@ class LibretaServiceTest extends TestCase
     private function libretaService(): LibretaService
     {
         return $this->app->make(LibretaService::class);
+    }
+
+    private function cursoVirtualDe(Horario $horario): CursoVirtual
+    {
+        return CursoVirtual::factory()->create(['horario_id' => $horario->id]);
     }
 
     public function test_generar_libreta_falla_si_no_hay_matricula_aprobada_en_ese_ciclo(): void
@@ -46,7 +53,7 @@ class LibretaServiceTest extends TestCase
         ]);
 
         $evaluacionService = $this->app->make(EvaluacionService::class);
-        $evaluacion = $evaluacionService->crear($horario, 'Evaluación', '2026-07-15');
+        $evaluacion = $evaluacionService->crear($this->cursoVirtualDe($horario), 'Evaluación', '2026-07-15', TipoEvaluacionEnum::FISICO);
         $evaluacionService->calificar($evaluacion, $estudiante, 16.0, null, null);
         $evaluacionService->publicar($evaluacion);
 
@@ -88,7 +95,7 @@ class LibretaServiceTest extends TestCase
         ]);
 
         $evaluacionService = $this->app->make(EvaluacionService::class);
-        $evaluacion = $evaluacionService->crear($horario, 'Evaluación', '2026-07-15');
+        $evaluacion = $evaluacionService->crear($this->cursoVirtualDe($horario), 'Evaluación', '2026-07-15', TipoEvaluacionEnum::FISICO);
         $evaluacionService->calificar($evaluacion, $estudiante, 18.0, null, null);
         $evaluacionService->publicar($evaluacion);
 
@@ -122,12 +129,13 @@ class LibretaServiceTest extends TestCase
         ]);
 
         $evaluacionService = $this->app->make(EvaluacionService::class);
+        $curso = $this->cursoVirtualDe($horario);
 
-        $marzo = $evaluacionService->crear($horario, 'Evaluación de marzo', '2026-03-10');
+        $marzo = $evaluacionService->crear($curso, 'Evaluación de marzo', '2026-03-10', TipoEvaluacionEnum::FISICO);
         $evaluacionService->calificar($marzo, $estudiante, 14.0, null, null);
         $evaluacionService->publicar($marzo);
 
-        $abril = $evaluacionService->crear($horario, 'Evaluación de abril', '2026-04-10');
+        $abril = $evaluacionService->crear($curso, 'Evaluación de abril', '2026-04-10', TipoEvaluacionEnum::FISICO);
         $evaluacionService->calificar($abril, $estudiante, 18.0, null, null);
         $evaluacionService->publicar($abril);
 
@@ -203,7 +211,7 @@ class LibretaServiceTest extends TestCase
         ]);
 
         $evaluacionService = $this->app->make(EvaluacionService::class);
-        $evaluacion = $evaluacionService->crear($horario, 'Evaluación', '2026-07-15');
+        $evaluacion = $evaluacionService->crear($this->cursoVirtualDe($horario), 'Evaluación', '2026-07-15', TipoEvaluacionEnum::FISICO);
         $evaluacionService->calificar($evaluacion, $estudiante, 18.0, null, null);
         $evaluacionService->publicar($evaluacion);
 

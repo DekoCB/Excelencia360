@@ -11,4 +11,6 @@ Route::middleware(['auth'])->prefix('aula-virtual')->name('aula-virtual.')->grou
     Volt::route('{curso}', 'aula-virtual.show')->name('show');
 
     Volt::route('{curso}/tareas/{tarea}', 'aula-virtual.tarea')->name('tarea');
+
+    Volt::route('{curso}/evaluaciones/{evaluacion}', 'aula-virtual.evaluacion')->name('evaluacion');
 });

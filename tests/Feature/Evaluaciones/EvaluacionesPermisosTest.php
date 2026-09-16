@@ -4,6 +4,9 @@ namespace Tests\Feature\Evaluaciones;
 
 use App\Models\User;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\AulaVirtual\Models\CursoVirtual;
+use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
+use App\Modules\Evaluaciones\Models\Evaluacion;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Models\Estudiante;
@@ -24,19 +27,27 @@ class EvaluacionesPermisosTest extends TestCase
         $this->seed(RolesAndPermissionsSeeder::class);
     }
 
-    private function cursoDelDocente(User $docente): Horario
+    private function cursoDelDocente(User $docente): CursoVirtual
     {
-        return Horario::factory()->create(['docente_id' => $docente->id]);
+        $horario = Horario::factory()->create(['docente_id' => $docente->id]);
+
+        return CursoVirtual::factory()->create(['horario_id' => $horario->id]);
     }
 
-    public function test_el_docente_dueno_del_horario_puede_ver_y_registrar_evaluaciones(): void
+    private function crear(CursoVirtual $curso, string $nombre, string $fecha): Evaluacion
+    {
+        return $this->app->make(EvaluacionService::class)->crear($curso, $nombre, $fecha, TipoEvaluacionEnum::FISICO);
+    }
+
+    public function test_el_docente_dueno_del_curso_puede_ver_y_registrar_evaluaciones(): void
     {
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
-        $horario = $this->cursoDelDocente($docente);
+        $curso = $this->cursoDelDocente($docente);
+        $evaluacion = $this->crear($curso, 'Evaluación', '2026-07-15');
 
         $this->actingAs($docente)
-            ->get(route('evaluaciones.show', $horario))
+            ->get(route('aula-virtual.evaluacion', [$curso, $evaluacion]))
             ->assertOk();
     }
 
@@ -47,99 +58,79 @@ class EvaluacionesPermisosTest extends TestCase
 
         $otroDocente = User::factory()->create();
         $otroDocente->assignRole(RolEnum::DOCENTE->value);
-        $horario = $this->cursoDelDocente($otroDocente);
+        $curso = $this->cursoDelDocente($otroDocente);
+        $evaluacion = $this->crear($curso, 'Evaluación', '2026-07-15');
 
         $this->actingAs($docente)
-            ->get(route('evaluaciones.show', $horario))
+            ->get(route('aula-virtual.evaluacion', [$curso, $evaluacion]))
             ->assertForbidden();
     }
 
-    public function test_un_estudiante_matriculado_puede_ver_el_horario(): void
+    public function test_un_estudiante_matriculado_puede_ver_una_evaluacion_publicada(): void
     {
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::ESTUDIANTE->value);
         $estudiante = Estudiante::factory()->create(['user_id' => $usuario->id]);
 
         $horario = Horario::factory()->create();
+        $curso = CursoVirtual::factory()->create(['horario_id' => $horario->id]);
         Matricula::factory()->create([
             'estudiante_id' => $estudiante->id,
             'grado_id' => $horario->grado_id,
             'ciclo_id' => $horario->ciclo_id,
         ]);
 
+        $evaluacion = $this->crear($curso, 'Evaluación', '2026-07-15');
+        $this->app->make(EvaluacionService::class)->publicar($evaluacion);
+
         $this->actingAs($usuario)
-            ->get(route('evaluaciones.show', $horario))
+            ->get(route('aula-virtual.evaluacion', [$curso, $evaluacion]))
             ->assertOk();
     }
 
-    public function test_un_estudiante_no_matriculado_no_puede_ver_el_horario(): void
+    public function test_un_estudiante_no_matriculado_no_puede_ver_la_evaluacion(): void
     {
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::ESTUDIANTE->value);
         Estudiante::factory()->create(['user_id' => $usuario->id]);
 
         $horario = Horario::factory()->create();
+        $curso = CursoVirtual::factory()->create(['horario_id' => $horario->id]);
+        $evaluacion = $this->crear($curso, 'Evaluación', '2026-07-15');
 
         $this->actingAs($usuario)
-            ->get(route('evaluaciones.show', $horario))
+            ->get(route('aula-virtual.evaluacion', [$curso, $evaluacion]))
             ->assertForbidden();
     }
 
-    public function test_coordinador_puede_supervisar_cualquier_horario(): void
+    public function test_coordinador_puede_supervisar_cualquier_curso(): void
     {
         $coordinador = User::factory()->create();
         $coordinador->assignRole(RolEnum::COORDINADOR->value);
 
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
-        $horario = $this->cursoDelDocente($docente);
+        $curso = $this->cursoDelDocente($docente);
+        $evaluacion = $this->crear($curso, 'Evaluación', '2026-07-15');
 
         $this->actingAs($coordinador)
-            ->get(route('evaluaciones.show', $horario))
+            ->get(route('aula-virtual.evaluacion', [$curso, $evaluacion]))
             ->assertOk();
-    }
-
-    public function test_un_usuario_sin_permisos_de_evaluaciones_no_puede_ver_el_listado(): void
-    {
-        $usuario = User::factory()->create();
-        $usuario->assignRole(RolEnum::TESORERIA->value);
-
-        $this->actingAs($usuario)
-            ->get(route('evaluaciones.index'))
-            ->assertForbidden();
-    }
-
-    /**
-     * Dirección tiene evaluaciones.registrar vía '*' sin ser docente: debía
-     * mostrar la vista de supervisión, no la de "tus horarios" (vacía).
-     */
-    public function test_direccion_ve_la_supervision_general_no_la_vista_de_docente(): void
-    {
-        $direccion = User::factory()->create();
-        $direccion->assignRole(RolEnum::DIRECCION->value);
-        Horario::factory()->create();
-
-        $this->actingAs($direccion)
-            ->get(route('evaluaciones.index'))
-            ->assertOk()
-            ->assertSee('Supervisión de evaluaciones')
-            ->assertDontSee('Todavía no tienes horarios asignados este ciclo.');
     }
 
     public function test_coordinador_puede_publicar_una_evaluacion(): void
     {
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
-        $horario = $this->cursoDelDocente($docente);
-        $evaluacion = $this->app->make(EvaluacionService::class)->crear($horario, 'Evaluación', '2026-07-15');
+        $curso = $this->cursoDelDocente($docente);
+        $evaluacion = $this->crear($curso, 'Evaluación', '2026-07-15');
 
         $coordinador = User::factory()->create();
         $coordinador->assignRole(RolEnum::COORDINADOR->value);
 
         $this->actingAs($coordinador);
 
-        Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->call('seleccionar', $evaluacion->id)
+        Volt::test('aula-virtual.evaluacion', ['curso' => $curso, 'evaluacion' => $evaluacion])
             ->call('publicar')
             ->assertHasNoErrors();
 
@@ -150,13 +141,12 @@ class EvaluacionesPermisosTest extends TestCase
     {
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
-        $horario = $this->cursoDelDocente($docente);
-        $evaluacion = $this->app->make(EvaluacionService::class)->crear($horario, 'Evaluación', '2026-07-15');
+        $curso = $this->cursoDelDocente($docente);
+        $evaluacion = $this->crear($curso, 'Evaluación', '2026-07-15');
 
         $this->actingAs($docente);
 
-        rescue(fn () => Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->call('seleccionar', $evaluacion->id)
+        rescue(fn () => Volt::test('aula-virtual.evaluacion', ['curso' => $curso, 'evaluacion' => $evaluacion])
             ->call('publicar'), report: false);
 
         $this->assertDatabaseHas('evaluaciones', ['id' => $evaluacion->id, 'estado' => 'borrador']);

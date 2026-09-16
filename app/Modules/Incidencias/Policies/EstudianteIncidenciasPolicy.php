@@ -14,7 +14,7 @@ use App\Modules\Matricula\Models\Matricula;
  * estudiante?". No se registra vía Gate::policy() porque Estudiante
  * pertenece al módulo Matricula; se enlaza a habilidades con nombre propio
  * desde IncidenciasServiceProvider (mismo patrón que
- * Evaluaciones\Policies\HorarioEvaluacionesPolicy).
+ * Asistencia\Policies\HorarioAsistenciaPolicy).
  */
 class EstudianteIncidenciasPolicy
 {

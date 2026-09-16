@@ -3,6 +3,9 @@
 namespace Tests\Feature\Evaluaciones;
 
 use App\Modules\Academico\Models\Horario;
+use App\Modules\AulaVirtual\Models\CursoVirtual;
+use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
+use App\Modules\Evaluaciones\Models\Evaluacion;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
@@ -17,6 +20,13 @@ class CalificarDesdeFilasTest extends TestCase
     private function service(): EvaluacionService
     {
         return $this->app->make(EvaluacionService::class);
+    }
+
+    private function crear(Horario $horario, string $nombre, string $fecha): Evaluacion
+    {
+        $curso = CursoVirtual::query()->firstOrCreate(['horario_id' => $horario->id]);
+
+        return $this->service()->crear($curso, $nombre, $fecha, TipoEvaluacionEnum::FISICO);
     }
 
     private function matricular(Horario $horario, string $dni): Estudiante
@@ -44,7 +54,7 @@ class CalificarDesdeFilasTest extends TestCase
     {
         $horario = Horario::factory()->create();
         $service = $this->service();
-        $evaluacion = $service->crear($horario, 'Evaluación', '2026-07-15');
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15');
         $estudiante = $this->matricular($horario, '76543210');
 
         $resultado = $service->calificarDesdeFilas($evaluacion, $this->filas([
@@ -65,7 +75,7 @@ class CalificarDesdeFilasTest extends TestCase
     {
         $horario = Horario::factory()->create();
         $service = $this->service();
-        $evaluacion = $service->crear($horario, 'Evaluación', '2026-07-15');
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15');
 
         $resultado = $service->calificarDesdeFilas($evaluacion, $this->filas([
             ['dni' => '00000000', 'nota' => '15'],
@@ -81,7 +91,7 @@ class CalificarDesdeFilasTest extends TestCase
     {
         $horario = Horario::factory()->create();
         $service = $this->service();
-        $evaluacion = $service->crear($horario, 'Evaluación', '2026-07-15');
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15');
         $valida = $this->matricular($horario, '11223344');
         $this->matricular($horario, '55667788');
 
@@ -100,7 +110,7 @@ class CalificarDesdeFilasTest extends TestCase
     {
         $horario = Horario::factory()->create();
         $service = $this->service();
-        $evaluacion = $service->crear($horario, 'Evaluación', '2026-07-15');
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15');
         $this->matricular($horario, '99887766');
 
         $resultado = $service->calificarDesdeFilas($evaluacion, $this->filas([
@@ -115,7 +125,7 @@ class CalificarDesdeFilasTest extends TestCase
     {
         $horario = Horario::factory()->create();
         $service = $this->service();
-        $evaluacion = $service->crear($horario, 'Evaluación', '2026-07-15');
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15');
 
         $resultado = $service->calificarDesdeFilas($evaluacion, $this->filas([
             ['nota' => '15'],
@@ -129,7 +139,7 @@ class CalificarDesdeFilasTest extends TestCase
     {
         $horario = Horario::factory()->create();
         $service = $this->service();
-        $evaluacion = $service->crear($horario, 'Evaluación', '2026-07-15');
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15');
         $this->matricular($horario, '33445566');
 
         $service->calificarDesdeFilas($evaluacion, $this->filas([

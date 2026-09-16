@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
+ * @property int $horario_id
  * @property bool $activo
  * @property-read Horario $horario
  */

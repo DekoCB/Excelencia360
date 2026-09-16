@@ -7,7 +7,10 @@ use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\AulaVirtual\Models\CursoVirtual;
 use App\Modules\Evaluaciones\Enums\EstadoEvaluacionEnum;
+use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
+use App\Modules\Evaluaciones\Models\Evaluacion;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
@@ -24,11 +27,24 @@ class EvaluacionServiceTest extends TestCase
         return $this->app->make(EvaluacionService::class);
     }
 
+    /**
+     * Envoltorio con la firma "vieja" (por horario) de EvaluacionService::
+     * crear(), que ahora pide un CursoVirtual -- firstOrCreate() porque
+     * varios tests crean más de una evaluación para el mismo horario, y
+     * curso_virtual_id es único por horario.
+     */
+    private function crear(Horario $horario, string $nombre, string $fecha, ?string $enlaceExterno = null, ?string $disponibleHasta = null): Evaluacion
+    {
+        $curso = CursoVirtual::query()->firstOrCreate(['horario_id' => $horario->id]);
+
+        return $this->service()->crear($curso, $nombre, $fecha, TipoEvaluacionEnum::FISICO, null, $enlaceExterno, $disponibleHasta);
+    }
+
     public function test_crear_una_evaluacion_queda_en_estado_borrador(): void
     {
         $horario = Horario::factory()->create();
 
-        $evaluacion = $this->service()->crear($horario, 'Evaluación mensual — julio', '2026-07-15');
+        $evaluacion = $this->crear($horario, 'Evaluación mensual — julio', '2026-07-15');
 
         $this->assertSame(EstadoEvaluacionEnum::BORRADOR, $evaluacion->estado);
         $this->assertDatabaseHas('evaluaciones', ['nombre' => 'Evaluación mensual — julio', 'estado' => 'borrador']);
@@ -127,7 +143,7 @@ class EvaluacionServiceTest extends TestCase
         $horario = Horario::factory()->create();
         $estudiante = Estudiante::factory()->create();
         $service = $this->service();
-        $evaluacion = $service->crear($horario, 'Evaluación', '2026-07-15');
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15');
 
         $service->calificar($evaluacion, $estudiante, 15.5, 'Primer intento', null);
         $service->calificar($evaluacion, $estudiante, 18.0, 'Segundo intento', null);
@@ -141,7 +157,7 @@ class EvaluacionServiceTest extends TestCase
         $horario = Horario::factory()->create();
         $estudiante = Estudiante::factory()->create();
         $service = $this->service();
-        $evaluacion = $service->crear($horario, 'Evaluación', '2026-07-15');
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15');
         $service->calificar($evaluacion, $estudiante, 17.0, null, null);
 
         $this->assertTrue($service->misCalificaciones($estudiante, $horario)->isEmpty());
@@ -157,15 +173,15 @@ class EvaluacionServiceTest extends TestCase
         $estudiante = Estudiante::factory()->create();
         $service = $this->service();
 
-        $evaluacionUno = $service->crear($horario, 'Evaluación 1', '2026-07-01');
+        $evaluacionUno = $this->crear($horario, 'Evaluación 1', '2026-07-01');
         $service->calificar($evaluacionUno, $estudiante, 14.0, null, null);
         $service->publicar($evaluacionUno);
 
-        $evaluacionDos = $service->crear($horario, 'Evaluación 2', '2026-07-15');
+        $evaluacionDos = $this->crear($horario, 'Evaluación 2', '2026-07-15');
         $service->calificar($evaluacionDos, $estudiante, 20.0, null, null);
         $service->publicar($evaluacionDos);
 
-        $evaluacionSinPublicar = $service->crear($horario, 'Evaluación 3', '2026-07-20');
+        $evaluacionSinPublicar = $this->crear($horario, 'Evaluación 3', '2026-07-20');
         $service->calificar($evaluacionSinPublicar, $estudiante, 0.0, null, null);
 
         $this->assertSame(17.0, $service->promedioDelEstudiante($estudiante, $horario));
@@ -181,12 +197,12 @@ class EvaluacionServiceTest extends TestCase
 
         // La primera evaluación (nota 0) queda fuera del promedio: hay 7
         // publicadas y solo cuentan las últimas 6 por fecha.
-        $evaluacionMasAntigua = $service->crear($horario, 'Evaluación 1', '2026-01-10');
+        $evaluacionMasAntigua = $this->crear($horario, 'Evaluación 1', '2026-01-10');
         $service->calificar($evaluacionMasAntigua, $estudiante, 0.0, null, null);
         $service->publicar($evaluacionMasAntigua);
 
         foreach (range(2, 7) as $numero) {
-            $evaluacion = $service->crear($horario, "Evaluación {$numero}", "2026-0{$numero}-10");
+            $evaluacion = $this->crear($horario, "Evaluación {$numero}", "2026-0{$numero}-10");
             $service->calificar($evaluacion, $estudiante, 20.0, null, null);
             $service->publicar($evaluacion);
         }
@@ -203,13 +219,13 @@ class EvaluacionServiceTest extends TestCase
 
         // 9 evaluaciones publicadas, la más antigua (nota 0) queda fuera:
         // solo cuentan las últimas 8 por fecha.
-        $evaluacionMasAntigua = $service->crear($horario, 'Marzo', '2026-03-10');
+        $evaluacionMasAntigua = $this->crear($horario, 'Marzo', '2026-03-10');
         $service->calificar($evaluacionMasAntigua, $estudiante, 0.0, null, null);
         $service->publicar($evaluacionMasAntigua);
 
         $meses = ['04', '05', '06', '07', '08', '09', '10', '11'];
         foreach ($meses as $mes) {
-            $evaluacion = $service->crear($horario, "Evaluación {$mes}", "2026-{$mes}-10");
+            $evaluacion = $this->crear($horario, "Evaluación {$mes}", "2026-{$mes}-10");
             $service->calificar($evaluacion, $estudiante, 20.0, null, null);
             $service->publicar($evaluacion);
         }
@@ -228,7 +244,7 @@ class EvaluacionServiceTest extends TestCase
             'ciclo_id' => $horario->ciclo_id,
         ]);
         $service = $this->service();
-        $evaluacion = $service->crear($horario, 'Evaluación', '2026-07-15');
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15');
 
         $service->publicar($evaluacion);
 
@@ -248,7 +264,7 @@ class EvaluacionServiceTest extends TestCase
             'ciclo_id' => $horario->ciclo_id,
         ]);
         $service = $this->service();
-        $evaluacion = $service->crear($horario, 'Evaluación', '2026-07-15');
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15');
 
         $service->publicar($evaluacion);
 
@@ -315,7 +331,7 @@ class EvaluacionServiceTest extends TestCase
     {
         $horario = Horario::factory()->create();
 
-        $evaluacion = $this->service()->crear($horario, 'Evaluación', '2026-07-15', 'https://forms.test/examen');
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15', 'https://forms.test/examen');
 
         $this->assertSame('https://forms.test/examen', $evaluacion->enlace_externo);
         $this->assertTrue($evaluacion->tieneEnlaceExterno());
@@ -325,7 +341,7 @@ class EvaluacionServiceTest extends TestCase
     {
         $horario = Horario::factory()->create();
 
-        $evaluacion = $this->service()->crear($horario, 'Evaluación', '2026-07-15');
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15');
 
         $this->assertNull($evaluacion->enlace_externo);
         $this->assertFalse($evaluacion->tieneEnlaceExterno());
@@ -334,7 +350,7 @@ class EvaluacionServiceTest extends TestCase
     public function test_actualizar_enlace_modifica_el_enlace_de_una_evaluacion_existente(): void
     {
         $horario = Horario::factory()->create();
-        $evaluacion = $this->service()->crear($horario, 'Evaluación', '2026-07-15');
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15');
 
         $this->service()->actualizarEnlace($evaluacion, 'https://forms.test/nuevo');
 
@@ -346,9 +362,9 @@ class EvaluacionServiceTest extends TestCase
         $horario = Horario::factory()->create();
         $service = $this->service();
 
-        $conEnlace = $service->crear($horario, 'Con enlace', '2026-07-15', 'https://forms.test/examen');
+        $conEnlace = $this->crear($horario, 'Con enlace', '2026-07-15', 'https://forms.test/examen');
         $service->publicar($conEnlace);
-        $sinEnlace = $service->crear($horario, 'Sin enlace', '2026-07-16');
+        $sinEnlace = $this->crear($horario, 'Sin enlace', '2026-07-16');
         $service->publicar($sinEnlace);
 
         $resultado = $service->evaluacionesConEnlaceDelHorario($horario);
@@ -360,7 +376,7 @@ class EvaluacionServiceTest extends TestCase
     public function test_evaluaciones_con_enlace_del_horario_excluye_evaluaciones_en_borrador(): void
     {
         $horario = Horario::factory()->create();
-        $evaluacion = $this->service()->crear($horario, 'Con enlace', '2026-07-15', 'https://forms.test/examen');
+        $evaluacion = $this->crear($horario, 'Con enlace', '2026-07-15', 'https://forms.test/examen');
 
         $this->assertSame(EstadoEvaluacionEnum::BORRADOR, $evaluacion->estado);
         $this->assertFalse($this->service()->evaluacionesConEnlaceDelHorario($horario)->contains('id', $evaluacion->id));
@@ -371,10 +387,10 @@ class EvaluacionServiceTest extends TestCase
         $horario = Horario::factory()->create();
         $service = $this->service();
 
-        $vigente = $service->crear($horario, 'Vigente', '2026-07-15', 'https://forms.test/vigente', now()->addDay()->format('Y-m-d H:i:s'));
+        $vigente = $this->crear($horario, 'Vigente', '2026-07-15', 'https://forms.test/vigente', now()->addDay()->format('Y-m-d H:i:s'));
         $service->publicar($vigente);
 
-        $vencida = $service->crear($horario, 'Vencida', '2026-07-14', 'https://forms.test/vencida', now()->subDay()->format('Y-m-d H:i:s'));
+        $vencida = $this->crear($horario, 'Vencida', '2026-07-14', 'https://forms.test/vencida', now()->subDay()->format('Y-m-d H:i:s'));
         $service->publicar($vencida);
 
         $resultado = $service->evaluacionesConEnlaceDelHorario($horario);
@@ -388,7 +404,7 @@ class EvaluacionServiceTest extends TestCase
         $horario = Horario::factory()->create();
         $fecha = now()->addWeek();
 
-        $evaluacion = $this->service()->crear($horario, 'Evaluación', '2026-07-15', 'https://forms.test/examen', $fecha->format('Y-m-d H:i:s'));
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15', 'https://forms.test/examen', $fecha->format('Y-m-d H:i:s'));
 
         $this->assertSame($fecha->format('Y-m-d H:i'), $evaluacion->disponible_hasta->format('Y-m-d H:i'));
     }
@@ -396,7 +412,7 @@ class EvaluacionServiceTest extends TestCase
     public function test_actualizar_enlace_tambien_actualiza_disponible_hasta(): void
     {
         $horario = Horario::factory()->create();
-        $evaluacion = $this->service()->crear($horario, 'Evaluación', '2026-07-15', 'https://forms.test/examen');
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15', 'https://forms.test/examen');
         $fecha = now()->addWeek();
 
         $this->service()->actualizarEnlace($evaluacion, 'https://forms.test/nuevo', $fecha->format('Y-m-d H:i:s'));
@@ -409,7 +425,7 @@ class EvaluacionServiceTest extends TestCase
     public function test_enlace_disponible_es_falso_si_no_esta_publicada(): void
     {
         $horario = Horario::factory()->create();
-        $evaluacion = $this->service()->crear($horario, 'Evaluación', '2026-07-15', 'https://forms.test/examen');
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15', 'https://forms.test/examen');
 
         $this->assertFalse($evaluacion->enlaceDisponible());
     }
@@ -418,7 +434,7 @@ class EvaluacionServiceTest extends TestCase
     {
         $horario = Horario::factory()->create();
         $service = $this->service();
-        $evaluacion = $service->crear($horario, 'Evaluación', '2026-07-15', 'https://forms.test/examen');
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15', 'https://forms.test/examen');
         $service->publicar($evaluacion);
 
         $this->assertTrue($evaluacion->refresh()->enlaceDisponible());
@@ -428,7 +444,7 @@ class EvaluacionServiceTest extends TestCase
     {
         $horario = Horario::factory()->create();
         $service = $this->service();
-        $evaluacion = $service->crear($horario, 'Evaluación', '2026-07-15', 'https://forms.test/examen', now()->subDay()->format('Y-m-d H:i:s'));
+        $evaluacion = $this->crear($horario, 'Evaluación', '2026-07-15', 'https://forms.test/examen', now()->subDay()->format('Y-m-d H:i:s'));
         $service->publicar($evaluacion);
 
         $this->assertFalse($evaluacion->refresh()->enlaceDisponible());
@@ -445,7 +461,7 @@ class EvaluacionServiceTest extends TestCase
         ]);
 
         $service = $this->service();
-        $evaluacion = $service->crear($horario, 'Evaluación mensual', '2026-07-15');
+        $evaluacion = $this->crear($horario, 'Evaluación mensual', '2026-07-15');
         $service->publicar($evaluacion);
         $service->calificar($evaluacion, $estudiante, 17.5, 'Buen desempeño', null);
 
@@ -504,11 +520,11 @@ class EvaluacionServiceTest extends TestCase
         Matricula::factory()->create(['estudiante_id' => $estudiante->id, 'grado_id' => $grado->id, 'ciclo_id' => $cicloActual->id]);
 
         $service = $this->service();
-        $evaluacionAnterior = $service->crear($horarioAnterior, 'Evaluación', '2026-03-15');
+        $evaluacionAnterior = $this->crear($horarioAnterior, 'Evaluación', '2026-03-15');
         $service->publicar($evaluacionAnterior);
         $service->calificar($evaluacionAnterior, $estudiante, 12.0, null, null);
 
-        $evaluacionActual = $service->crear($horarioActual, 'Evaluación', '2026-07-15');
+        $evaluacionActual = $this->crear($horarioActual, 'Evaluación', '2026-07-15');
         $service->publicar($evaluacionActual);
         $service->calificar($evaluacionActual, $estudiante, 18.0, null, null);
 

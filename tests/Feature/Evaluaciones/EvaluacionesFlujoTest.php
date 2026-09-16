@@ -4,6 +4,9 @@ namespace Tests\Feature\Evaluaciones;
 
 use App\Models\User;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\AulaVirtual\Models\CursoVirtual;
+use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
+use App\Modules\Evaluaciones\Models\Evaluacion;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Models\Estudiante;
@@ -28,39 +31,66 @@ class EvaluacionesFlujoTest extends TestCase
         $this->seed(RolesAndPermissionsSeeder::class);
     }
 
-    public function test_el_docente_crea_una_evaluacion_y_registra_notas(): void
+    private function cursoDelDocente(User $docente): CursoVirtual
+    {
+        $horario = Horario::factory()->create(['docente_id' => $docente->id]);
+
+        return CursoVirtual::factory()->create(['horario_id' => $horario->id]);
+    }
+
+    private function crear(CursoVirtual $curso, string $nombre, string $fecha): Evaluacion
+    {
+        return $this->app->make(EvaluacionService::class)->crear($curso, $nombre, $fecha, TipoEvaluacionEnum::FISICO);
+    }
+
+    public function test_el_docente_crea_una_evaluacion_desde_la_pestana_de_cursos_virtuales(): void
     {
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
-        $horario = Horario::factory()->create(['docente_id' => $docente->id]);
+        $curso = $this->cursoDelDocente($docente);
+
+        $this->actingAs($docente);
+
+        Volt::test('aula-virtual.show', ['curso' => $curso])
+            ->set('evaluacionNombre', 'Evaluación mensual — julio')
+            ->set('evaluacionFecha', '2026-07-15')
+            ->set('evaluacionTipo', 'fisico')
+            ->call('crearEvaluacion')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('evaluaciones', [
+            'curso_virtual_id' => $curso->id,
+            'nombre' => 'Evaluación mensual — julio',
+            'tipo' => 'fisico',
+            'estado' => 'borrador',
+        ]);
+    }
+
+    public function test_el_docente_registra_notas_de_una_evaluacion_fisica(): void
+    {
+        $docente = User::factory()->create();
+        $docente->assignRole(RolEnum::DOCENTE->value);
+        $curso = $this->cursoDelDocente($docente);
 
         $estudiante = Estudiante::factory()->create();
         Matricula::factory()->create([
             'estudiante_id' => $estudiante->id,
-            'grado_id' => $horario->grado_id,
-            'ciclo_id' => $horario->ciclo_id,
+            'grado_id' => $curso->horario->grado_id,
+            'ciclo_id' => $curso->horario->ciclo_id,
         ]);
+
+        $evaluacion = $this->crear($curso, 'Evaluación mensual', '2026-07-15');
 
         $this->actingAs($docente);
 
-        $component = Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->set('nuevoNombre', 'Evaluación mensual — julio')
-            ->set('nuevaFecha', '2026-07-15')
-            ->call('crear')
-            ->assertHasNoErrors();
-
-        $this->assertDatabaseHas('evaluaciones', ['nombre' => 'Evaluación mensual — julio']);
-
-        $evaluacionId = $component->get('evaluacionId');
-
-        $component
+        Volt::test('aula-virtual.evaluacion', ['curso' => $curso, 'evaluacion' => $evaluacion])
             ->set("notas.{$estudiante->id}", '17.5')
             ->set("observaciones.{$estudiante->id}", 'Buen desempeño')
             ->call('guardarNotas')
             ->assertHasNoErrors();
 
         $this->assertDatabaseHas('calificaciones', [
-            'evaluacion_id' => $evaluacionId,
+            'evaluacion_id' => $evaluacion->id,
             'estudiante_id' => $estudiante->id,
             'nota_numerica' => 17.5,
             'observaciones' => 'Buen desempeño',
@@ -92,27 +122,24 @@ class EvaluacionesFlujoTest extends TestCase
 
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
-        $horario = Horario::factory()->create(['docente_id' => $docente->id]);
+        $curso = $this->cursoDelDocente($docente);
 
         $estudiante = Estudiante::factory()->create(['dni' => '87654321']);
         Matricula::factory()->create([
             'estudiante_id' => $estudiante->id,
-            'grado_id' => $horario->grado_id,
-            'ciclo_id' => $horario->ciclo_id,
+            'grado_id' => $curso->horario->grado_id,
+            'ciclo_id' => $curso->horario->ciclo_id,
         ]);
 
-        $this->actingAs($docente);
+        $evaluacion = $this->crear($curso, 'Evaluación por Google Forms', '2026-07-15');
 
-        $component = Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->set('nuevoNombre', 'Evaluación por Google Forms')
-            ->set('nuevaFecha', '2026-07-15')
-            ->call('crear');
+        $this->actingAs($docente);
 
         $archivo = $this->archivoExcel(['dni', 'nota', 'observaciones'], [
             ['87654321', '18.5', 'Importado'],
         ]);
 
-        $component
+        Volt::test('aula-virtual.evaluacion', ['curso' => $curso, 'evaluacion' => $evaluacion])
             ->set('archivoNotas', $archivo)
             ->call('importarNotas')
             ->assertHasNoErrors();
@@ -124,16 +151,14 @@ class EvaluacionesFlujoTest extends TestCase
         ]);
     }
 
-    public function test_un_docente_dueno_de_otro_horario_no_puede_importar_notas(): void
+    public function test_un_docente_dueno_de_otro_curso_no_puede_importar_notas(): void
     {
         Storage::fake('local');
 
         $docenteOwner = User::factory()->create();
         $docenteOwner->assignRole(RolEnum::DOCENTE->value);
-        $horario = Horario::factory()->create(['docente_id' => $docenteOwner->id]);
-
-        $evaluacionService = $this->app->make(EvaluacionService::class);
-        $evaluacionService->crear($horario, 'Evaluación', '2026-07-15');
+        $curso = $this->cursoDelDocente($docenteOwner);
+        $evaluacion = $this->crear($curso, 'Evaluación', '2026-07-15');
 
         $otroDocente = User::factory()->create();
         $otroDocente->assignRole(RolEnum::DOCENTE->value);
@@ -142,7 +167,7 @@ class EvaluacionesFlujoTest extends TestCase
 
         $archivo = $this->archivoExcel(['dni', 'nota'], [['12345678', '15']]);
 
-        rescue(fn () => Volt::test('evaluaciones.show', ['horario' => $horario])
+        rescue(fn () => Volt::test('aula-virtual.evaluacion', ['curso' => $curso, 'evaluacion' => $evaluacion])
             ->set('archivoNotas', $archivo)
             ->call('importarNotas'), report: false);
 
@@ -153,87 +178,56 @@ class EvaluacionesFlujoTest extends TestCase
     {
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
-        $horario = Horario::factory()->create(['docente_id' => $docente->id]);
+        $curso = $this->cursoDelDocente($docente);
 
         $estudiante = Estudiante::factory()->create();
         Matricula::factory()->create([
             'estudiante_id' => $estudiante->id,
-            'grado_id' => $horario->grado_id,
-            'ciclo_id' => $horario->ciclo_id,
+            'grado_id' => $curso->horario->grado_id,
+            'ciclo_id' => $curso->horario->ciclo_id,
         ]);
+
+        $evaluacion = $this->crear($curso, 'Evaluación', '2026-07-15');
 
         $this->actingAs($docente);
 
-        $component = Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->set('nuevoNombre', 'Evaluación')
-            ->set('nuevaFecha', '2026-07-15')
-            ->call('crear');
-
-        $component
+        Volt::test('aula-virtual.evaluacion', ['curso' => $curso, 'evaluacion' => $evaluacion])
             ->set("notas.{$estudiante->id}", '25')
             ->call('guardarNotas')
             ->assertHasErrors(["notas.{$estudiante->id}"]);
-    }
-
-    public function test_el_docente_crea_una_evaluacion_con_enlace_externo(): void
-    {
-        $docente = User::factory()->create();
-        $docente->assignRole(RolEnum::DOCENTE->value);
-        $horario = Horario::factory()->create(['docente_id' => $docente->id]);
-
-        $this->actingAs($docente);
-
-        Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->set('nuevoNombre', 'Evaluación mensual')
-            ->set('nuevaFecha', '2026-07-15')
-            ->set('nuevoEnlace', 'https://forms.test/examen')
-            ->call('crear')
-            ->assertHasNoErrors();
-
-        $this->assertDatabaseHas('evaluaciones', [
-            'nombre' => 'Evaluación mensual',
-            'enlace_externo' => 'https://forms.test/examen',
-        ]);
     }
 
     public function test_no_permite_un_enlace_externo_invalido(): void
     {
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
-        $horario = Horario::factory()->create(['docente_id' => $docente->id]);
+        $curso = $this->cursoDelDocente($docente);
+        $evaluacion = $this->crear($curso, 'Evaluación mensual', '2026-07-15');
 
         $this->actingAs($docente);
 
-        Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->set('nuevoNombre', 'Evaluación mensual')
-            ->set('nuevaFecha', '2026-07-15')
-            ->set('nuevoEnlace', 'no-es-una-url')
-            ->call('crear')
-            ->assertHasErrors(['nuevoEnlace']);
+        Volt::test('aula-virtual.evaluacion', ['curso' => $curso, 'evaluacion' => $evaluacion])
+            ->set('enlaceEditar', 'no-es-una-url')
+            ->call('actualizarEnlace')
+            ->assertHasErrors(['enlaceEditar']);
     }
 
     public function test_el_docente_puede_editar_el_enlace_de_una_evaluacion_existente(): void
     {
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
-        $horario = Horario::factory()->create(['docente_id' => $docente->id]);
+        $curso = $this->cursoDelDocente($docente);
+        $evaluacion = $this->crear($curso, 'Evaluación mensual', '2026-07-15');
 
         $this->actingAs($docente);
 
-        $component = Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->set('nuevoNombre', 'Evaluación mensual')
-            ->set('nuevaFecha', '2026-07-15')
-            ->call('crear');
-
-        $evaluacionId = $component->get('evaluacionId');
-
-        $component
+        Volt::test('aula-virtual.evaluacion', ['curso' => $curso, 'evaluacion' => $evaluacion])
             ->set('enlaceEditar', 'https://forms.test/actualizado')
             ->call('actualizarEnlace')
             ->assertHasNoErrors();
 
         $this->assertDatabaseHas('evaluaciones', [
-            'id' => $evaluacionId,
+            'id' => $evaluacion->id,
             'enlace_externo' => 'https://forms.test/actualizado',
         ]);
     }
@@ -242,28 +236,23 @@ class EvaluacionesFlujoTest extends TestCase
     {
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
-        $horario = Horario::factory()->create(['docente_id' => $docente->id]);
+        $curso = $this->cursoDelDocente($docente);
 
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::ESTUDIANTE->value);
         $estudiante = Estudiante::factory()->create(['user_id' => $usuario->id]);
         Matricula::factory()->create([
             'estudiante_id' => $estudiante->id,
-            'grado_id' => $horario->grado_id,
-            'ciclo_id' => $horario->ciclo_id,
+            'grado_id' => $curso->horario->grado_id,
+            'ciclo_id' => $curso->horario->ciclo_id,
         ]);
 
-        $this->actingAs($docente);
-        Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->set('nuevoNombre', 'Evaluación mensual')
-            ->set('nuevaFecha', '2026-07-15')
-            ->set('nuevoEnlace', 'https://forms.test/examen')
-            ->call('crear');
+        $evaluacion = $this->crear($curso, 'Evaluación mensual', '2026-07-15');
+        $this->app->make(EvaluacionService::class)->actualizarEnlace($evaluacion, 'https://forms.test/examen');
 
         $this->actingAs($usuario);
 
-        Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->assertDontSee('Evaluaciones para rendir')
+        Volt::test('aula-virtual.evaluacion', ['curso' => $curso, 'evaluacion' => $evaluacion])
             ->assertDontSee('https://forms.test/examen');
     }
 
@@ -271,65 +260,70 @@ class EvaluacionesFlujoTest extends TestCase
     {
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
-        $horario = Horario::factory()->create(['docente_id' => $docente->id]);
+        $curso = $this->cursoDelDocente($docente);
 
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::ESTUDIANTE->value);
         $estudiante = Estudiante::factory()->create(['user_id' => $usuario->id]);
         Matricula::factory()->create([
             'estudiante_id' => $estudiante->id,
-            'grado_id' => $horario->grado_id,
-            'ciclo_id' => $horario->ciclo_id,
-        ]);
-
-        $evaluacion = $this->app->make(EvaluacionService::class)->crear($horario, 'Evaluación mensual', now()->format('Y-m-d'), 'https://forms.test/examen');
-        $this->app->make(EvaluacionService::class)->publicar($evaluacion);
-
-        $this->actingAs($usuario);
-
-        Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->assertSee('Evaluaciones para rendir')
-            ->assertSee('https://forms.test/examen');
-    }
-
-    public function test_el_docente_ve_las_evaluaciones_agrupadas_por_fecha_en_orden_ascendente(): void
-    {
-        $docente = User::factory()->create();
-        $docente->assignRole(RolEnum::DOCENTE->value);
-        $horario = Horario::factory()->create(['docente_id' => $docente->id]);
-
-        $service = $this->app->make(EvaluacionService::class);
-        $service->crear($horario, 'Evaluación del 15', '2026-07-15');
-        $service->crear($horario, 'Evaluación del 10', '2026-07-10');
-
-        $this->actingAs($docente);
-
-        Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->assertSeeInOrder(['10 de julio', 'Evaluación del 10', '15 de julio', 'Evaluación del 15']);
-    }
-
-    public function test_un_estudiante_ve_las_evaluaciones_para_rendir_agrupadas_por_fecha(): void
-    {
-        $docente = User::factory()->create();
-        $docente->assignRole(RolEnum::DOCENTE->value);
-        $horario = Horario::factory()->create(['docente_id' => $docente->id]);
-
-        $usuario = User::factory()->create();
-        $usuario->assignRole(RolEnum::ESTUDIANTE->value);
-        $estudiante = Estudiante::factory()->create(['user_id' => $usuario->id]);
-        Matricula::factory()->create([
-            'estudiante_id' => $estudiante->id,
-            'grado_id' => $horario->grado_id,
-            'ciclo_id' => $horario->ciclo_id,
+            'grado_id' => $curso->horario->grado_id,
+            'ciclo_id' => $curso->horario->ciclo_id,
         ]);
 
         $service = $this->app->make(EvaluacionService::class);
-        $evaluacion = $service->crear($horario, 'Evaluación para rendir', now()->format('Y-m-d'), 'https://forms.test/examen');
+        $evaluacion = $this->crear($curso, 'Evaluación mensual', now()->format('Y-m-d'));
+        $service->actualizarEnlace($evaluacion, 'https://forms.test/examen');
         $service->publicar($evaluacion);
 
         $this->actingAs($usuario);
 
-        Volt::test('evaluaciones.show', ['horario' => $horario])
-            ->assertSeeInOrder(['Evaluaciones para rendir', 'Evaluación para rendir']);
+        Volt::test('aula-virtual.evaluacion', ['curso' => $curso, 'evaluacion' => $evaluacion->refresh()])
+            ->assertSee('https://forms.test/examen');
+    }
+
+    public function test_el_docente_ve_todas_las_evaluaciones_del_curso_en_la_pestana(): void
+    {
+        $docente = User::factory()->create();
+        $docente->assignRole(RolEnum::DOCENTE->value);
+        $curso = $this->cursoDelDocente($docente);
+
+        $this->crear($curso, 'Evaluación del 15', '2026-07-15');
+        $this->crear($curso, 'Evaluación del 10', '2026-07-10');
+
+        $this->actingAs($docente);
+
+        Volt::test('aula-virtual.show', ['curso' => $curso])
+            ->set('tab', 'evaluaciones')
+            ->assertSee('Evaluación del 15')
+            ->assertSee('Evaluación del 10');
+    }
+
+    public function test_un_estudiante_solo_ve_las_evaluaciones_publicadas_en_la_pestana(): void
+    {
+        $docente = User::factory()->create();
+        $docente->assignRole(RolEnum::DOCENTE->value);
+        $curso = $this->cursoDelDocente($docente);
+
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::ESTUDIANTE->value);
+        $estudiante = Estudiante::factory()->create(['user_id' => $usuario->id]);
+        Matricula::factory()->create([
+            'estudiante_id' => $estudiante->id,
+            'grado_id' => $curso->horario->grado_id,
+            'ciclo_id' => $curso->horario->ciclo_id,
+        ]);
+
+        $service = $this->app->make(EvaluacionService::class);
+        $publicada = $this->crear($curso, 'Evaluación publicada', '2026-07-15');
+        $service->publicar($publicada);
+        $this->crear($curso, 'Evaluación en borrador', '2026-07-16');
+
+        $this->actingAs($usuario);
+
+        Volt::test('aula-virtual.show', ['curso' => $curso])
+            ->set('tab', 'evaluaciones')
+            ->assertSee('Evaluación publicada')
+            ->assertDontSee('Evaluación en borrador');
     }
 }

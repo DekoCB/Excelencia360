@@ -195,35 +195,21 @@
         </a>
     @endcan
 
-    @canany(['evaluaciones.ver', 'evaluaciones.registrar', 'evaluaciones.ver_propio'])
+    {{-- Evaluaciones vive dentro de Cursos Virtuales (ver aula-virtual.evaluacion) -- ya no tiene entrada propia acá. --}}
+    @if (auth()->user()->can('evaluaciones.ver_propio') && auth()->user()->estudiante)
         <a
-            href="{{ route('evaluaciones.index') }}"
+            href="{{ route('evaluaciones.mi-libreta') }}"
             wire:navigate
             @class([
                 'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
-                'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('evaluaciones.index', 'evaluaciones.show', 'evaluaciones.libreta'),
-                'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('evaluaciones.index', 'evaluaciones.show', 'evaluaciones.libreta'),
+                'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('evaluaciones.mi-libreta'),
+                'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('evaluaciones.mi-libreta'),
             ])
         >
-            <x-heroicon-o-pencil-square class="h-5 w-5 shrink-0" />
-            <span class="sidebar-label">Evaluaciones</span>
+            <x-heroicon-o-book-open class="h-5 w-5 shrink-0" />
+            <span class="sidebar-label">Mi libreta</span>
         </a>
-
-        @if (auth()->user()->can('evaluaciones.ver_propio') && auth()->user()->estudiante)
-            <a
-                href="{{ route('evaluaciones.mi-libreta') }}"
-                wire:navigate
-                @class([
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
-                    'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('evaluaciones.mi-libreta'),
-                    'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('evaluaciones.mi-libreta'),
-                ])
-            >
-                <x-heroicon-o-book-open class="h-5 w-5 shrink-0" />
-                <span class="sidebar-label">Mi libreta</span>
-            </a>
-        @endif
-    @endcanany
+    @endif
 
     @canany(['incidencias.ver', 'incidencias.crear', 'incidencias.gestionar_propio', 'incidencias.ver_propio'])
         <a

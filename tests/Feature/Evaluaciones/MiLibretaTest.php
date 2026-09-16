@@ -5,6 +5,8 @@ namespace Tests\Feature\Evaluaciones;
 use App\Models\User;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\AulaVirtual\Models\CursoVirtual;
+use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Models\Estudiante;
@@ -50,7 +52,8 @@ class MiLibretaTest extends TestCase
         ]);
 
         $evaluacionService = $this->app->make(EvaluacionService::class);
-        $evaluacion = $evaluacionService->crear($horarioReciente, 'Evaluación', '2026-07-15');
+        $cursoReciente = CursoVirtual::factory()->create(['horario_id' => $horarioReciente->id]);
+        $evaluacion = $evaluacionService->crear($cursoReciente, 'Evaluación', '2026-07-15', TipoEvaluacionEnum::FISICO);
         $evaluacionService->calificar($evaluacion, $estudiante, 17.0, null, null);
         $evaluacionService->publicar($evaluacion);
 
@@ -105,7 +108,8 @@ class MiLibretaTest extends TestCase
         ]);
 
         $evaluacionService = $this->app->make(EvaluacionService::class);
-        $evaluacion = $evaluacionService->crear($horarioAnterior, 'Evaluación', '2026-03-15');
+        $cursoAnterior = CursoVirtual::factory()->create(['horario_id' => $horarioAnterior->id]);
+        $evaluacion = $evaluacionService->crear($cursoAnterior, 'Evaluación', '2026-03-15', TipoEvaluacionEnum::FISICO);
         $evaluacionService->calificar($evaluacion, $estudiante, 14.0, null, null);
         $evaluacionService->publicar($evaluacion);
 

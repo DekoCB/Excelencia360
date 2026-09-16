@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Evaluaciones\Models;
 
 use App\Modules\Academico\Models\Horario;
+use App\Modules\AulaVirtual\Models\CursoVirtual;
+use App\Modules\AulaVirtual\Models\Seccion;
 use App\Modules\Evaluaciones\Database\Factories\EvaluacionFactory;
 use App\Modules\Evaluaciones\Enums\EstadoEvaluacionEnum;
+use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Identidad\Support\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -17,12 +20,17 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $horario_id
+ * @property int $curso_virtual_id
+ * @property int|null $seccion_id
  * @property string $nombre
+ * @property TipoEvaluacionEnum $tipo
  * @property Carbon $fecha
  * @property string|null $enlace_externo
  * @property Carbon|null $disponible_hasta
  * @property EstadoEvaluacionEnum $estado
  * @property-read Horario $horario
+ * @property-read CursoVirtual $cursoVirtual
+ * @property-read Seccion|null $seccion
  */
 class Evaluacion extends Model
 {
@@ -33,7 +41,10 @@ class Evaluacion extends Model
 
     protected $fillable = [
         'horario_id',
+        'curso_virtual_id',
+        'seccion_id',
         'nombre',
+        'tipo',
         'fecha',
         'enlace_externo',
         'disponible_hasta',
@@ -43,6 +54,7 @@ class Evaluacion extends Model
     protected function casts(): array
     {
         return [
+            'tipo' => TipoEvaluacionEnum::class,
             'fecha' => 'date',
             'disponible_hasta' => 'datetime',
             'estado' => EstadoEvaluacionEnum::class,
@@ -59,12 +71,43 @@ class Evaluacion extends Model
         return $this->belongsTo(Horario::class);
     }
 
+    public function cursoVirtual(): BelongsTo
+    {
+        return $this->belongsTo(CursoVirtual::class);
+    }
+
+    public function seccion(): BelongsTo
+    {
+        return $this->belongsTo(Seccion::class);
+    }
+
     /**
      * @return HasMany<Calificacion, $this>
      */
     public function calificaciones(): HasMany
     {
         return $this->hasMany(Calificacion::class);
+    }
+
+    /**
+     * @return HasMany<Pregunta, $this>
+     */
+    public function preguntas(): HasMany
+    {
+        return $this->hasMany(Pregunta::class)->orderBy('orden');
+    }
+
+    /**
+     * @return HasMany<IntentoEvaluacion, $this>
+     */
+    public function intentos(): HasMany
+    {
+        return $this->hasMany(IntentoEvaluacion::class);
+    }
+
+    public function esVirtual(): bool
+    {
+        return $this->tipo === TipoEvaluacionEnum::VIRTUAL;
     }
 
     public function estaPublicada(): bool

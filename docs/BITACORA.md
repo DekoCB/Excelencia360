@@ -7,6 +7,98 @@ fecha y los commits que le corresponden.
 
 ---
 
+## 2026-09-16 (cont. 4)
+
+### Bloque C, punto #11 (último) — Evaluaciones dentro de Cursos Virtuales, modo Físico/Virtual con banco de preguntas
+
+El punto más grande del backlog de 14. Antes de tocar código se le
+preguntó al usuario un detalle que cambiaba el alcance: hoy el Aula
+Virtual de un curso es opcional (el docente la "activa" aparte), así
+que si Evaluaciones pasa a vivir 100% adentro, un docente que solo
+quiere registrar notas físicas quedaría obligado a activarla igual.
+Eligió que sí dependiera por completo — se descubrió después que esto
+ya no era un problema real: `HorarioService::crear()` activa el aula
+virtual automáticamente desde antes de esta tarea, así que en la
+práctica todo horario ya tiene una. También se preguntó cuántos
+intentos tiene un estudiante en una evaluación Virtual: eligió uno
+solo, bloqueado al enviar.
+
+**Se retiró por completo la pantalla horario→evaluaciones** (`evaluaciones.index`
+el picker por ciclo/sección/grado, y `evaluaciones.show` la de crear y
+calificar) — ya no tenía sentido como flujo aparte. En su lugar:
+- Nueva pestaña "Evaluaciones" dentro de `aula-virtual/show.blade.php`
+  (mismo patrón que Materiales/Tareas: crea con nombre, fecha, tipo y
+  sección opcional, agrupa por Sección igual que el resto).
+- Nueva página propia por evaluación (`aula-virtual/{curso}/evaluaciones/{evaluacion}`,
+  mismo patrón que `aula-virtual.tarea`) donde vive todo lo pesado:
+  calificar (Físico) o armar preguntas/revisar resultados (Virtual).
+- "Mi libreta" y la libreta que ve el staff **no se tocaron** — son un
+  resumen por ciclo que cruza TODOS los cursos del estudiante, no le
+  pertenecen a un solo curso virtual.
+
+**`Evaluacion` ganó `curso_virtual_id`, `seccion_id` y `tipo`, pero
+mantuvo `horario_id`.** Decisión deliberada para acotar el riesgo: los
+promedios, la libreta, el widget de "Mis evaluaciones" del dashboard y
+Calendario ya funcionaban bien operando sobre `horario_id`, y no tienen
+nada que ver con dónde vive la pantalla de gestión — tocarlos todos
+para forzarlos a pasar por `curso_virtual_id` habría sido un refactor
+mucho más grande y riesgoso sin ningún beneficio visible. `curso_virtual_id`
+se deriva de `horario_id` en el momento de crear (1:1, nunca se
+desincroniza) y es lo único que la nueva UI necesita. 64 evaluaciones
+existentes en la base real, backfill automático en la migración
+(sin excepciones: todo horario ya tenía su aula virtual).
+
+**Fisico vs Virtual — el banco de preguntas es 100% nuevo, no existía
+nada parecido en el proyecto** (se buscó en Encuestas, Formularios,
+ExamenUbicacion — nada). Modelos nuevos: `Pregunta` (opción_múltiple /
+opción_única / pregunta_abierta, con puntaje propio), `Alternativa`,
+`IntentoEvaluacion` (existe recién cuando el estudiante envía — su sola
+existencia es el candado de "un solo intento", no hizo falta un estado
+"borrador" aparte) y `RespuestaEstudiante` (alternativas elegidas en
+JSON, o texto libre). `PreguntaService` valida al guardar: mínimo 2
+alternativas, al menos una correcta, y opción única no admite más de
+una marcada correcta.
+
+**Autocalificación escalada a la nota vigesimal existente, no un
+sistema de puntos aparte:** `IntentoEvaluacionService::enviar()` califica
+opción_múltiple/única al toque comparando el conjunto elegido contra el
+marcado correcto (todo o nada, sin crédito parcial); una pregunta
+abierta queda pendiente hasta que el docente le pone puntaje a mano
+(`calificarAbierta()`). Recién cuando TODAS las preguntas de un intento
+tienen puntaje, se calcula `(puntaje obtenido / puntaje total) × 20` y
+se llama al mismo `EvaluacionService::calificar()` de siempre — así toda
+la maquinaria existente (promedios, libreta, `NotaLetraEnum`) sigue
+funcionando sin cambios, sin enterarse de que esa nota vino de un
+examen autocalificado.
+
+**Escaneo de cámara reutilizado, esto no:** a diferencia de #9 (QR),
+acá no había nada que reaprovechar de otro módulo — se construyó desde
+cero pero reutilizando el patrón arquitectónico de Tareas (entrega +
+calificación manual) para el lado de preguntas abiertas.
+
+Tests nuevos (banco de preguntas, autocalificación, flujo completo
+Livewire de crear pregunta → rendir → calificar abierta) más la
+reescritura de 7 archivos de test existentes que apuntaban a las
+pantallas retiradas, y el borrado de uno que solo probaba el picker
+horario→evaluaciones ya retirado (`EvaluacionesSeccionesTest`, su
+equivalente ya vive en las pruebas de `aula-virtual.index`). Se
+aprovechó para borrar dos policies/gates que quedaron sin ningún
+consumidor (`HorarioEvaluacionesPolicy` y sus dos `Gate::define` en
+`EvaluacionesServiceProvider`). Suite completo: 1113/1113 (subió de
+1097 a 1113: 16 tests netos nuevos tras sumar y restar la
+reestructuración). Pint y Larastan limpios. Verificado en vivo de punta
+a punta: el docente crea una evaluación Virtual, agrega una pregunta de
+opción única con su alternativa correcta marcada, un docente sin
+`evaluaciones.publicar` no ve el botón «Publicar» pero un Coordinador
+sí, y una vez publicada el estudiante la rinde y ve su nota (20.00) al
+instante.
+
+Con esto se cierra el Bloque C completo y el backlog de 14 puntos —
+quedan solo los puntos del Bloque B (#1 lógica de consulta, #2 Excel de
+importación) pendientes de que el usuario mande los formatos exactos.
+
+---
+
 ## 2026-09-16 (cont. 3)
 
 ### Bloque C, punto #9 — Asistencia por QR (estudiantes y docentes)

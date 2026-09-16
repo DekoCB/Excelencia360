@@ -17,6 +17,8 @@ use App\Modules\AulaVirtual\Services\PlantillaCursoVirtualService;
 use App\Modules\AulaVirtual\Services\PublicacionService;
 use App\Modules\AulaVirtual\Services\SeccionService;
 use App\Modules\AulaVirtual\Services\TareaService;
+use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
+use App\Modules\Evaluaciones\Services\EvaluacionService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Auth;
@@ -111,6 +113,17 @@ new #[Layout('layouts.app')] class extends Component
 
     // Plantillas de aula virtual
     public string $nombrePlantilla = '';
+
+    // Nueva evaluación
+    public bool $mostrarFormEvaluacion = false;
+
+    public string $evaluacionNombre = '';
+
+    public string $evaluacionFecha = '';
+
+    public string $evaluacionTipo = '';
+
+    public string $evaluacionSeccionId = '';
 
     // Secciones (bloques de contenido, con nombre y/o fecha)
     public bool $mostrarFormSeccion = false;
@@ -248,6 +261,29 @@ new #[Layout('layouts.app')] class extends Component
 
         $this->reset(['tareaTitulo', 'tareaDescripcion', 'tareaFechaLimite', 'tareaPuntajeMax', 'tareaSeccionId', 'mostrarFormTarea']);
         $this->tareaCursosSeleccionados = [$this->curso->id];
+    }
+
+    public function crearEvaluacion(EvaluacionService $service): void
+    {
+        Gate::authorize('manage', $this->curso);
+
+        $this->validate([
+            'evaluacionNombre' => 'required|string|max:150',
+            'evaluacionFecha' => 'required|date',
+            'evaluacionTipo' => 'required|string|in:'.implode(',', array_column(TipoEvaluacionEnum::cases(), 'value')),
+        ]);
+
+        $seccion = $this->seccionSeleccionada($this->evaluacionSeccionId);
+
+        $service->crear(
+            $this->curso,
+            $this->evaluacionNombre,
+            $this->evaluacionFecha,
+            TipoEvaluacionEnum::from($this->evaluacionTipo),
+            $seccion?->id,
+        );
+
+        $this->reset(['evaluacionNombre', 'evaluacionFecha', 'evaluacionTipo', 'evaluacionSeccionId', 'mostrarFormEvaluacion']);
     }
 
     public function crearPublicacion(PublicacionService $service): void
@@ -485,24 +521,33 @@ new #[Layout('layouts.app')] class extends Component
         return $grupos;
     }
 
-    public function with(CursoVirtualService $cursos, PlantillaCursoVirtualService $plantillas, SeccionService $secciones): array
+    public function with(CursoVirtualService $cursos, PlantillaCursoVirtualService $plantillas, SeccionService $secciones, EvaluacionService $evaluaciones): array
     {
         $user = Auth::user();
         $seccionesDelCurso = $secciones->listarPorCurso($this->curso);
+        $puedeGestionar = Gate::allows('manage', $this->curso);
+
+        $evaluacionesDelCurso = $evaluaciones->evaluacionesDelCursoVirtual($this->curso);
+
+        if (! $puedeGestionar) {
+            $evaluacionesDelCurso = $evaluacionesDelCurso->filter->estaPublicada();
+        }
 
         return [
-            'puedeGestionar' => Gate::allows('manage', $this->curso),
+            'puedeGestionar' => $puedeGestionar,
             'puedeGestionarPortada' => $user->hasRole('coordinador') || $user->hasRole('direccion'),
             'secciones' => $seccionesDelCurso,
             'seccionesPorId' => $seccionesDelCurso->keyBy('id'),
             'materialesPorSeccion' => $this->agruparPorSeccion($this->curso->materiales, $seccionesDelCurso),
             'clasesGrabadasPorSeccion' => $this->agruparPorSeccion($this->curso->clasesGrabadas, $seccionesDelCurso),
             'tareasPorSeccion' => $this->agruparPorSeccion($this->curso->tareas()->latest('fecha_limite')->get(), $seccionesDelCurso),
+            'evaluacionesPorSeccion' => $this->agruparPorSeccion($evaluacionesDelCurso, $seccionesDelCurso),
             'publicaciones' => $this->curso->publicaciones()->with(['autor', 'comentarios.autor'])->latest()->get(),
             'forosPorSeccion' => $this->agruparPorSeccion($this->curso->foros()->with(['autor', 'respuestas.autor'])->latest()->get(), $seccionesDelCurso),
             'tiposMaterial' => TipoMaterialEnum::cases(),
             'tiposClaseGrabada' => TipoClaseGrabadaEnum::cases(),
             'tiposPublicacion' => TipoPublicacionEnum::cases(),
+            'tiposEvaluacion' => TipoEvaluacionEnum::cases(),
             'cursosRelacionados' => $cursos->cursosVirtualesRelacionados($this->curso),
             'plantillasDisponibles' => $plantillas->listarPorCurso($this->curso->horario->curso),
         ];
@@ -561,7 +606,7 @@ new #[Layout('layouts.app')] class extends Component
     @endcan
 
     <div class="mb-6 flex gap-1 border-b border-border">
-        @foreach (['materiales' => 'Materiales', 'clases-grabadas' => 'Clases grabadas', 'tareas' => 'Tareas', 'publicaciones' => 'Publicaciones', 'foros' => 'Foros'] as $valor => $etiqueta)
+        @foreach (['materiales' => 'Materiales', 'clases-grabadas' => 'Clases grabadas', 'tareas' => 'Tareas', 'evaluaciones' => 'Evaluaciones', 'publicaciones' => 'Publicaciones', 'foros' => 'Foros'] as $valor => $etiqueta)
             <button
                 wire:click="$set('tab', '{{ $valor }}')"
                 @class([
@@ -917,6 +962,91 @@ new #[Layout('layouts.app')] class extends Component
                     </div>
                 @empty
                     <p class="px-4 py-8 text-center text-sm text-ink-faint">Todavía no hay tareas.</p>
+                @endforelse
+            </div>
+        </div>
+    @endif
+
+    @if ($tab === 'evaluaciones')
+        <div class="space-y-4">
+            @can('manage', $curso)
+                <div class="flex justify-end">
+                    <x-secondary-button type="button" wire:click="$set('mostrarFormEvaluacion', true)">+ Nueva evaluación</x-secondary-button>
+                </div>
+            @endcan
+
+            @if ($mostrarFormEvaluacion)
+                <form wire:submit="crearEvaluacion" class="rounded-2xl border border-border bg-surface shadow-sm p-4 space-y-3">
+                    <div>
+                        <x-input-label for="evaluacionNombre" value="Nombre" />
+                        <x-text-input wire:model="evaluacionNombre" id="evaluacionNombre" class="mt-1 block w-full" placeholder="Evaluación mensual — julio" />
+                        <x-input-error :messages="$errors->get('evaluacionNombre')" class="mt-1" />
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <x-input-label for="evaluacionFecha" value="Fecha" />
+                            <x-date-input wire:model="evaluacionFecha" id="evaluacionFecha" class="mt-1 block w-full" />
+                            <x-input-error :messages="$errors->get('evaluacionFecha')" class="mt-1" />
+                        </div>
+                        <div>
+                            <x-input-label for="evaluacionTipo" value="Tipo" />
+                            <x-select-input
+                                wire:model="evaluacionTipo"
+                                id="evaluacionTipo"
+                                class="mt-1 block w-full"
+                                :options="collect($tiposEvaluacion)->mapWithKeys(fn ($tipo) => [$tipo->value => $tipo->label()])"
+                                placeholder="Selecciona…"
+                            />
+                            <x-input-error :messages="$errors->get('evaluacionTipo')" class="mt-1" />
+                        </div>
+                    </div>
+                    <p class="text-xs text-ink-faint">
+                        Físico: solo se registran notas (examen en papel, oral, etc.). Virtual: además puedes armar la evaluación dentro de la app, con opción múltiple, opción única y preguntas abiertas.
+                    </p>
+                    <div>
+                        <x-input-label for="evaluacionSeccionId" value="Sección (opcional)" />
+                        <x-select-input
+                            wire:model="evaluacionSeccionId"
+                            id="evaluacionSeccionId"
+                            class="mt-1 block w-full"
+                            :options="$secciones->mapWithKeys(fn ($seccion) => [(string) $seccion->id => $seccion->titulo()])->prepend('Sin sección (Bienvenida)', '')"
+                        />
+                        <p class="mt-1 text-xs text-ink-faint">Déjalo vacío para que aparezca en «Bienvenida».</p>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <x-secondary-button type="button" wire:click="$set('mostrarFormEvaluacion', false)">Cancelar</x-secondary-button>
+                        <x-primary-button type="submit">Guardar</x-primary-button>
+                    </div>
+                </form>
+            @endif
+
+            <div class="space-y-4">
+                @forelse ($evaluacionesPorSeccion as $idSeccion => $evaluacionesDeSeccion)
+                    <div>
+                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ $idSeccion === 0 ? 'Bienvenida' : $seccionesPorId[$idSeccion]->titulo() }}</p>
+                        <div class="divide-y divide-border rounded-2xl border border-border bg-surface shadow-sm">
+                            @foreach ($evaluacionesDeSeccion as $evaluacion)
+                                <a href="{{ route('aula-virtual.evaluacion', [$curso, $evaluacion]) }}" wire:navigate class="flex items-center justify-between gap-2 px-4 py-3 text-sm hover:bg-surface-2">
+                                    <div>
+                                        <p class="text-ink">{{ $evaluacion->nombre }}</p>
+                                        <p class="text-xs text-ink-faint">{{ $evaluacion->fecha->format('d/m/Y') }}</p>
+                                    </div>
+                                    <div class="flex shrink-0 items-center gap-2">
+                                        <x-badge variant="info">{{ $evaluacion->tipo->label() }}</x-badge>
+                                        <span @class([
+                                            'rounded-full px-2 py-0.5 text-xs',
+                                            'bg-accent-soft text-accent' => $evaluacion->estaPublicada(),
+                                            'bg-surface-2 text-ink-faint' => ! $evaluacion->estaPublicada(),
+                                        ])>
+                                            {{ $evaluacion->estado->label() }}
+                                        </span>
+                                    </div>
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                @empty
+                    <p class="px-4 py-8 text-center text-sm text-ink-faint">Todavía no hay evaluaciones.</p>
                 @endforelse
             </div>
         </div>
