@@ -75,10 +75,69 @@ ya existente. 1 test nuevo.
 
 Quedan pendientes, para después: #1 (lógica de consulta) y #2 (Excel de
 importación masiva) en cuanto el usuario mande los formatos; #3 (el QR
-redirige a Validación de Certificados, depende de #1); y el Bloque C
-completo (renombrado académico SIAGIE→Periodo Académico/Grupos→Programa
-de Estudio/Grados→Semestres, materiales por sesión, secciones estilo
-Moodle, asistencia por QR, evaluaciones dentro de Aula Virtual).
+redirige a Validación de Certificados, depende de #1); y el resto del
+Bloque C (materiales por sesión, secciones estilo Moodle, asistencia por
+QR, evaluaciones dentro de Aula Virtual) — ver la entrada siguiente para
+el primer punto del Bloque C, ya cerrado.
+
+---
+
+## 2026-09-16 (cont.)
+
+### Bloque C, punto #8 — Renombrado académico: SIAGIE → Periodo Académico, Grupo → Programa de Estudio, Grado → Semestre
+
+El usuario pidió seguir con el Bloque C (la reestructuración académica
+grande) y eligió empezar por el renombrado, ya que los demás puntos
+(#6, #7, #9, #11) dependen de la misma terminología.
+
+**Alcance: solo texto visible en la UI, no un refactor de clases/tablas.**
+Los modelos (`Siagie`, `Ciclo`, `Grado`), tablas, rutas y nombres de
+variable internos se mantienen igual — cambiar eso habría sido un
+refactor mucho más grande y riesgoso sin ningún beneficio visible para
+el usuario. Se renombraron:
+- Las 3 páginas propias del módulo Académico (título, botones, estados
+  vacíos, mensajes flash) y su entrada en el sidebar.
+- ~25 archivos consumidores en Matrícula, Reportes, Calendario,
+  Asistencia, Evaluaciones, Aula Virtual, Migraciones, Notificaciones,
+  Dashboard, Pagos, Vacaciones, Certificados/Constancias y varios PDFs
+  (recibo, ficha de matrícula, historial del estudiante, libreta).
+- 6 etiquetas y mensajes que no vivían en Blade sino fijos en código:
+  `TipoCicloEnum::label()` ("Grupo 1 (Enero - Junio)" → "Programa 1
+  (Enero - Junio)"), `ModalidadCicloEnum::label()` ("Grupo rotativo (6
+  meses)"/"SIAGIE anual" → "Programa de Estudio (6 meses)"/"Periodo
+  académico anual"), y 4 mensajes de validación en `CicloService`,
+  `SiagieService` y `VacacionService` que mencionaban "SIAGIE"/"Grupo"
+  directamente. Sin este paso, el renombrado se habría visto incompleto
+  en cualquier pantalla que mostrara esos mensajes o el nombre generado
+  automáticamente de un SIAGIE Anual.
+- El seeder de demo (`AcademicoDemoSeeder`) para que instalaciones
+  nuevas ya nazcan con "Semestre 1"–"Semestre 4" en vez de "Grado
+  1"–"Grado 4".
+
+**Deliberadamente NO tocado:** los nombres ya guardados en la base de
+datos real (ej. un Ciclo llamado literalmente "Grupo 3 (Julio -
+Diciembre)", un Grado llamado "Grado 1") — son datos editables por el
+staff desde el propio CRUD de Programa de Estudio/Semestres, no texto
+de plantilla; renombrarlos a la fuerza habría sido una migración de
+datos de producción no pedida. El resultado visible: las etiquetas del
+formulario y las columnas dicen "Programa de Estudio"/"Semestre", pero
+un registro que el staff no ha vuelto a nombrar todavía puede seguir
+mostrando "Grupo 3..." hasta que lo edite.
+
+**Caso especial dejado sin cambiar a propósito:** el placeholder
+`{{grado}}` que ofrece el editor de plantillas de Certificados/
+Constancias no se renombró, porque es una clave funcional que el
+backend reemplaza por `str_replace()` (`PlantillaCertificado::
+renderizarCuerpo()`) — cambiar el nombre ahí habría roto cualquier
+plantilla ya guardada que use `{{grado}}` en su cuerpo, sin ganar nada
+más que una etiqueta más bonita.
+
+Suite completo: 1083/1083 (sin cambios de conteo, ya que este punto es
+puramente de renombrado). Pint y Larastan limpios. Verificado en vivo
+con capturas reales de las 3 páginas y del sidebar.
+
+Commit `b836634`, junto con el Bloque A completo del backlog de 14
+puntos (entrada anterior).
 
 ---
 
