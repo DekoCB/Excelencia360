@@ -157,7 +157,7 @@ class MisHijosPermisosTest extends TestCase
         $this->actingAs($apoderado)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('Tutores/Apoderados');
+            ->assertSee('Hijos');
     }
 
     public function test_el_enlace_mis_hijos_no_aparece_en_el_menu_para_docente(): void
@@ -168,7 +168,7 @@ class MisHijosPermisosTest extends TestCase
         $this->actingAs($docente)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertDontSee('Tutores/Apoderados');
+            ->assertDontSee('Hijos');
     }
 
     public function test_direccion_entra_sin_hijos_propios_y_ve_el_buscador(): void

@@ -59,7 +59,7 @@
             ])
         >
             <x-heroicon-o-user-group class="h-5 w-5 shrink-0" />
-            <span class="sidebar-label">Tutores/Apoderados</span>
+            <span class="sidebar-label">Hijos</span>
         </a>
     @endcanany
 

@@ -190,7 +190,7 @@ new #[Layout('layouts.app')] class extends Component
 
 <div>
     <x-slot name="header">
-        <h1 class="font-display text-2xl text-ink">Tutores/Apoderados</h1>
+        <h1 class="font-display text-2xl text-ink">Hijos</h1>
         <p class="mt-1 text-sm text-ink-dim">
             @if ($modoDirectorio)
                 Busca por apoderado o por su hijo para ver notas, pagos, documentos y situación académica.
