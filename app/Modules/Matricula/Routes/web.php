@@ -29,6 +29,10 @@ Route::middleware(['auth'])->prefix('matricula')->name('matricula.')->group(func
     Volt::route('mis-hijos', 'matricula.mis-hijos')
         ->name('mis-hijos');
 
+    Volt::route('apoderados', 'matricula.apoderados.index')
+        ->middleware('can:matricula.ver')
+        ->name('apoderados.index');
+
     Volt::route('{estudiante}', 'matricula.show')
         ->middleware('can:matricula.ver')
         ->name('show');

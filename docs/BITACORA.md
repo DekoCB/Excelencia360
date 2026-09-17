@@ -7,6 +7,43 @@ fecha y los commits que le corresponden.
 
 ---
 
+## 2026-09-17 (cont. 4)
+
+### Módulo nuevo "Apoderados" y renombrado "Tutores/Apoderados" → "Hijos"
+
+El usuario notó que el único enlace bajo "Portal de Apoderados" decía
+"Tutores/Apoderados" pero en realidad llevaba a la pantalla de **hijos**
+(notas, pagos, documentos), no a una gestión de apoderados — se renombró a
+"Hijos". Eso dejó en evidencia un hueco real: no había ninguna pantalla para
+crear o corregir el apoderado de un estudiante ya matriculado (solo se
+capturaba una vez, durante el asistente de matrícula o la carga masiva).
+
+- **Pantalla nueva "Apoderados"** (`/matricula/apoderados`, arriba de
+  "Hijos" en el menú, solo para Coordinación/Dirección — un apoderado no
+  ve este directorio, solo "Hijos"): catálogo con tarjetas igual que
+  Estudiantes, buscador por nombre/DNI/hijo, y un formulario para crear o
+  editar. Reutiliza `MatriculaService::registrarApoderado()` para ambos
+  casos (crear y editar): como `Apoderado.estudiante_id` es único y ese
+  método hace `updateOrCreate()`, no hizo falta un método nuevo para
+  editar. El selector de "nuevo apoderado" solo ofrece menores de edad que
+  todavía no tienen uno (`estudiantesSinApoderado()`, método nuevo);
+  editando, el estudiante queda fijo (no se puede reasignar a otro).
+- **Ficha del estudiante**: la sección "Apoderado" se movió para aparecer
+  justo debajo de "Datos personales" (antes iba después de
+  "Observaciones"), y ahora también muestra correo y dirección, no solo
+  nombres/DNI/parentesco/celular.
+- 10 tests nuevos (permisos, crear, editar, filtrado del selector,
+  búsqueda), Pint y Larastan limpios.
+- Verificado en vivo contra la BD real de desarrollo: crear un apoderado
+  nuevo → aparece en la ficha del estudiante justo donde corresponde →
+  editar ese mismo apoderado → confirmado en la lista. Durante la
+  verificación se tocó por error un registro real ajeno (un clic de
+  prueba cayó sobre otra tarjeta antes de que el buscador terminara de
+  filtrar) — detectado y revertido de inmediato antes de seguir; el dato
+  de prueba propio se eliminó al terminar.
+
+---
+
 ## 2026-09-17 (cont. 3)
 
 ### Programa de Estudio pasa a ser una carrera real (Académico)

@@ -149,6 +149,39 @@ class MatriculaService
         });
     }
 
+    public function listarApoderados(?string $termino, int $perPage = 15): LengthAwarePaginator
+    {
+        return Apoderado::query()
+            ->with('estudiante')
+            ->when($termino, fn ($query) => $query->where(function ($query) use ($termino) {
+                $query->where('nombres', 'like', "%{$termino}%")
+                    ->orWhere('dni', 'like', "%{$termino}%")
+                    ->orWhereHas('estudiante', function ($query) use ($termino) {
+                        $query->where('nombres', 'like', "%{$termino}%")
+                            ->orWhere('apellidos', 'like', "%{$termino}%");
+                    });
+            }))
+            ->orderBy('nombres')
+            ->paginate($perPage);
+    }
+
+    /**
+     * Estudiantes menores de edad que todavía no tienen un apoderado
+     * registrado -- para el selector de "nuevo apoderado" (Apoderado::
+     * estudiante_id es unique, así que uno ya asignado se edita, no se
+     * vuelve a crear).
+     *
+     * @return Collection<int, Estudiante>
+     */
+    public function estudiantesSinApoderado(): Collection
+    {
+        return Estudiante::query()
+            ->where('es_menor_edad', true)
+            ->whereDoesntHave('apoderado')
+            ->orderBy('nombres')
+            ->get();
+    }
+
     private function vincularAccesoApoderado(Dni $dni, string $nombres, Telefono $celular): User
     {
         $usuario = User::query()->where('dni', $dni->valor())->first();

@@ -14,6 +14,7 @@ use App\Modules\Matricula\DTOs\RegistrarApoderadoData;
 use App\Modules\Matricula\DTOs\RegistrarEstudianteData;
 use App\Modules\Matricula\DTOs\RegistrarMatriculaData;
 use App\Modules\Matricula\Events\EstudianteMatriculado;
+use App\Modules\Matricula\Models\Apoderado;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
 use App\Modules\Matricula\Services\MatriculaService;
@@ -192,6 +193,81 @@ class MatriculaServiceTest extends TestCase
         $this->assertSame($usuarioExistente->id, $apoderadoUno->user_id);
         $this->assertSame($usuarioExistente->id, $apoderadoDos->user_id);
         $this->assertNotSame($apoderadoUno->estudiante_id, $apoderadoDos->estudiante_id);
+    }
+
+    public function test_registrar_apoderado_sobre_un_estudiante_que_ya_tiene_uno_lo_actualiza(): void
+    {
+        $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMenor());
+
+        $original = $this->service()->registrarApoderado($estudiante, new RegistrarApoderadoData(
+            nombres: 'Pedro García', dni: new Dni('87654321'), celular: new Telefono('912345678'),
+            correo: null, direccion: null, parentesco: 'Padre',
+        ));
+
+        $actualizado = $this->service()->registrarApoderado($estudiante, new RegistrarApoderadoData(
+            nombres: 'Pedro García Corregido', dni: new Dni('87654321'), celular: new Telefono('912345678'),
+            correo: 'pedro@example.test', direccion: 'Nueva dirección', parentesco: 'Padre',
+        ));
+
+        $this->assertSame($original->id, $actualizado->id);
+        $this->assertSame(1, Apoderado::query()->where('estudiante_id', $estudiante->id)->count());
+        $this->assertSame('Pedro García Corregido', $actualizado->nombres);
+        $this->assertSame('pedro@example.test', $actualizado->correo);
+    }
+
+    public function test_listar_apoderados_filtra_por_nombre_dni_o_nombre_del_hijo(): void
+    {
+        $hijoUno = $this->service()->registrarEstudiante($this->datosEstudianteMenor());
+        $hijoDos = $this->service()->registrarEstudiante(new RegistrarEstudianteData(
+            nombres: 'Rosa',
+            apellidos: 'Quispe Mamani',
+            dni: new Dni('78912346'),
+            fechaNacimiento: now()->subYears(13)->format('Y-m-d'),
+            estadoCivil: null,
+            direccion: null,
+            celular: null,
+            observaciones: null,
+        ));
+
+        $this->service()->registrarApoderado($hijoUno, new RegistrarApoderadoData(
+            nombres: 'Pedro García', dni: new Dni('87654321'), celular: new Telefono('912345678'),
+            correo: null, direccion: null, parentesco: 'Padre',
+        ));
+        $this->service()->registrarApoderado($hijoDos, new RegistrarApoderadoData(
+            nombres: 'Lucía Fernández', dni: new Dni('11223344'), celular: new Telefono('999888777'),
+            correo: null, direccion: null, parentesco: 'Madre',
+        ));
+
+        $this->assertCount(1, $this->service()->listarApoderados('García'));
+        $this->assertCount(1, $this->service()->listarApoderados('87654321'));
+        $this->assertCount(1, $this->service()->listarApoderados('Quispe'));
+        $this->assertCount(2, $this->service()->listarApoderados(null));
+    }
+
+    public function test_estudiantes_sin_apoderado_excluye_mayores_de_edad_y_menores_ya_vinculados(): void
+    {
+        $menorSinApoderado = $this->service()->registrarEstudiante($this->datosEstudianteMenor());
+        $mayor = $this->service()->registrarEstudiante($this->datosEstudianteMayor());
+        $menorConApoderado = $this->service()->registrarEstudiante(new RegistrarEstudianteData(
+            nombres: 'Rosa',
+            apellidos: 'Quispe Mamani',
+            dni: new Dni('78912346'),
+            fechaNacimiento: now()->subYears(13)->format('Y-m-d'),
+            estadoCivil: null,
+            direccion: null,
+            celular: null,
+            observaciones: null,
+        ));
+        $this->service()->registrarApoderado($menorConApoderado, new RegistrarApoderadoData(
+            nombres: 'Lucía Fernández', dni: new Dni('11223344'), celular: new Telefono('999888777'),
+            correo: null, direccion: null, parentesco: 'Madre',
+        ));
+
+        $disponibles = $this->service()->estudiantesSinApoderado();
+
+        $this->assertTrue($disponibles->contains('id', $menorSinApoderado->id));
+        $this->assertFalse($disponibles->contains('id', $mayor->id));
+        $this->assertFalse($disponibles->contains('id', $menorConApoderado->id));
     }
 
     public function test_no_permite_matricular_sin_periodo_de_matricula_abierto(): void

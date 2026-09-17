@@ -62,6 +62,20 @@
         </dl>
     </div>
 
+    @if ($estudiante->es_menor_edad && $estudiante->apoderado)
+        <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
+            <h2 class="text-sm font-semibold text-ink">Apoderado</h2>
+            <dl class="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+                <div><dt class="text-ink-faint">Nombres</dt><dd class="text-ink">{{ $estudiante->apoderado->nombres }}</dd></div>
+                <div><dt class="text-ink-faint">DNI</dt><dd class="text-ink">{{ $estudiante->apoderado->dni }}</dd></div>
+                <div><dt class="text-ink-faint">Parentesco</dt><dd class="text-ink">{{ $estudiante->apoderado->parentesco }}</dd></div>
+                <div><dt class="text-ink-faint">Celular</dt><dd class="text-ink">{{ $estudiante->apoderado->celular }}</dd></div>
+                <div><dt class="text-ink-faint">Correo</dt><dd class="text-ink">{{ $estudiante->apoderado->correo ?? '—' }}</dd></div>
+                <div><dt class="text-ink-faint">Dirección</dt><dd class="text-ink">{{ $estudiante->apoderado->direccion ?? '—' }}</dd></div>
+            </dl>
+        </div>
+    @endif
+
     <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
         <h2 class="text-sm font-semibold text-ink">Observaciones</h2>
         <p class="mt-1 text-xs text-ink-faint">Acuerdos especiales, documentos pendientes de entregar, casos particulares (ej. examen de ubicación).</p>
@@ -76,18 +90,6 @@
             <p class="mt-4 whitespace-pre-line text-sm text-ink">{{ $estudiante->observaciones ?: 'Sin observaciones registradas.' }}</p>
         @endcan
     </div>
-
-    @if ($estudiante->es_menor_edad && $estudiante->apoderado)
-        <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
-            <h2 class="text-sm font-semibold text-ink">Apoderado</h2>
-            <dl class="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-                <div><dt class="text-ink-faint">Nombres</dt><dd class="text-ink">{{ $estudiante->apoderado->nombres }}</dd></div>
-                <div><dt class="text-ink-faint">DNI</dt><dd class="text-ink">{{ $estudiante->apoderado->dni }}</dd></div>
-                <div><dt class="text-ink-faint">Parentesco</dt><dd class="text-ink">{{ $estudiante->apoderado->parentesco }}</dd></div>
-                <div><dt class="text-ink-faint">Celular</dt><dd class="text-ink">{{ $estudiante->apoderado->celular }}</dd></div>
-            </dl>
-        </div>
-    @endif
 
     @if ($estudiante->institucionProcedencia)
         <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
