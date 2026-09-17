@@ -96,7 +96,7 @@ new #[Layout('layouts.app')] class extends Component
 
             <form wire:submit="procesar" class="mt-4 space-y-4">
                 <div>
-                    <x-input-label for="cicloId" value="Programa de estudio" />
+                    <x-input-label for="cicloId" value="Período de matrícula" />
                     <x-select-input
                         wire:model="cicloId"
                         id="cicloId"

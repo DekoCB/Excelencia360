@@ -18,7 +18,7 @@ class GradoService
     }
 
     /**
-     * @param  array{nombre: string, orden: int}  $datos
+     * @param  array{programa_estudio_id: int, nombre: string, orden: int}  $datos
      */
     public function crear(array $datos): Grado
     {
@@ -26,7 +26,7 @@ class GradoService
     }
 
     /**
-     * @param  array{nombre: string, orden: int, activo: bool}  $datos
+     * @param  array{programa_estudio_id: int, nombre: string, orden: int, activo: bool}  $datos
      */
     public function actualizar(Grado $grado, array $datos): Grado
     {
@@ -35,9 +35,10 @@ class GradoService
         return $grado;
     }
 
-    public function existeOrden(int $orden, ?int $exceptoId = null): bool
+    public function existeOrden(int $programaEstudioId, int $orden, ?int $exceptoId = null): bool
     {
         return Grado::query()
+            ->where('programa_estudio_id', $programaEstudioId)
             ->where('orden', $orden)
             ->when($exceptoId, fn ($query) => $query->whereKeyNot($exceptoId))
             ->exists();

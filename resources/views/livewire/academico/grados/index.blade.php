@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Academico\Models\Grado;
+use App\Modules\Academico\Models\ProgramaEstudio;
 use App\Modules\Academico\Services\GradoService;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
@@ -11,6 +12,8 @@ new #[Layout('layouts.app')] class extends Component
     public bool $mostrarModal = false;
 
     public ?int $editandoId = null;
+
+    public string $programaEstudioId = '';
 
     public string $nombre = '';
 
@@ -32,11 +35,12 @@ new #[Layout('layouts.app')] class extends Component
 
         if ($gradoId) {
             $grado = Grado::query()->findOrFail($gradoId);
+            $this->programaEstudioId = (string) $grado->programa_estudio_id;
             $this->nombre = $grado->nombre;
             $this->orden = (string) $grado->orden;
             $this->activo = $grado->activo;
         } else {
-            $this->reset(['nombre', 'orden']);
+            $this->reset(['programaEstudioId', 'nombre', 'orden']);
             $this->activo = true;
         }
 
@@ -48,17 +52,19 @@ new #[Layout('layouts.app')] class extends Component
         Gate::authorize('academico.gestionar');
 
         $this->validate([
+            'programaEstudioId' => 'required|integer|exists:programas_estudio,id',
             'nombre' => 'required|string|max:100',
             'orden' => 'required|integer|min:1|max:10',
         ]);
 
-        if ($service->existeOrden((int) $this->orden, $this->editandoId)) {
-            $this->addError('orden', "Ya existe un semestre con el orden {$this->orden}.");
+        if ($service->existeOrden((int) $this->programaEstudioId, (int) $this->orden, $this->editandoId)) {
+            $this->addError('orden', "Ya existe un semestre con el orden {$this->orden} en este programa de estudio.");
 
             return;
         }
 
         $datos = [
+            'programa_estudio_id' => (int) $this->programaEstudioId,
             'nombre' => $this->nombre,
             'orden' => (int) $this->orden,
         ];
@@ -76,7 +82,8 @@ new #[Layout('layouts.app')] class extends Component
     public function with(GradoService $service): array
     {
         return [
-            'grados' => $service->todos(),
+            'grados' => $service->todos()->load('programaEstudio'),
+            'programas' => ProgramaEstudio::query()->where('activo', true)->orderBy('nombre')->get(),
         ];
     }
 }; ?>
@@ -111,6 +118,7 @@ new #[Layout('layouts.app')] class extends Component
             <thead class="bg-surface-2">
                 <tr>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Nombre</th>
+                    <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Programa de estudio</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Orden</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Aula</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Estado</th>
@@ -121,6 +129,7 @@ new #[Layout('layouts.app')] class extends Component
                 @forelse ($grados as $grado)
                     <tr wire:key="grado-{{ $grado->id }}">
                         <td class="px-4 py-3 font-medium text-ink">{{ $grado->nombre }}</td>
+                        <td class="px-4 py-3 text-ink-dim">{{ $grado->programaEstudio->nombre }}</td>
                         <td class="px-4 py-3 font-mono text-ink-dim">{{ $grado->orden }}</td>
                         <td class="px-4 py-3 text-ink-dim">{{ $grado->letraAula() }}</td>
                         <td class="px-4 py-3">
@@ -135,7 +144,7 @@ new #[Layout('layouts.app')] class extends Component
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" class="px-4 py-8 text-center text-sm text-ink-faint">No hay semestres registrados.</td></tr>
+                    <tr><td colspan="6" class="px-4 py-8 text-center text-sm text-ink-faint">No hay semestres registrados.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -166,6 +175,17 @@ new #[Layout('layouts.app')] class extends Component
                 <h2 class="font-display text-lg text-ink">{{ $editandoId ? 'Editar semestre' : 'Nuevo semestre' }}</h2>
 
                 <form wire:submit="guardar" class="mt-4 space-y-4">
+                    <div>
+                        <x-input-label for="programaEstudioId" value="Programa de estudio" />
+                        <x-select-input
+                            wire:model="programaEstudioId"
+                            id="programaEstudioId"
+                            class="mt-1 block w-full"
+                            :options="collect($programas)->mapWithKeys(fn ($programa) => [$programa->id => $programa->nombre])"
+                        />
+                        <x-input-error :messages="$errors->get('programaEstudioId')" class="mt-1" />
+                    </div>
+
                     <div>
                         <x-input-label for="nombre" value="Nombre" />
                         <x-text-input wire:model="nombre" id="nombre" class="mt-1 block w-full" />

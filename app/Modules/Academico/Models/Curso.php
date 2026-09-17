@@ -8,14 +8,13 @@ use App\Modules\Academico\Database\Factories\CursoFactory;
 use App\Modules\Identidad\Support\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
 /**
  * @property int $id
- * @property int $grado_id
  * @property string $nombre
  * @property string $codigo
  * @property list<string>|null $franjas_permitidas
@@ -28,7 +27,6 @@ class Curso extends Model implements HasMedia
     protected $fillable = [
         'nombre',
         'codigo',
-        'grado_id',
         'franjas_permitidas',
         'horas',
         'activo',
@@ -52,9 +50,12 @@ class Curso extends Model implements HasMedia
         $this->addMediaCollection('portada')->singleFile();
     }
 
-    public function grado(): BelongsTo
+    /**
+     * @return BelongsToMany<Grado, $this>
+     */
+    public function grados(): BelongsToMany
     {
-        return $this->belongsTo(Grado::class);
+        return $this->belongsToMany(Grado::class, 'curso_grado');
     }
 
     public function horarios(): HasMany

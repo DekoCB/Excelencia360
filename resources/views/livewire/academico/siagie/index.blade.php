@@ -70,7 +70,7 @@ new #[Layout('layouts.app')] class extends Component
 <div>
     <x-slot name="header">
         <h1 class="font-display text-2xl text-ink">Periodo Académico</h1>
-        <p class="mt-1 text-sm text-ink-dim">Los periodos académicos (1.er periodo, 2.° periodo, Anual) — independientes del Programa de Estudio rotativo de la institución.</p>
+        <p class="mt-1 text-sm text-ink-dim">Los periodos académicos (1.er periodo, 2.° periodo, Anual) — independientes del Período de Matrícula rotativo de la institución.</p>
     </x-slot>
 
     @can('academico.gestionar')
@@ -161,7 +161,7 @@ new #[Layout('layouts.app')] class extends Component
                 </div>
 
                 @if ($tipo === 'anual')
-                    <p class="text-xs text-ink-dim">El periodo académico Anual crea además su propio Programa de Estudio, con horarios reales: declara de qué mes a qué mes dura el periodo de clases (8 meses; los 2 restantes son vacaciones).</p>
+                    <p class="text-xs text-ink-dim">El periodo académico Anual crea además su propio Período de Matrícula, con horarios reales: declara de qué mes a qué mes dura el periodo de clases (8 meses; los 2 restantes son vacaciones).</p>
                 @else
                     <p class="text-xs text-ink-dim">Las fechas son opcionales para este tipo — es solo una clasificación, sin horarios propios.</p>
                 @endif

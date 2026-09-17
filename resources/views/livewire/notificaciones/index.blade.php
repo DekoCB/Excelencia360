@@ -111,7 +111,7 @@ new #[Layout('layouts.app')] class extends Component
 <div>
     <x-slot name="header">
         <h1 class="font-display text-2xl text-ink">Notificaciones</h1>
-        <p class="mt-1 text-sm text-ink-dim">Envíos masivos de WhatsApp segmentados por semestre, programa de estudio o estado de deuda.</p>
+        <p class="mt-1 text-sm text-ink-dim">Envíos masivos de WhatsApp segmentados por semestre, período de matrícula o estado de deuda.</p>
     </x-slot>
 
     @if (session('status'))

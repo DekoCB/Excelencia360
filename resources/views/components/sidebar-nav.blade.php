@@ -387,11 +387,12 @@
 
         @foreach ([
             ['route' => 'academico.siagie.index', 'prefix' => 'academico.siagie.*', 'label' => 'Periodo Académico', 'icon' => 'identification'],
-            ['route' => 'academico.ciclos.index', 'prefix' => 'academico.ciclos.*', 'label' => 'Programa de Estudio', 'icon' => 'arrow-path'],
-            ['route' => 'academico.grados.index', 'prefix' => 'academico.grados.*', 'label' => 'Semestres', 'icon' => 'academic-cap'],
+            ['route' => 'academico.programas-estudio.index', 'prefix' => 'academico.programas-estudio.*', 'label' => 'Programa de Estudio', 'icon' => 'academic-cap'],
+            ['route' => 'academico.grados.index', 'prefix' => 'academico.grados.*', 'label' => 'Semestres', 'icon' => 'bookmark'],
             ['route' => 'academico.cursos.index', 'prefix' => 'academico.cursos.*', 'label' => 'Cursos', 'icon' => 'book-open'],
             ['route' => 'academico.aulas.index', 'prefix' => 'academico.aulas.*', 'label' => 'Aulas', 'icon' => 'building-office-2'],
             ['route' => 'academico.horarios.index', 'prefix' => 'academico.horarios.*', 'label' => 'Horarios', 'icon' => 'clock'],
+            ['route' => 'academico.ciclos.index', 'prefix' => 'academico.ciclos.*', 'label' => 'Período de Matrícula', 'icon' => 'arrow-path'],
         ] as $enlace)
             <a
                 href="{{ route($enlace['route']) }}"

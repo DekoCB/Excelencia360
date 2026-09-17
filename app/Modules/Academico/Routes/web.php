@@ -6,6 +6,10 @@ use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
 Route::middleware(['auth'])->prefix('academico')->name('academico.')->group(function () {
+    Volt::route('programas-estudio', 'academico.programas-estudio.index')
+        ->middleware('can:academico.ver')
+        ->name('programas-estudio.index');
+
     Volt::route('grados', 'academico.grados.index')
         ->middleware('can:academico.ver')
         ->name('grados.index');

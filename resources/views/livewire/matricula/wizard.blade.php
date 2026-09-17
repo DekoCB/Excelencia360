@@ -586,7 +586,7 @@ new class extends Component
 
     public function with(CicloService $ciclos): array
     {
-        $grados = Grado::query()->where('activo', true)->orderBy('orden')->get();
+        $grados = Grado::query()->where('activo', true)->with('programaEstudio')->orderBy('orden')->get();
 
         $ciclosConMatriculaAbierta = Ciclo::query()
             ->where('modalidad', ModalidadCicloEnum::SEIS_MESES)
@@ -644,7 +644,7 @@ new class extends Component
                 <h1 class="font-display text-2xl text-ink">{{ $esRematricula ? 'Rematrícula' : 'Nueva matrícula' }}</h1>
                 <p class="mt-1 text-sm text-ink-dim">
                     @if ($esRematricula)
-                        Elige programa de estudio y semestre para continuar.
+                        Elige período de matrícula y semestre para continuar.
                     @else
                         Paso {{ $paso }} de 6
                     @endif
@@ -692,7 +692,7 @@ new class extends Component
                     <div class="sm:col-span-2 rounded-md border border-accent/30 bg-accent-soft/40 p-3 text-sm">
                         <p class="font-medium text-ink">Ya existe un estudiante con este DNI: {{ $this->estudianteEncontrado->nombreCompleto() }}</p>
                         <p class="mt-1 text-ink-dim">Semestre actual: {{ $this->estudianteEncontrado->gradoActual?->nombre ?? 'sin semestre asignado' }}</p>
-                        <p class="mt-2 text-xs text-ink-faint">Si vuelve a matricularse (rematrícula), no hace falta llenar sus datos otra vez — solo el programa de estudio y semestre nuevos.</p>
+                        <p class="mt-2 text-xs text-ink-faint">Si vuelve a matricularse (rematrícula), no hace falta llenar sus datos otra vez — solo el período de matrícula y semestre nuevos.</p>
                         <x-secondary-button type="button" wire:click="continuarComoRematricula" class="mt-2">
                             Rematricular a este estudiante
                         </x-secondary-button>
@@ -883,12 +883,12 @@ new class extends Component
                         <x-input-error :messages="$errors->get('examenResultado')" class="mt-1" />
                     </div>
                     <div>
-                        <x-input-label for="examenGradoAsignadoId" value="Semestre asignado" />
+                        <x-input-label for="examenGradoAsignadoId" value="Programa y semestre asignado" />
                         <x-select-input
                             wire:model="examenGradoAsignadoId"
                             id="examenGradoAsignadoId"
                             class="mt-1 block w-full"
-                            :options="collect($todosLosGrados)->mapWithKeys(fn ($grado) => [$grado->id => $grado->nombre])->prepend('Sin asignar', '')"
+                            :options="collect($todosLosGrados)->mapWithKeys(fn ($grado) => [$grado->id => \"{$grado->programaEstudio->nombre} — {$grado->nombre}\"])->prepend('Sin asignar', '')"
                         />
                     </div>
                     <div class="sm:col-span-2">
@@ -928,7 +928,7 @@ new class extends Component
                         class="mt-1 block w-full"
                         :options="collect($siagiesDisponibles)->mapWithKeys(fn ($siagie) => [$siagie->id => $siagie->nombreCompleto()])"
                     />
-                    <p class="mt-1 text-xs text-ink-faint">Independiente del Programa de Estudio: es la clasificación propia del periodo académico.</p>
+                    <p class="mt-1 text-xs text-ink-faint">Independiente del Período de Matrícula: es la clasificación propia del periodo académico.</p>
                     <x-input-error :messages="$errors->get('siagieId')" class="mt-1" />
                 </div>
                 @if ($modalidadCiclo === 'anual')
@@ -943,7 +943,7 @@ new class extends Component
                     </div>
                 @else
                     <div>
-                        <x-input-label for="cicloId" value="Programa de estudio" />
+                        <x-input-label for="cicloId" value="Período de matrícula" />
                         <x-select-input
                             wire:model.live="cicloId"
                             id="cicloId"
@@ -951,18 +951,18 @@ new class extends Component
                             :options="collect($ciclosDisponibles)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])"
                         />
                         @if ($ciclosDisponibles->isEmpty())
-                            <p class="mt-1 text-xs text-danger">No hay programas de estudio con periodo de matrícula abierto hoy.</p>
+                            <p class="mt-1 text-xs text-danger">Ningún período de matrícula tiene la inscripción abierta hoy.</p>
                         @endif
                         <x-input-error :messages="$errors->get('cicloId')" class="mt-1" />
                     </div>
                 @endif
                 <div>
-                    <x-input-label for="gradoId" value="Semestre" />
+                    <x-input-label for="gradoId" value="Programa de estudio y semestre" />
                     <x-select-input
                         wire:model.live="gradoId"
                         id="gradoId"
                         class="mt-1 block w-full"
-                        :options="collect($gradosCompatibles)->mapWithKeys(fn ($grado) => [$grado->id => $grado->nombre])"
+                        :options="collect($gradosCompatibles)->mapWithKeys(fn ($grado) => [$grado->id => \"{$grado->programaEstudio->nombre} — {$grado->nombre}\"])"
                     />
                     <x-input-error :messages="$errors->get('gradoId')" class="mt-1" />
                 </div>

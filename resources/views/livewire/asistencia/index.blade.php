@@ -168,7 +168,7 @@ new #[Layout('layouts.app')] class extends Component
             @endforelse
         </div>
     @elseif (! $seccion)
-        <button type="button" wire:click="volverAGrupos" class="mb-4 text-sm text-ink-faint hover:text-ink">← Programa de Estudio</button>
+        <button type="button" wire:click="volverAGrupos" class="mb-4 text-sm text-ink-faint hover:text-ink">← Período de Matrícula</button>
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             @foreach (['A', 'B'] as $letra)
@@ -178,7 +178,7 @@ new #[Layout('layouts.app')] class extends Component
                     class="block rounded-2xl border border-border bg-surface shadow-sm p-6 text-center transition hover:border-accent"
                 >
                     <p class="font-display text-lg text-ink">Sección {{ $letra }}</p>
-                    <p class="mt-1 text-sm text-ink-dim">{{ $gradosPorSeccion->get($letra, collect())->pluck('nombre')->implode(', ') ?: 'Sin horarios en este programa de estudio' }}</p>
+                    <p class="mt-1 text-sm text-ink-dim">{{ $gradosPorSeccion->get($letra, collect())->pluck('nombre')->implode(', ') ?: 'Sin horarios en este período de matrícula' }}</p>
                 </button>
             @endforeach
         </div>
@@ -195,7 +195,7 @@ new #[Layout('layouts.app')] class extends Component
                     <p class="font-display text-lg text-ink">{{ $grado->nombre }}</p>
                 </button>
             @empty
-                <p class="col-span-full py-8 text-center text-sm text-ink-faint">Esta sección no tiene horarios en este programa de estudio.</p>
+                <p class="col-span-full py-8 text-center text-sm text-ink-faint">Esta sección no tiene horarios en este período de matrícula.</p>
             @endforelse
         </div>
     @else
@@ -237,7 +237,7 @@ new #[Layout('layouts.app')] class extends Component
                     </div>
                 @endif
             @empty
-                <p class="col-span-full py-8 text-center text-sm text-ink-faint">Este semestre no tiene horarios en este programa de estudio.</p>
+                <p class="col-span-full py-8 text-center text-sm text-ink-faint">Este semestre no tiene horarios en este período de matrícula.</p>
             @endforelse
         </div>
     @endif

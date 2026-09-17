@@ -72,7 +72,7 @@ class CicloService
         if ($modalidad === ModalidadCicloEnum::SEIS_MESES) {
             if ($tipo === null) {
                 throw ValidationException::withMessages([
-                    'tipo' => 'Un programa de estudio de 6 meses necesita indicar a cuál (1 a 4) pertenece.',
+                    'tipo' => 'Un período de matrícula de 6 meses necesita indicar a cuál (1 a 4) pertenece.',
                 ]);
             }
 

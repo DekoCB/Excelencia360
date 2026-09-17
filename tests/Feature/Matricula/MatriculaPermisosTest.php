@@ -8,6 +8,7 @@ use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\Academico\Models\ProgramaEstudio;
 use App\Modules\Academico\Models\Siagie;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Enums\TipoDocumentoEnum;
@@ -893,7 +894,7 @@ class MatriculaPermisosTest extends TestCase
 
         $ciclo = Ciclo::factory()->activo()->create();
         $grado = Grado::factory()->create();
-        $curso = Curso::factory()->create(['grado_id' => $grado->id]);
+        $curso = Curso::factory()->hasAttached($grado)->create();
         $seccionA = Horario::factory()->create(['curso_id' => $curso->id, 'grado_id' => $grado->id, 'ciclo_id' => $ciclo->id]);
         $seccionB = Horario::factory()->create(['curso_id' => $curso->id, 'grado_id' => $grado->id, 'ciclo_id' => $ciclo->id]);
         $estudiante = Estudiante::factory()->create();
@@ -1243,7 +1244,7 @@ class MatriculaPermisosTest extends TestCase
         $this->actingAs($usuario);
 
         $grado = Grado::factory()->create();
-        $curso = Curso::factory()->create(['grado_id' => $grado->id]);
+        $curso = Curso::factory()->hasAttached($grado)->create();
 
         Volt::test('matricula.index')
             ->set('gradoFiltro', (string) $grado->id)
@@ -1260,13 +1261,49 @@ class MatriculaPermisosTest extends TestCase
         $this->actingAs($usuario);
 
         $grado = Grado::factory()->create();
-        $curso = Curso::factory()->create(['grado_id' => $grado->id]);
+        $curso = Curso::factory()->hasAttached($grado)->create();
         $otroGrado = Grado::factory()->create();
 
         Volt::test('matricula.index')
             ->set('cursoFiltro', (string) $curso->id)
             ->set('gradoFiltro', (string) $otroGrado->id)
             ->assertSet('cursoFiltro', '');
+    }
+
+    public function test_elegir_un_programa_de_estudio_reinicia_grado_y_curso(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+        $this->actingAs($usuario);
+
+        $grado = Grado::factory()->create();
+        $curso = Curso::factory()->hasAttached($grado)->create();
+        $otroPrograma = ProgramaEstudio::factory()->create();
+
+        Volt::test('matricula.index')
+            ->set('gradoFiltro', (string) $grado->id)
+            ->set('cursoFiltro', (string) $curso->id)
+            ->set('programaFiltro', (string) $otroPrograma->id)
+            ->assertSet('gradoFiltro', '')
+            ->assertSet('cursoFiltro', '');
+    }
+
+    public function test_el_selector_de_semestre_solo_muestra_los_del_programa_elegido(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+        $this->actingAs($usuario);
+
+        $programaA = ProgramaEstudio::factory()->create();
+        $programaB = ProgramaEstudio::factory()->create();
+        $gradoDeA = Grado::factory()->create(['programa_estudio_id' => $programaA->id, 'nombre' => 'Semestre de A']);
+        $gradoDeB = Grado::factory()->create(['programa_estudio_id' => $programaB->id, 'nombre' => 'Semestre de B']);
+
+        Volt::test('matricula.index')
+            ->set('mostrarFiltrosAvanzados', true)
+            ->set('programaFiltro', (string) $programaA->id)
+            ->assertSee('Semestre de A')
+            ->assertDontSee('Semestre de B');
     }
 
     public function test_filtrar_por_grado_reduce_la_lista_de_estudiantes(): void

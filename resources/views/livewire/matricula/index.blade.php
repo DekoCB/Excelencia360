@@ -3,6 +3,7 @@
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
+use App\Modules\Academico\Models\ProgramaEstudio;
 use App\Modules\Docentes\Models\Docente;
 use App\Modules\Matricula\Enums\EstadoEstudianteEnum;
 use App\Modules\Matricula\Models\Estudiante;
@@ -30,6 +31,8 @@ new #[Layout('layouts.app')] class extends Component
     public bool $mostrarFiltrosAvanzados = false;
 
     public string $cicloFiltro = '';
+
+    public string $programaFiltro = '';
 
     public string $gradoFiltro = '';
 
@@ -73,6 +76,13 @@ new #[Layout('layouts.app')] class extends Component
         $this->resetPage();
     }
 
+    public function updatedProgramaFiltro(): void
+    {
+        $this->gradoFiltro = '';
+        $this->cursoFiltro = '';
+        $this->resetPage();
+    }
+
     public function updatedGradoFiltro(): void
     {
         $this->cursoFiltro = '';
@@ -91,7 +101,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public function limpiarFiltrosAvanzados(): void
     {
-        $this->reset(['cicloFiltro', 'gradoFiltro', 'cursoFiltro', 'docenteFiltro']);
+        $this->reset(['cicloFiltro', 'programaFiltro', 'gradoFiltro', 'cursoFiltro', 'docenteFiltro']);
         $this->resetPage();
     }
 
@@ -114,10 +124,23 @@ new #[Layout('layouts.app')] class extends Component
             ])->values()->all(),
             'estados' => EstadoEstudianteEnum::cases(),
             'ciclosDisponibles' => Ciclo::query()->orderByDesc('fecha_inicio')->get(),
-            'gradosDisponibles' => Grado::query()->where('activo', true)->orderBy('orden')->get(),
+            'programasDisponibles' => ProgramaEstudio::query()->where('activo', true)->orderBy('nombre')->get(),
+            'gradosDisponibles' => $this->gradosDisponibles(),
             'cursosDisponibles' => $this->cursosDisponibles(),
             'docentesDisponibles' => Docente::query()->with('usuario')->get()->sortBy(fn (Docente $d) => $d->usuario->name)->values(),
         ];
+    }
+
+    /**
+     * @return Collection<int, Grado>
+     */
+    private function gradosDisponibles(): Collection
+    {
+        return Grado::query()
+            ->where('activo', true)
+            ->when($this->programaFiltro !== '', fn ($query) => $query->where('programa_estudio_id', (int) $this->programaFiltro))
+            ->orderBy('orden')
+            ->get();
     }
 
     /**
@@ -130,7 +153,7 @@ new #[Layout('layouts.app')] class extends Component
         }
 
         return Curso::query()
-            ->where('grado_id', (int) $this->gradoFiltro)
+            ->whereHas('grados', fn ($query) => $query->whereKey((int) $this->gradoFiltro))
             ->where('activo', true)
             ->orderBy('nombre')
             ->get();
@@ -198,22 +221,31 @@ new #[Layout('layouts.app')] class extends Component
 
     @if ($mostrarFiltrosAvanzados)
         <div class="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-surface-2 p-4">
-            <div wire:key="ciclo-select-matricula">
-                <x-input-label for="cicloFiltro" value="Programa de estudio" />
+            <div wire:key="programa-select-matricula">
+                <x-input-label for="programaFiltro" value="Programa de estudio" />
                 <x-select-input
-                    wire:model.live="cicloFiltro"
-                    id="cicloFiltro"
+                    wire:model.live="programaFiltro"
+                    id="programaFiltro"
                     class="mt-1 block w-56"
-                    :options="collect($ciclosDisponibles)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])->prepend('Todos los programas de estudio', '')"
+                    :options="collect($programasDisponibles)->mapWithKeys(fn ($programa) => [$programa->id => $programa->nombre])->prepend('Todos los programas de estudio', '')"
                 />
             </div>
-            <div wire:key="grado-select-matricula-{{ $cicloFiltro }}">
+            <div wire:key="grado-select-matricula-{{ $programaFiltro }}">
                 <x-input-label for="gradoFiltro" value="Semestre" />
                 <x-select-input
                     wire:model.live="gradoFiltro"
                     id="gradoFiltro"
                     class="mt-1 block w-48"
                     :options="collect($gradosDisponibles)->mapWithKeys(fn ($grado) => [$grado->id => $grado->nombre])->prepend('Todos los semestres', '')"
+                />
+            </div>
+            <div wire:key="ciclo-select-matricula">
+                <x-input-label for="cicloFiltro" value="Período de matrícula" />
+                <x-select-input
+                    wire:model.live="cicloFiltro"
+                    id="cicloFiltro"
+                    class="mt-1 block w-56"
+                    :options="collect($ciclosDisponibles)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])->prepend('Todos los períodos', '')"
                 />
             </div>
             <div wire:key="curso-select-matricula-{{ $gradoFiltro }}">
@@ -236,7 +268,7 @@ new #[Layout('layouts.app')] class extends Component
                 />
             </div>
 
-            @if ($cicloFiltro !== '' || $gradoFiltro !== '' || $cursoFiltro !== '' || $docenteFiltro !== '')
+            @if ($cicloFiltro !== '' || $programaFiltro !== '' || $gradoFiltro !== '' || $cursoFiltro !== '' || $docenteFiltro !== '')
                 <x-secondary-button type="button" wire:click="limpiarFiltrosAvanzados">Limpiar filtros</x-secondary-button>
             @endif
         </div>

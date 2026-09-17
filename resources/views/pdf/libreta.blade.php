@@ -77,7 +77,7 @@
         <tr>
             <td class="etiqueta">Periodo promocional</td>
             <td class="valor">{{ $periodoPromocional }}</td>
-            <td class="etiqueta">Programa de estudio</td>
+            <td class="etiqueta">Período de matrícula</td>
             <td class="valor">{{ $ciclo->nombre }}</td>
         </tr>
     </table>

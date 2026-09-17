@@ -100,7 +100,10 @@ class MigracionService
 
     public function gradoSiguiente(Grado $origen): ?Grado
     {
-        return Grado::query()->where('orden', $origen->orden + 1)->first();
+        return Grado::query()
+            ->where('programa_estudio_id', $origen->programa_estudio_id)
+            ->where('orden', $origen->orden + 1)
+            ->first();
     }
 
     public function cicloDestinoSugerido(Ciclo $origen, CicloService $ciclos): ?Ciclo

@@ -602,7 +602,7 @@ class AulaVirtualPermisosTest extends TestCase
         $this->actingAs($direccion)
             ->get(route('aula-virtual.index'))
             ->assertOk()
-            ->assertSee('Todos los cursos virtuales activos.')
+            ->assertSee('Todos los cursos virtuales activos este período.')
             ->assertDontSee('Todavía no tienes cursos con aula virtual activada.');
     }
 }

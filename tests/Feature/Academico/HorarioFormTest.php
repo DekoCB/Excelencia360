@@ -39,12 +39,12 @@ class HorarioFormTest extends TestCase
     {
         $this->actingAs($this->actorCoordinador());
 
-        $curso = Curso::factory()->create();
+        $grado = Grado::factory()->create();
+        $curso = Curso::factory()->hasAttached($grado)->create();
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
         $aula = Aula::factory()->create();
         $ciclo = Ciclo::factory()->create();
-        $grado = Grado::factory()->create();
 
         Volt::test('academico.horarios.index')
             ->call('abrirModal')
@@ -80,12 +80,13 @@ class HorarioFormTest extends TestCase
     {
         $this->actingAs($this->actorCoordinador());
 
+        $gradoExistente = Grado::factory()->create();
         $existente = $this->app->make(HorarioService::class)->crear([
             'curso_id' => Curso::factory()->create()->id,
             'docente_id' => User::factory()->create()->id,
             'aula_id' => Aula::factory()->create()->id,
             'ciclo_id' => Ciclo::factory()->create()->id,
-            'grado_id' => Grado::factory()->create()->id,
+            'grado_id' => $gradoExistente->id,
             'dias' => [
                 ['dia_semana' => DiaSemanaEnum::LUNES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00'],
             ],
@@ -95,7 +96,7 @@ class HorarioFormTest extends TestCase
             ->call('abrirModal')
             ->set('cicloId', (string) $existente->ciclo_id)
             ->set('gradoId', (string) $existente->grado_id)
-            ->set('cursoId', (string) Curso::factory()->create()->id)
+            ->set('cursoId', (string) Curso::factory()->hasAttached($gradoExistente)->create()->id)
             ->set('docenteId', (string) User::factory()->create()->id)
             ->set('aulaId', (string) $existente->aula_id)
             ->set('franjasSeleccionadas', ['lun_mie'])
@@ -111,6 +112,37 @@ class HorarioFormTest extends TestCase
             ->assertSee('ya está ocupada');
 
         $this->assertSame(1, Horario::query()->count());
+    }
+
+    public function test_no_deja_guardar_un_curso_que_no_pertenece_al_semestre_elegido(): void
+    {
+        $this->actingAs($this->actorCoordinador());
+
+        $grado = Grado::factory()->create();
+        $otroGrado = Grado::factory()->create();
+        // El curso está vinculado a $otroGrado, no a $grado.
+        $curso = Curso::factory()->hasAttached($otroGrado)->create();
+
+        Volt::test('academico.horarios.index')
+            ->call('abrirModal')
+            ->set('cicloId', (string) Ciclo::factory()->create()->id)
+            ->set('gradoId', (string) $grado->id)
+            ->set('cursoId', (string) $curso->id)
+            ->set('docenteId', (string) User::factory()->create()->id)
+            ->set('aulaId', (string) Aula::factory()->create()->id)
+            ->set('franjasSeleccionadas', ['lun_mie'])
+            ->set('horaInicioHoraPorDia.lunes', '18')
+            ->set('horaInicioMinutoPorDia.lunes', '00')
+            ->set('horaFinHoraPorDia.lunes', '20')
+            ->set('horaFinMinutoPorDia.lunes', '00')
+            ->set('horaInicioHoraPorDia.miercoles', '18')
+            ->set('horaInicioMinutoPorDia.miercoles', '00')
+            ->set('horaFinHoraPorDia.miercoles', '20')
+            ->set('horaFinMinutoPorDia.miercoles', '00')
+            ->call('guardar')
+            ->assertHasErrors('cursoId');
+
+        $this->assertSame(0, Horario::query()->count());
     }
 
     public function test_no_deja_guardar_sin_elegir_ninguna_franja(): void
@@ -134,12 +166,12 @@ class HorarioFormTest extends TestCase
     {
         $this->actingAs($this->actorCoordinador());
 
-        $curso = Curso::factory()->create();
+        $grado = Grado::factory()->create();
+        $curso = Curso::factory()->hasAttached($grado)->create();
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
         $aula = Aula::factory()->create();
         $ciclo = Ciclo::factory()->create();
-        $grado = Grado::factory()->create();
 
         Volt::test('academico.horarios.index')
             ->call('abrirModal')
@@ -211,12 +243,13 @@ class HorarioFormTest extends TestCase
     {
         $this->actingAs($this->actorCoordinador());
 
+        $grado = Grado::factory()->create();
         $horario = $this->app->make(HorarioService::class)->crear([
-            'curso_id' => Curso::factory()->create()->id,
+            'curso_id' => Curso::factory()->hasAttached($grado)->create()->id,
             'docente_id' => User::factory()->create()->id,
             'aula_id' => Aula::factory()->create()->id,
             'ciclo_id' => Ciclo::factory()->create()->id,
-            'grado_id' => Grado::factory()->create()->id,
+            'grado_id' => $grado->id,
             'dias' => [
                 ['dia_semana' => DiaSemanaEnum::LUNES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00'],
             ],

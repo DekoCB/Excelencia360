@@ -363,7 +363,7 @@ class MatriculaServiceTest extends TestCase
         $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMayor());
         $ciclo = $this->cicloConPeriodoAbierto();
         $grado = Grado::factory()->create();
-        $curso = Curso::factory()->create(['grado_id' => $grado->id]);
+        $curso = Curso::factory()->hasAttached($grado)->create();
         $seccionUno = Horario::factory()->create(['curso_id' => $curso->id, 'grado_id' => $grado->id, 'ciclo_id' => $ciclo->id]);
         $seccionDos = Horario::factory()->create(['curso_id' => $curso->id, 'grado_id' => $grado->id, 'ciclo_id' => $ciclo->id]);
 

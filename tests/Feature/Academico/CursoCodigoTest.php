@@ -47,7 +47,7 @@ class CursoCodigoTest extends TestCase
         // colisión de código sin violar la unicidad real de "orden".
         $otroGradoConMismoOrden = Grado::factory()->make(['orden' => 1]);
 
-        Curso::factory()->create(['nombre' => 'Comunicación', 'codigo' => 'COM-1', 'grado_id' => $gradoUno->id]);
+        Curso::factory()->hasAttached($gradoUno)->create(['nombre' => 'Comunicación', 'codigo' => 'COM-1']);
 
         $codigo = $this->service()->generarCodigo('Comunicación', $otroGradoConMismoOrden);
 
@@ -66,7 +66,7 @@ class CursoCodigoTest extends TestCase
         Volt::test('academico.cursos.index')
             ->call('abrirModal')
             ->set('nombre', 'Matemática')
-            ->set('gradoId', (string) $grado->id)
+            ->set('gradoIds', [$grado->id])
             ->set('horas', '80')
             ->call('guardar')
             ->assertHasNoErrors();
@@ -74,8 +74,9 @@ class CursoCodigoTest extends TestCase
         $this->assertDatabaseHas('cursos', [
             'nombre' => 'Matemática',
             'codigo' => 'MAT-3',
-            'grado_id' => $grado->id,
         ]);
+        $curso = Curso::query()->where('nombre', 'Matemática')->firstOrFail();
+        $this->assertDatabaseHas('curso_grado', ['curso_id' => $curso->id, 'grado_id' => $grado->id]);
     }
 
     public function test_editar_un_curso_no_le_cambia_el_codigo_al_ajustar_nombre_o_grado(): void
@@ -85,10 +86,9 @@ class CursoCodigoTest extends TestCase
         $coordinador->assignRole(RolEnum::COORDINADOR->value);
         $gradoOriginal = Grado::factory()->create(['orden' => 1]);
         $otroGrado = Grado::factory()->create(['orden' => 5]);
-        $curso = Curso::factory()->create([
+        $curso = Curso::factory()->hasAttached($gradoOriginal)->create([
             'nombre' => 'Comunicación',
             'codigo' => 'COM-1',
-            'grado_id' => $gradoOriginal->id,
         ]);
 
         $this->actingAs($coordinador);
@@ -96,7 +96,7 @@ class CursoCodigoTest extends TestCase
         Volt::test('academico.cursos.index')
             ->call('abrirModal', $curso->id)
             ->set('nombre', 'Comunicación Integral')
-            ->set('gradoId', (string) $otroGrado->id)
+            ->set('gradoIds', [$otroGrado->id])
             ->call('guardar')
             ->assertHasNoErrors();
 
@@ -104,7 +104,8 @@ class CursoCodigoTest extends TestCase
             'id' => $curso->id,
             'nombre' => 'Comunicación Integral',
             'codigo' => 'COM-1',
-            'grado_id' => $otroGrado->id,
         ]);
+        $this->assertDatabaseHas('curso_grado', ['curso_id' => $curso->id, 'grado_id' => $otroGrado->id]);
+        $this->assertDatabaseMissing('curso_grado', ['curso_id' => $curso->id, 'grado_id' => $gradoOriginal->id]);
     }
 }

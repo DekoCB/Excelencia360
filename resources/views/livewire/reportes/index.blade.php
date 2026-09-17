@@ -280,13 +280,13 @@ new #[Layout('layouts.app')] class extends Component
                 primer render y nunca ve las nuevas tras un morph.
             --}}
             <div wire:key="ciclo-select-{{ $siagieId }}">
-                <x-input-label for="cicloId" value="Programa de estudio" />
+                <x-input-label for="cicloId" value="Período de matrícula" />
                 <x-select-input
                     wire:model.live="cicloId"
                     id="cicloId"
                     class="mt-1 block w-56"
                     :disabled="$siagieId === ''"
-                    :options="collect($ciclosDisponibles)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])->prepend('Todos los programas de estudio', '')"
+                    :options="collect($ciclosDisponibles)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])->prepend('Todos los períodos de matrícula', '')"
                 />
             </div>
             <div wire:key="grado-select-{{ $cicloId }}">

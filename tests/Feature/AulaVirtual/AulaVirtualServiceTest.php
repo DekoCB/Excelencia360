@@ -3,6 +3,7 @@
 namespace Tests\Feature\AulaVirtual;
 
 use App\Models\User;
+use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\AulaVirtual\Enums\EstadoEntregaEnum;
 use App\Modules\AulaVirtual\Enums\TipoClaseGrabadaEnum;
@@ -45,8 +46,12 @@ class AulaVirtualServiceTest extends TestCase
 
     public function test_del_estudiante_no_mezcla_otros_grados_o_ciclos(): void
     {
-        $horarioA = Horario::factory()->create();
-        $horarioB = Horario::factory()->create();
+        // Ciclo marcado como activo -- delEstudiante() ahora acota al
+        // período de matrícula actual, así que hace falta que el resolutor
+        // (CicloRepositoryInterface::activo()) encuentre exactamente este.
+        $cicloActivo = Ciclo::factory()->activo()->create();
+        $horarioA = Horario::factory()->create(['ciclo_id' => $cicloActivo->id]);
+        $horarioB = Horario::factory()->create(['ciclo_id' => $cicloActivo->id]);
         $cursoA = $this->cursoVirtualService()->activarParaHorario($horarioA);
         $cursoB = $this->cursoVirtualService()->activarParaHorario($horarioB);
 

@@ -439,7 +439,7 @@ new #[Layout('layouts.app')] class extends Component
         }
 
         $cobrosCursos = ($puedeVerCobros && $this->cobrosGradoId !== '')
-            ? Curso::query()->where('grado_id', (int) $this->cobrosGradoId)->where('activo', true)->orderBy('nombre')->get()
+            ? Curso::query()->whereHas('grados', fn ($query) => $query->whereKey((int) $this->cobrosGradoId))->where('activo', true)->orderBy('nombre')->get()
             : collect();
 
         return [
@@ -648,7 +648,7 @@ new #[Layout('layouts.app')] class extends Component
                     <p>
                         <span class="font-semibold text-accent">Cuota N.° {{ $cuotaDetectada->numero }}</span>
                         de {{ $cuotaDetectada->planPago->numero_cuotas }}
-                        · Programa de estudio {{ $cuotaDetectada->planPago->matricula->ciclo->nombre }}
+                        · Período de matrícula {{ $cuotaDetectada->planPago->matricula->ciclo->nombre }}
                         · vence {{ $cuotaDetectada->fecha_vencimiento->format('d/m/Y') }}
                     </p>
                     <p class="mt-1 text-ink-dim">
@@ -972,12 +972,12 @@ new #[Layout('layouts.app')] class extends Component
                 <div class="space-y-4 rounded-2xl border border-border bg-surface shadow-sm p-6">
                     <div class="flex flex-wrap items-end gap-4">
                         <div>
-                            <x-input-label for="cobrosCicloId" value="Programa de estudio" />
+                            <x-input-label for="cobrosCicloId" value="Período de matrícula" />
                             <x-select-input
                                 wire:model.live="cobrosCicloId"
                                 id="cobrosCicloId"
                                 class="mt-1 block w-56"
-                                :options="collect($cobrosCiclos)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])->prepend('Todos los programas de estudio', '')"
+                                :options="collect($cobrosCiclos)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])->prepend('Todos los períodos de matrícula', '')"
                             />
                         </div>
                         {{--

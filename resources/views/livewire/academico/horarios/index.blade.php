@@ -228,6 +228,21 @@ new #[Layout('layouts.app')] class extends Component
 
         $this->validate($reglas);
 
+        // El curso y el semestre elegidos deben estar realmente vinculados
+        // (Curso::grados()) -- antes de que un curso pudiera estar en
+        // varios semestres a la vez esto no hacía falta comprobarlo, un
+        // curso solo tenía un grado_id posible.
+        $cursoPerteneceAlGrado = Curso::query()
+            ->whereKey((int) $this->cursoId)
+            ->whereHas('grados', fn ($query) => $query->whereKey((int) $this->gradoId))
+            ->exists();
+
+        if (! $cursoPerteneceAlGrado) {
+            $this->addError('cursoId', 'El curso elegido no está vinculado al semestre elegido.');
+
+            return;
+        }
+
         $diasParaGuardar = array_map(fn (DiaSemanaEnum $dia) => [
             'dia_semana' => $dia,
             'hora_inicio' => "{$this->horaInicioHoraPorDia[$dia->value]}:{$this->horaInicioMinutoPorDia[$dia->value]}:00",
@@ -496,7 +511,7 @@ new #[Layout('layouts.app')] class extends Component
                 <form wire:submit="guardar" class="mt-4 space-y-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <x-input-label for="cicloId" value="Programa de estudio" />
+                            <x-input-label for="cicloId" value="Período de matrícula" />
                             <x-select-input
                                 wire:model="cicloId"
                                 id="cicloId"

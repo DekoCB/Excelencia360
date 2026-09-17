@@ -7,6 +7,72 @@ fecha y los commits que le corresponden.
 
 ---
 
+## 2026-09-17 (cont. 3)
+
+### Programa de Estudio pasa a ser una carrera real (Académico)
+
+El usuario preguntó si Aula Virtual estaba organizado como Académico
+(Programa de Estudio → Semestre → Curso) y notó que además había un paso de
+"Sección" (A/B) de más. Al revisar, lo que el menú llamaba "Programa de
+Estudio" era en realidad el modelo `Ciclo` (un período de matrícula de ~6
+meses, ej. "Grupo 1, Enero–Junio 2026") — el renombrado anterior (§8) fue
+solo de texto, nunca existió un concepto real de carrera. El usuario pidió
+que "Programa de Estudio" funcione como una carrera universitaria real, con
+cursos adentro, y sin el paso de Sección en Aula Virtual.
+
+Decisiones tomadas con el usuario antes de tocar nada: el `Ciclo` sigue
+existiendo tal cual, solo se renombra en pantalla a **"Período de
+Matrícula"**; un curso puede pertenecer a varias carreras (relación
+muchos-a-muchos); cada carrera tiene sus propios semestres; los semestres y
+cursos existentes se migran a un **"Programa de Estudio General"**
+provisional (no se inventó un nombre real de carrera); en Aula Virtual el
+recorrido queda Programa → Semestre → Curso, con el período de matrícula
+resuelto automáticamente (el activo, o si ninguno lo está, el más reciente).
+
+- **Modelo nuevo**: `ProgramaEstudio` (`programas_estudio`: nombre, activo),
+  con su propia pantalla CRUD (`academico.programas-estudio.index`).
+  `Grado` gana `programa_estudio_id`; `orden` pasa de único global a único
+  *por programa*. `Curso` pierde su FK directa `grado_id` y pasa a una
+  tabla pivote `curso_grado` (muchos-a-muchos) — se migró automáticamente
+  cada vínculo curso→grado que ya existía, sin perder nada.
+- **Alcance real, no solo Aula Virtual**: 36 archivos referencian
+  `ciclo_id`, 31 `grado_id`. Los puntos que sí necesitaron cambio real:
+  - `MigracionService::gradoSiguiente()` (promoción de semestre) ahora
+    filtra también por `programa_estudio_id` — antes de este fix, con más
+    de una carrera, podía promover a un estudiante al semestre de *otra*
+    carrera con el mismo número de orden.
+  - `matricula/index.blade.php` (Búsqueda avanzada): nuevo filtro de
+    Programa de Estudio con su propia cascada, y `cursosDisponibles()`
+    corregido para consultar el pivote en vez de `Curso.grado_id`.
+  - `academico/horarios/index.blade.php`: nueva validación (antes no
+    existía) de que el curso elegido esté realmente vinculado al semestre
+    elegido.
+  - `CursoVirtualService` (Aula Virtual): sus tres métodos ganan el filtro
+    por período de matrícula "actual" (el de estado activo, o si no hay
+    ninguno, el de fecha de inicio más reciente) — antes no filtraba por
+    período en absoluto, dependía enteramente del drill-down manual.
+  - Formulario de matrícula (`wizard.blade.php`): el selector de semestre
+    ahora muestra también el programa ("Contabilidad — Semestre 1") para
+    no confundir semestres con el mismo número en carreras distintas.
+  - Verificado que NO necesitaban cambios: `FiltroMatriculaAcademico`
+    (filtra por `Horario.grado_id`, nunca por `Curso.grado_id`),
+    `Pagos\CobranzaService` (mismo patrón), Asistencia/Incidencias/
+    Notificaciones (`grado_id` solo como filtro simple),
+    `Grado::letraAula()/scopeDeSeccion()` (el A/B de aulas físicas es un
+    concepto distinto y ortogonal, sigue usándose en Migraciones — solo se
+    dejó de consumir en la navegación de Aula Virtual).
+- **Aula Virtual**: navegación reducida de 3 niveles (Programa→Sección→
+  Semestre) a 2 (Programa→Semestre), sin el paso de Sección.
+- **Menú de Académico reordenado**: Periodo Académico → Programa de
+  Estudio (nuevo) → Semestres → Cursos → Aulas → Horarios → Período de
+  Matrícula (Ciclo renombrado, se movió al final del grupo).
+- Tests nuevos/actualizados en Academico, Migraciones, AulaVirtual y
+  Matrícula (incluye casos de aislamiento entre programas: mismo orden de
+  semestre en dos carreras distintas no debe chocar ni cruzarse). Pint y
+  Larastan limpios en todo el proyecto.
+
+---
+
 ## 2026-09-17 (cont. 2)
 
 ### Enlace externo en Biblioteca, además del PDF

@@ -157,13 +157,21 @@ class DemoRobustoSeeder extends Seeder
 
         foreach ($grados as $grado) {
             foreach ($catalogo as $indice => $nombre) {
-                Curso::query()->firstOrCreate(
-                    ['grado_id' => $grado->id, 'nombre' => $nombre],
-                    [
-                        'codigo' => "G{$grado->id}-".str_pad((string) ($indice + 1), 2, '0', STR_PAD_LEFT),
-                        'horas' => $horasPorCurso,
-                    ],
-                );
+                $curso = Curso::query()
+                    ->where('nombre', $nombre)
+                    ->whereHas('grados', fn ($query) => $query->whereKey($grado->id))
+                    ->first();
+
+                if ($curso) {
+                    continue;
+                }
+
+                $curso = Curso::query()->create([
+                    'nombre' => $nombre,
+                    'codigo' => "G{$grado->id}-".str_pad((string) ($indice + 1), 2, '0', STR_PAD_LEFT),
+                    'horas' => $horasPorCurso,
+                ]);
+                $curso->grados()->attach($grado->id);
             }
         }
     }
@@ -289,8 +297,10 @@ class DemoRobustoSeeder extends Seeder
     ): bool {
         // Las aulas "sueltas" (sin letra) sirven para cualquier grado; las
         // ligadas a un Grupo solo para el grado cuya letra coincide (ver
-        // Grado::letraAula()).
-        $letraDelGrado = $curso->grado->letraAula();
+        // Grado::letraAula()). Un curso puede estar en varios grados ahora
+        // (curso_grado), pero en los datos de demo cada uno solo tiene uno.
+        $grado = $curso->grados->first();
+        $letraDelGrado = $grado->letraAula();
         $aulas = $aulas->filter(fn (Aula $aula) => $aula->letra === null || $aula->letra === $letraDelGrado)->values();
 
         foreach ($franjas as $franja) {
@@ -331,7 +341,7 @@ class DemoRobustoSeeder extends Seeder
                         'docente_id' => $docente->id,
                         'aula_id' => $aula->id,
                         'ciclo_id' => $ciclo->id,
-                        'grado_id' => $curso->grado_id,
+                        'grado_id' => $grado->id,
                     ]);
 
                     foreach ($diasFranja as $dia) {

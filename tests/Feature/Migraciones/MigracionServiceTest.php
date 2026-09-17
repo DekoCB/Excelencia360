@@ -6,6 +6,7 @@ use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Enums\TipoCicloEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Grado;
+use App\Modules\Academico\Models\ProgramaEstudio;
 use App\Modules\Academico\Services\CicloService;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\DTOs\RegistrarEstudianteData;
@@ -151,11 +152,24 @@ class MigracionServiceTest extends TestCase
 
     public function test_grado_siguiente_devuelve_el_de_orden_inmediato_superior(): void
     {
-        $grado1 = Grado::factory()->create(['orden' => 1]);
-        $grado2 = Grado::factory()->create(['orden' => 2]);
+        $programa = ProgramaEstudio::factory()->create();
+        $grado1 = Grado::factory()->create(['programa_estudio_id' => $programa->id, 'orden' => 1]);
+        $grado2 = Grado::factory()->create(['programa_estudio_id' => $programa->id, 'orden' => 2]);
 
         $this->assertSame($grado2->id, $this->service()->gradoSiguiente($grado1)->id);
         $this->assertNull($this->service()->gradoSiguiente($grado2));
+    }
+
+    public function test_grado_siguiente_no_cruza_a_otro_programa_de_estudio(): void
+    {
+        $programaA = ProgramaEstudio::factory()->create();
+        $programaB = ProgramaEstudio::factory()->create();
+        $grado1DeA = Grado::factory()->create(['programa_estudio_id' => $programaA->id, 'orden' => 1]);
+        // El programa A no tiene un orden 2 propio, pero el B sí -- si
+        // gradoSiguiente() no filtrara por programa, devolvería este.
+        Grado::factory()->create(['programa_estudio_id' => $programaB->id, 'orden' => 2]);
+
+        $this->assertNull($this->service()->gradoSiguiente($grado1DeA));
     }
 
     public function test_ciclo_destino_sugerido_usa_siguiente_ciclo_para_seis_meses(): void

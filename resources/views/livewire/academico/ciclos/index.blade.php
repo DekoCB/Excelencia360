@@ -59,7 +59,7 @@ new #[Layout('layouts.app')] class extends Component
         ]);
 
         $this->mostrarModal = false;
-        session()->flash('status', 'Programa de estudio creado correctamente.');
+        session()->flash('status', 'Período de matrícula creado correctamente.');
     }
 
     public function with(CicloService $service): array
@@ -73,7 +73,7 @@ new #[Layout('layouts.app')] class extends Component
 
 <div>
     <x-slot name="header">
-        <h1 class="font-display text-2xl text-ink">Programa de Estudio</h1>
+        <h1 class="font-display text-2xl text-ink">Período de Matrícula</h1>
         <p class="mt-1 text-sm text-ink-dim">4 ventanas de admisión rotativas al año: Programa 1 ene-jun, Programa 2 may-oct, Programa 3 jul-dic, Programa 4 nov-abr.</p>
     </x-slot>
 
@@ -82,7 +82,7 @@ new #[Layout('layouts.app')] class extends Component
         <div class="mb-4 flex justify-end">
             <x-primary-button type="button" wire:click="abrirModal" class="gap-2">
                 <x-heroicon-o-plus class="h-4 w-4" />
-                Nuevo programa de estudio
+                Nuevo período de matrícula
             </x-primary-button>
         </div>
     @endcan
@@ -128,7 +128,7 @@ new #[Layout('layouts.app')] class extends Component
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" class="px-4 py-8 text-center text-sm text-ink-faint">No hay programas de estudio registrados.</td></tr>
+                    <tr><td colspan="5" class="px-4 py-8 text-center text-sm text-ink-faint">No hay períodos de matrícula registrados.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -158,7 +158,7 @@ new #[Layout('layouts.app')] class extends Component
             x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
             x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
         >
-            <h2 class="font-display text-lg text-ink">Nuevo programa de estudio</h2>
+            <h2 class="font-display text-lg text-ink">Nuevo período de matrícula</h2>
 
             <form wire:submit="guardar" class="mt-4 space-y-4">
                 <div>

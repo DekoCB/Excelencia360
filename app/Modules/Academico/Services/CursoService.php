@@ -21,19 +21,31 @@ class CursoService
     }
 
     /**
-     * @param  array{nombre: string, codigo: string, grado_id: int, franjas_permitidas: ?list<string>, horas: int}  $datos
+     * @param  array{nombre: string, codigo: string, grado_ids: list<int>, franjas_permitidas: ?list<string>, horas: int}  $datos
      */
     public function crear(array $datos): Curso
     {
-        return $this->cursos->create($datos);
+        $gradoIds = $datos['grado_ids'];
+        unset($datos['grado_ids']);
+
+        $curso = $this->cursos->create($datos);
+        $curso->grados()->sync($gradoIds);
+
+        return $curso;
     }
 
     /**
-     * @param  array{nombre: string, codigo: string, grado_id: int, franjas_permitidas: ?list<string>, horas: int, activo: bool}  $datos
+     * @param  array{nombre: string, codigo: string, grado_ids: list<int>, franjas_permitidas: ?list<string>, horas: int, activo: bool}  $datos
      */
     public function actualizar(Curso $curso, array $datos): Curso
     {
-        return $this->cursos->update($curso, $datos);
+        $gradoIds = $datos['grado_ids'];
+        unset($datos['grado_ids']);
+
+        $curso = $this->cursos->update($curso, $datos);
+        $curso->grados()->sync($gradoIds);
+
+        return $curso;
     }
 
     public function codigoDisponible(string $codigo, ?int $exceptoId = null): bool

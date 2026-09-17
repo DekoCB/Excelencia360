@@ -20,7 +20,7 @@ enum ModalidadCicloEnum: string
     public function label(): string
     {
         return match ($this) {
-            self::SEIS_MESES => 'Programa de Estudio (6 meses)',
+            self::SEIS_MESES => 'Período de Matrícula (6 meses)',
             self::ANUAL => 'Periodo académico anual',
         };
     }

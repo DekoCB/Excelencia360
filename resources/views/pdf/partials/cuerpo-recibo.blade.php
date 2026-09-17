@@ -106,7 +106,7 @@
             @endif
         </td>
         <td>
-            <p class="etiqueta">Programa de estudio</p>
+            <p class="etiqueta">Período de matrícula</p>
             {{ $pago->cuota?->planPago?->matricula?->ciclo?->nombre ?? '—' }}
         </td>
         <td>

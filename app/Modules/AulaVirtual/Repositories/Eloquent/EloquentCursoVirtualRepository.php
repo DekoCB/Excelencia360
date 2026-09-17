@@ -22,20 +22,29 @@ class EloquentCursoVirtualRepository extends BaseRepository implements CursoVirt
      */
     protected function query(): Builder
     {
-        return CursoVirtual::query()->with(['horario.curso', 'horario.grado', 'horario.ciclo', 'horario.docente', 'horario.dias']);
+        return CursoVirtual::query()->with(['horario.curso', 'horario.grado.programaEstudio', 'horario.ciclo', 'horario.docente', 'horario.dias']);
     }
 
-    public function delDocente(int $docenteId): Collection
+    public function todos(?int $cicloId = null): Collection
     {
         return $this->query()
-            ->whereHas('horario', fn ($query) => $query->where('docente_id', $docenteId))
+            ->when($cicloId !== null, fn (Builder $query) => $query->whereHas('horario', fn ($q) => $q->where('ciclo_id', $cicloId)))
             ->get();
     }
 
-    public function delEstudiante(Estudiante $estudiante): Collection
+    public function delDocente(int $docenteId, ?int $cicloId = null): Collection
+    {
+        return $this->query()
+            ->whereHas('horario', fn ($query) => $query->where('docente_id', $docenteId)
+                ->when($cicloId !== null, fn ($q) => $q->where('ciclo_id', $cicloId)))
+            ->get();
+    }
+
+    public function delEstudiante(Estudiante $estudiante, ?int $cicloId = null): Collection
     {
         $matriculas = $estudiante->matriculas()
             ->where('estado', 'aprobada')
+            ->when($cicloId !== null, fn ($query) => $query->where('ciclo_id', $cicloId))
             ->get(['id', 'grado_id', 'ciclo_id']);
 
         if ($matriculas->isEmpty()) {

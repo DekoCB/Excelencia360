@@ -228,7 +228,7 @@
                                     @endif
                                 @endcan
                             @empty
-                                <p class="text-xs text-ink-faint">Este semestre no tiene cursos con horario en este programa de estudio todavía.</p>
+                                <p class="text-xs text-ink-faint">Este semestre no tiene cursos con horario en este período de matrícula todavía.</p>
                             @endforelse
                         </div>
                     </div>

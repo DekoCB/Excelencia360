@@ -5,6 +5,7 @@ use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\Academico\Models\ProgramaEstudio;
 use App\Modules\Academico\Services\CursoService;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
@@ -23,7 +24,8 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $codigo = '';
 
-    public string $gradoId = '';
+    /** @var list<int> */
+    public array $gradoIds = [];
 
     /** @var list<string> */
     public array $franjasPermitidas = [];
@@ -45,15 +47,15 @@ new #[Layout('layouts.app')] class extends Component
         $this->editandoId = $cursoId;
 
         if ($cursoId) {
-            $curso = Curso::query()->findOrFail($cursoId);
+            $curso = Curso::query()->with('grados')->findOrFail($cursoId);
             $this->nombre = $curso->nombre;
             $this->codigo = $curso->codigo;
-            $this->gradoId = (string) $curso->grado_id;
+            $this->gradoIds = $curso->grados->pluck('id')->all();
             $this->franjasPermitidas = $curso->franjas_permitidas ?? [];
             $this->horas = (string) $curso->horas;
             $this->activo = $curso->activo;
         } else {
-            $this->reset(['nombre', 'codigo', 'gradoId', 'franjasPermitidas', 'horas']);
+            $this->reset(['nombre', 'codigo', 'gradoIds', 'franjasPermitidas', 'horas']);
             $this->activo = true;
         }
 
@@ -65,7 +67,7 @@ new #[Layout('layouts.app')] class extends Component
         $this->sugerirCodigo($service);
     }
 
-    public function updatedGradoId(CursoService $service): void
+    public function updatedGradoIds(CursoService $service): void
     {
         $this->sugerirCodigo($service);
     }
@@ -73,15 +75,18 @@ new #[Layout('layouts.app')] class extends Component
     /**
      * Solo sugiere el código para un curso nuevo: si se está editando uno
      * existente, su código ya fue asignado y no debe pisarse sin querer al
-     * corregir el nombre o el grado.
+     * corregir el nombre o los semestres. Un curso puede quedar en varios
+     * semestres a la vez: el código se basa en el de menor orden (el
+     * "primer" semestre donde se dicta), sin que eso implique que los
+     * demás sean menos válidos.
      */
     private function sugerirCodigo(CursoService $service): void
     {
-        if ($this->editandoId || trim($this->nombre) === '' || $this->gradoId === '') {
+        if ($this->editandoId || trim($this->nombre) === '' || $this->gradoIds === []) {
             return;
         }
 
-        $grado = Grado::query()->find($this->gradoId);
+        $grado = Grado::query()->whereIn('id', $this->gradoIds)->orderBy('orden')->first();
 
         if (! $grado) {
             return;
@@ -97,8 +102,8 @@ new #[Layout('layouts.app')] class extends Component
         // El código se recalcula aquí (no solo en los hooks updated*) para
         // que un envío antes de que el debounce del nombre dispare no deje
         // el campo vacío: al crear, el código nunca lo escribe la persona.
-        if (! $this->editandoId && $this->gradoId !== '') {
-            $grado = Grado::query()->find($this->gradoId);
+        if (! $this->editandoId && $this->gradoIds !== []) {
+            $grado = Grado::query()->whereIn('id', $this->gradoIds)->orderBy('orden')->first();
 
             if ($grado) {
                 $this->codigo = $service->generarCodigo($this->nombre, $grado);
@@ -108,7 +113,8 @@ new #[Layout('layouts.app')] class extends Component
         $this->validate([
             'nombre' => 'required|string|max:100',
             'codigo' => 'required|string|max:20',
-            'gradoId' => 'required|integer|exists:grados,id',
+            'gradoIds' => 'required|array|min:1',
+            'gradoIds.*' => 'integer|exists:grados,id',
             'franjasPermitidas' => 'array',
             'franjasPermitidas.*' => 'string|in:'.implode(',', array_column(FranjaHorarioEnum::cases(), 'value')),
             'horas' => 'required|integer|min:1|max:500',
@@ -123,7 +129,7 @@ new #[Layout('layouts.app')] class extends Component
         $datos = [
             'nombre' => $this->nombre,
             'codigo' => strtoupper($this->codigo),
-            'grado_id' => (int) $this->gradoId,
+            'grado_ids' => array_map('intval', $this->gradoIds),
             'franjas_permitidas' => $this->franjasPermitidas !== [] ? $this->franjasPermitidas : null,
             'horas' => (int) $this->horas,
         ];
@@ -143,9 +149,9 @@ new #[Layout('layouts.app')] class extends Component
         $cursos = $service->listar();
         $ciclo = Ciclo::query()->where('estado', 'activo')->first();
 
-        // El docente se muestra para el ciclo activo: un curso puede tener
-        // horarios distintos (o ninguno) según el ciclo, así que no tiene
-        // sentido mezclarlos todos en una sola columna.
+        // El docente se muestra para el período activo: un curso puede
+        // tener horarios distintos (o ninguno) según el período, así que
+        // no tiene sentido mezclarlos todos en una sola columna.
         $horariosPorCurso = $ciclo
             ? Horario::query()
                 ->where('ciclo_id', $ciclo->id)
@@ -157,7 +163,11 @@ new #[Layout('layouts.app')] class extends Component
 
         return [
             'cursos' => $cursos,
-            'grados' => Grado::query()->orderBy('nombre')->get(),
+            'programas' => ProgramaEstudio::query()
+                ->where('activo', true)
+                ->with(['grados' => fn ($query) => $query->where('activo', true)->orderBy('orden')])
+                ->orderBy('nombre')
+                ->get(),
             'ciclo' => $ciclo,
             'horariosPorCurso' => $horariosPorCurso,
         ];
@@ -198,7 +208,7 @@ new #[Layout('layouts.app')] class extends Component
                 <tr>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Código</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Nombre</th>
-                    <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Semestre</th>
+                    <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Semestres</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Docente</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Horas</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Estado</th>
@@ -214,7 +224,7 @@ new #[Layout('layouts.app')] class extends Component
                     <tr wire:key="curso-{{ $curso->id }}">
                         <td class="px-4 py-3 font-mono text-ink-dim">{{ $curso->codigo }}</td>
                         <td class="px-4 py-3 font-medium text-ink">{{ $curso->nombre }}</td>
-                        <td class="px-4 py-3 text-ink-dim">{{ $curso->grado?->nombre }}</td>
+                        <td class="px-4 py-3 text-ink-dim">{{ $curso->grados->pluck('nombre')->implode(', ') }}</td>
                         <td class="px-4 py-3 text-ink-dim">{{ $docentes->isNotEmpty() ? $docentes->implode(', ') : '—' }}</td>
                         <td class="px-4 py-3 text-ink-dim">{{ $curso->horas }}</td>
                         <td class="px-4 py-3">
@@ -269,14 +279,28 @@ new #[Layout('layouts.app')] class extends Component
                     </div>
 
                     <div>
-                        <x-input-label for="gradoId" value="Semestre" />
-                        <x-select-input
-                            wire:model.live="gradoId"
-                            id="gradoId"
-                            class="mt-1 block w-full"
-                            :options="collect($grados)->mapWithKeys(fn ($grado) => [$grado->id => $grado->nombre])"
-                        />
-                        <x-input-error :messages="$errors->get('gradoId')" class="mt-1" />
+                        <x-input-label value="Semestres en los que se dicta" />
+                        <p class="mt-1 text-xs text-ink-faint">Un curso puede pertenecer a varios programas de estudio a la vez.</p>
+                        <div class="mt-2 max-h-48 space-y-3 overflow-y-auto rounded-md border border-border p-3">
+                            @forelse ($programas as $programa)
+                                <div>
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ $programa->nombre }}</p>
+                                    <div class="mt-1 space-y-1">
+                                        @forelse ($programa->grados as $grado)
+                                            <label class="flex items-center gap-2 text-sm text-ink-dim">
+                                                <input type="checkbox" wire:model.live="gradoIds" value="{{ $grado->id }}" class="rounded border-border text-accent focus:ring-accent">
+                                                {{ $grado->nombre }}
+                                            </label>
+                                        @empty
+                                            <p class="text-xs text-ink-faint">Sin semestres.</p>
+                                        @endforelse
+                                    </div>
+                                </div>
+                            @empty
+                                <p class="text-xs text-ink-faint">No hay programas de estudio activos. Crea uno primero.</p>
+                            @endforelse
+                        </div>
+                        <x-input-error :messages="$errors->get('gradoIds')" class="mt-1" />
                     </div>
 
                     <div>

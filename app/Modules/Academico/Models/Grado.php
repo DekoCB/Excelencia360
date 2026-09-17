@@ -9,10 +9,13 @@ use App\Modules\Identidad\Support\Auditable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
+ * @property int $programa_estudio_id
  * @property string $nombre
  * @property int $orden
  */
@@ -22,6 +25,7 @@ class Grado extends Model
     use Auditable, HasFactory;
 
     protected $fillable = [
+        'programa_estudio_id',
         'nombre',
         'orden',
         'activo',
@@ -39,9 +43,17 @@ class Grado extends Model
         return GradoFactory::new();
     }
 
-    public function cursos(): HasMany
+    public function programaEstudio(): BelongsTo
     {
-        return $this->hasMany(Curso::class);
+        return $this->belongsTo(ProgramaEstudio::class);
+    }
+
+    /**
+     * @return BelongsToMany<Curso, $this>
+     */
+    public function cursos(): BelongsToMany
+    {
+        return $this->belongsToMany(Curso::class, 'curso_grado');
     }
 
     public function horarios(): HasMany

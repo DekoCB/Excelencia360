@@ -129,7 +129,7 @@ class AsistenciaServiceTest extends TestCase
     {
         $grado = Grado::factory()->create();
         $ciclo = Ciclo::factory()->create();
-        $curso = Curso::factory()->create(['grado_id' => $grado->id]);
+        $curso = Curso::factory()->hasAttached($grado)->create();
 
         $seccionA = Horario::factory()->create(['curso_id' => $curso->id, 'grado_id' => $grado->id, 'ciclo_id' => $ciclo->id]);
         $seccionB = Horario::factory()->create(['curso_id' => $curso->id, 'grado_id' => $grado->id, 'ciclo_id' => $ciclo->id]);
