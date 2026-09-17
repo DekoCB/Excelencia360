@@ -21,6 +21,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string|null $categoria
  * @property string|null $editorial
  * @property int|null $anio_publicacion
+ * @property string|null $enlace_externo
  * @property-read Collection<int, Ejemplar> $ejemplares
  */
 class Libro extends Model implements HasMedia
@@ -35,6 +36,7 @@ class Libro extends Model implements HasMedia
         'categoria',
         'editorial',
         'anio_publicacion',
+        'enlace_externo',
     ];
 
     protected static function newFactory(): LibroFactory

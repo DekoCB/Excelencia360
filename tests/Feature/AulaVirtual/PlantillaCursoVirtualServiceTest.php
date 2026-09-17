@@ -101,7 +101,16 @@ class PlantillaCursoVirtualServiceTest extends TestCase
 
     public function test_aplicar_recalcula_la_fecha_limite_de_la_tarea_segun_el_ciclo_destino(): void
     {
-        $cursoOrigen = CursoVirtual::factory()->create();
+        // Ciclo de origen con año fijo (no el año aleatorio por defecto de
+        // CicloFactory): con un año al azar entre 1970 y hoy, de vez en
+        // cuando cae en uno de los años en que Perú observó horario de
+        // verano con un cambio dentro de la ventana 1-15 enero -- eso
+        // corre el diffInWeeks() de guardarDesdeCursoVirtual() una semana,
+        // haciendo este test intermitente sin ningún cambio real de por
+        // medio. El ciclo destino ya usa un año fijo por la misma razón.
+        $cicloOrigen = Ciclo::factory()->create(['fecha_inicio' => '2026-01-05']);
+        $horarioOrigen = Horario::factory()->create(['ciclo_id' => $cicloOrigen->id]);
+        $cursoOrigen = CursoVirtual::factory()->create(['horario_id' => $horarioOrigen->id]);
         $autor = User::factory()->create();
 
         $fechaSeccion = $cursoOrigen->horario->ciclo->fecha_inicio->copy()->addWeeks(2);

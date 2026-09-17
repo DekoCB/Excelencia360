@@ -217,6 +217,51 @@ class BibliotecaPermisosTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_coordinador_puede_guardar_el_enlace_externo_de_un_libro(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $libro = Libro::factory()->create(['enlace_externo' => null]);
+
+        $this->actingAs($coordinador);
+
+        Volt::test('biblioteca.index')
+            ->call('abrirFormEnlace', $libro->id)
+            ->set('enlaceExterno', 'https://editorial.test/libro-123')
+            ->call('guardarEnlace')
+            ->assertHasNoErrors();
+
+        $this->assertSame('https://editorial.test/libro-123', $libro->fresh()->enlace_externo);
+    }
+
+    public function test_no_permite_guardar_un_enlace_con_formato_invalido(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $libro = Libro::factory()->create();
+
+        $this->actingAs($coordinador);
+
+        Volt::test('biblioteca.index')
+            ->call('abrirFormEnlace', $libro->id)
+            ->set('enlaceExterno', 'no-es-una-url')
+            ->call('guardarEnlace')
+            ->assertHasErrors('enlaceExterno');
+    }
+
+    public function test_un_docente_no_puede_editar_el_enlace_externo_de_un_libro(): void
+    {
+        $docente = User::factory()->create();
+        $docente->assignRole(RolEnum::DOCENTE->value);
+        $libro = Libro::factory()->create();
+
+        $this->actingAs($docente);
+
+        Volt::test('biblioteca.index')
+            ->call('abrirFormEnlace', $libro->id)
+            ->assertForbidden();
+    }
+
     public function test_un_estudiante_puede_descargar_el_pdf_y_queda_en_el_historial(): void
     {
         Storage::fake('public');

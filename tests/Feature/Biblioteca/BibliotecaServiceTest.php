@@ -81,6 +81,24 @@ class BibliotecaServiceTest extends TestCase
         $this->assertSame('nuevo.pdf', $libro->getFirstMedia('pdf')->file_name);
     }
 
+    public function test_editar_enlace_externo_lo_guarda(): void
+    {
+        $libro = Libro::factory()->create(['enlace_externo' => null]);
+
+        $this->service()->editarEnlaceExterno($libro, 'https://editorial.test/libro-123');
+
+        $this->assertSame('https://editorial.test/libro-123', $libro->fresh()->enlace_externo);
+    }
+
+    public function test_editar_enlace_externo_con_null_lo_quita(): void
+    {
+        $libro = Libro::factory()->create(['enlace_externo' => 'https://editorial.test/libro-123']);
+
+        $this->service()->editarEnlaceExterno($libro, null);
+
+        $this->assertNull($libro->fresh()->enlace_externo);
+    }
+
     public function test_registrar_descarga_crea_el_registro_de_historial(): void
     {
         $libro = Libro::factory()->create();

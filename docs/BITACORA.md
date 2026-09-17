@@ -7,6 +7,43 @@ fecha y los commits que le corresponden.
 
 ---
 
+## 2026-09-17 (cont. 2)
+
+### Enlace externo en Biblioteca, además del PDF
+
+El usuario preguntó si se podía añadir un PDF a la Biblioteca o enlaces, tras
+confirmar que solo existía carga de PDF. Se agregó un campo de enlace externo
+por libro, independiente del PDF (un libro puede tener PDF, enlace externo,
+ambos o ninguno).
+
+- Columna nueva `libros.enlace_externo` (nullable). `BibliotecaService::editarEnlaceExterno()`
+  la actualiza (pasar `null` la quita).
+- En el catálogo, junto a "+ PDF" y "+ Ejemplar" ahora hay un botón "+ Enlace"
+  (o "Editar enlace" si ya tiene uno) que abre un mini formulario con
+  validación `nullable|url|max:500`; guardarlo vacío no es posible salvo con
+  el botón explícito "Quitar" (con confirmación).
+  El enlace, cuando existe, se muestra junto al de "Descargar PDF" para
+  cualquiera con `biblioteca.ver` (visible para todos, editable solo con
+  `biblioteca.gestionar`), igual que el PDF.
+- 6 tests nuevos (2 en `BibliotecaServiceTest`, 4 de permisos/validación en
+  `BibliotecaPermisosTest`), todos en verde. Pint y Larastan limpios.
+- Verificado en vivo con Playwright contra la BD real de desarrollo: crear
+  libro → "+ Enlace" → guardar URL → aparece "Enlace externo" con el href
+  correcto y el botón cambia a "Editar enlace" → libro de prueba eliminado al
+  terminar.
+- **Bug real preexistente encontrado al correr la suite completa (sin
+  relación con este cambio):** `PlantillaCursoVirtualServiceTest::test_aplicar_recalcula_la_fecha_limite_de_la_tarea_segun_el_ciclo_destino`
+  fallaba de forma intermitente porque el ciclo de origen usaba el año
+  aleatorio por defecto de `CicloFactory` (`faker->year()`, entre 1970 y
+  hoy); en algunos años al azar, Perú observó horario de verano con un
+  cambio dentro de la ventana 1-15 de enero que usa el test, corriendo el
+  `diffInWeeks()` de `guardarDesdeCursoVirtual()` una semana y rompiendo la
+  fecha esperada sin que hubiera ningún cambio real de código. Corregido
+  fijando el ciclo de origen a un año concreto (2026), igual que ya hacía
+  el ciclo destino.
+
+---
+
 ## 2026-09-17 (cont.)
 
 ### Bloque B, punto #2 — Importación masiva de Certificados de Capacitación

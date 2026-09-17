@@ -53,6 +53,10 @@ new #[Layout('layouts.app')] class extends Component
 
     public $pdfArchivo = null;
 
+    public ?int $libroConFormEnlaceId = null;
+
+    public string $enlaceExterno = '';
+
     public function mount(): void
     {
         abort_unless(Auth::user()->hasPermissionTo('biblioteca.ver'), 403);
@@ -153,6 +157,44 @@ new #[Layout('layouts.app')] class extends Component
 
         $this->cerrarFormPdf();
         session()->flash('status', 'PDF del libro guardado.');
+    }
+
+    public function abrirFormEnlace(int $libroId): void
+    {
+        abort_unless(Auth::user()->hasPermissionTo('biblioteca.gestionar'), 403);
+
+        $libro = Libro::query()->findOrFail($libroId);
+        $this->libroConFormEnlaceId = $libroId;
+        $this->enlaceExterno = (string) $libro->enlace_externo;
+    }
+
+    public function cerrarFormEnlace(): void
+    {
+        $this->reset(['libroConFormEnlaceId', 'enlaceExterno']);
+        $this->resetErrorBag();
+    }
+
+    public function guardarEnlace(BibliotecaService $service): void
+    {
+        abort_unless(Auth::user()->hasPermissionTo('biblioteca.gestionar'), 403);
+
+        $this->validate([
+            'enlaceExterno' => 'nullable|url|max:500',
+        ]);
+
+        $libro = Libro::query()->findOrFail($this->libroConFormEnlaceId);
+        $service->editarEnlaceExterno($libro, $this->enlaceExterno !== '' ? $this->enlaceExterno : null);
+
+        $this->cerrarFormEnlace();
+        session()->flash('status', 'Enlace del libro guardado.');
+    }
+
+    public function quitarEnlace(int $libroId, BibliotecaService $service): void
+    {
+        abort_unless(Auth::user()->hasPermissionTo('biblioteca.gestionar'), 403);
+
+        $service->editarEnlaceExterno(Libro::query()->findOrFail($libroId), null);
+        session()->flash('status', 'Enlace del libro eliminado.');
     }
 
     public function descargarPdf(int $libroId, BibliotecaService $service)
@@ -295,17 +337,28 @@ new #[Layout('layouts.app')] class extends Component
                     <div>
                         <p class="text-sm font-semibold text-ink">{{ $libro->titulo }}</p>
                         <p class="text-xs text-ink-faint">{{ $libro->autor }}@if ($libro->categoria) · {{ $libro->categoria }} @endif@if ($libro->anio_publicacion) · {{ $libro->anio_publicacion }} @endif</p>
-                        @if ($libro->getFirstMedia('pdf'))
-                            <button type="button" wire:click="descargarPdf({{ $libro->id }})" class="mt-1 inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
-                                <x-heroicon-o-arrow-down-tray class="h-3.5 w-3.5" />
-                                Descargar PDF
-                            </button>
-                        @endif
+                        <div class="mt-1 flex flex-wrap items-center gap-3">
+                            @if ($libro->getFirstMedia('pdf'))
+                                <button type="button" wire:click="descargarPdf({{ $libro->id }})" class="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
+                                    <x-heroicon-o-arrow-down-tray class="h-3.5 w-3.5" />
+                                    Descargar PDF
+                                </button>
+                            @endif
+                            @if ($libro->enlace_externo)
+                                <a href="{{ $libro->enlace_externo }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
+                                    <x-heroicon-o-link class="h-3.5 w-3.5" />
+                                    Enlace externo
+                                </a>
+                            @endif
+                        </div>
                     </div>
-                    <div class="flex gap-2">
+                    <div class="flex flex-wrap gap-2">
                         @if ($puedeGestionar)
                             <x-secondary-button type="button" wire:click="abrirFormPdf({{ $libro->id }})">
                                 {{ $libro->getFirstMedia('pdf') ? 'Reemplazar PDF' : '+ PDF' }}
+                            </x-secondary-button>
+                            <x-secondary-button type="button" wire:click="abrirFormEnlace({{ $libro->id }})">
+                                {{ $libro->enlace_externo ? 'Editar enlace' : '+ Enlace' }}
                             </x-secondary-button>
                             <x-secondary-button type="button" wire:click="abrirFormEjemplar({{ $libro->id }})">+ Ejemplar</x-secondary-button>
                         @endif
@@ -320,6 +373,21 @@ new #[Layout('layouts.app')] class extends Component
                             <x-input-error :messages="$errors->get('pdfArchivo')" class="mt-1" />
                         </div>
                         <x-secondary-button type="button" wire:click="cerrarFormPdf">Cancelar</x-secondary-button>
+                        <x-primary-button type="submit">Guardar</x-primary-button>
+                    </form>
+                @endif
+
+                @if ($puedeGestionar && $libroConFormEnlaceId === $libro->id)
+                    <form wire:submit="guardarEnlace" class="mt-3 flex flex-wrap items-end gap-2 rounded-md border border-border bg-surface-2 p-3">
+                        <div class="flex-1">
+                            <x-input-label for="enlaceExterno" value="Enlace externo (versión en línea, repositorio del editor, etc.)" />
+                            <x-text-input wire:model="enlaceExterno" id="enlaceExterno" type="url" class="mt-1 block w-full" placeholder="https://…" />
+                            <x-input-error :messages="$errors->get('enlaceExterno')" class="mt-1" />
+                        </div>
+                        @if ($libro->enlace_externo)
+                            <x-secondary-button type="button" wire:click="quitarEnlace({{ $libro->id }})" wire:confirm="¿Quitar el enlace de este libro?">Quitar</x-secondary-button>
+                        @endif
+                        <x-secondary-button type="button" wire:click="cerrarFormEnlace">Cancelar</x-secondary-button>
                         <x-primary-button type="submit">Guardar</x-primary-button>
                     </form>
                 @endif

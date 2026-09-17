@@ -76,6 +76,16 @@ class BibliotecaService
         $libro->addMedia($archivo)->toMediaCollection('pdf');
     }
 
+    /**
+     * Enlace externo del libro (ej. versión en línea, repositorio del
+     * editor) -- independiente del PDF: un libro puede tener uno, otro,
+     * ambos o ninguno. Pasar null quita el enlace.
+     */
+    public function editarEnlaceExterno(Libro $libro, ?string $enlace): void
+    {
+        $libro->update(['enlace_externo' => $enlace]);
+    }
+
     public function registrarDescarga(Libro $libro, User $usuario): DescargaLibro
     {
         return DescargaLibro::query()->create([
