@@ -189,7 +189,7 @@ class CicloValidacionTest extends TestCase
     public function test_un_ciclo_anual_no_exige_tipo_ni_mes_de_inicio_fijo(): void
     {
         $ciclo = $this->service()->crear([
-            'nombre' => 'SIAGIE Anual - 2026',
+            'nombre' => 'Periodo Académico Anual - 2026',
             'modalidad' => ModalidadCicloEnum::ANUAL,
             'tipo' => null,
             'anio' => 2026,
@@ -205,7 +205,7 @@ class CicloValidacionTest extends TestCase
         $this->expectException(ValidationException::class);
 
         $this->service()->crear([
-            'nombre' => 'SIAGIE Anual - 2026 (corto)',
+            'nombre' => 'Periodo Académico Anual - 2026 (corto)',
             'modalidad' => ModalidadCicloEnum::ANUAL,
             'tipo' => null,
             'anio' => 2026,
@@ -217,7 +217,7 @@ class CicloValidacionTest extends TestCase
     public function test_no_permite_dos_ciclos_anuales_con_fechas_cruzadas(): void
     {
         $this->service()->crear([
-            'nombre' => 'SIAGIE Anual - 2026',
+            'nombre' => 'Periodo Académico Anual - 2026',
             'modalidad' => ModalidadCicloEnum::ANUAL,
             'tipo' => null,
             'anio' => 2026,
@@ -228,7 +228,7 @@ class CicloValidacionTest extends TestCase
         $this->expectException(ValidationException::class);
 
         $this->service()->crear([
-            'nombre' => 'SIAGIE Anual - 2026 (duplicado)',
+            'nombre' => 'Periodo Académico Anual - 2026 (duplicado)',
             'modalidad' => ModalidadCicloEnum::ANUAL,
             'tipo' => null,
             'anio' => 2026,
@@ -250,7 +250,7 @@ class CicloValidacionTest extends TestCase
         ]);
 
         $ciclo = $this->service()->crear([
-            'nombre' => 'SIAGIE Anual - 2026',
+            'nombre' => 'Periodo Académico Anual - 2026',
             'modalidad' => ModalidadCicloEnum::ANUAL,
             'tipo' => null,
             'anio' => 2026,

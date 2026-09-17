@@ -83,7 +83,7 @@ class CicloFactory extends Factory
             $anio = $attributes['anio'];
 
             return [
-                'nombre' => "SIAGIE Anual - {$anio}",
+                'nombre' => "Periodo Académico Anual - {$anio}",
                 'modalidad' => ModalidadCicloEnum::ANUAL,
                 'tipo' => null,
                 'fecha_inicio' => "{$anio}-03-01",

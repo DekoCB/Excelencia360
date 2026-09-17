@@ -433,7 +433,7 @@ class DemoRobustoSeeder extends Seeder
         $cicloAnual = Ciclo::query()->firstOrCreate(
             ['modalidad' => ModalidadCicloEnum::ANUAL, 'anio' => $anio],
             [
-                'nombre' => "SIAGIE Anual - {$anio}",
+                'nombre' => "Periodo Académico Anual - {$anio}",
                 'tipo' => null,
                 'fecha_inicio' => "{$anio}-03-01",
                 'fecha_fin' => "{$anio}-10-31",
