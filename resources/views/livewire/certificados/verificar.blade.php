@@ -60,35 +60,36 @@ new #[Layout('layouts.guest')] class extends Component
                     <p class="font-semibold">Certificado válido</p>
                 </div>
                 <div class="mt-3 space-y-1 rounded-md border border-border bg-surface p-4 text-sm text-ink">
+                    {{-- Identidad del participante: mismo formato para cualquier tipo de documento, no solo capacitación. --}}
+                    <p><span class="text-ink-faint">Documento de Identidad:</span> {{ $resultado->estudiante?->dni ?? '—' }}</p>
+                    <p><span class="text-ink-faint">Nombres del Participante:</span> {{ $resultado->estudiante?->nombres ?? '—' }}</p>
+                    <p><span class="text-ink-faint">Apellidos del Participante:</span> {{ $resultado->estudiante?->apellidos ?? '—' }}</p>
+
                     @if ($resultado->tipo->esCapacitacion())
-                        <p><span class="text-ink-faint">Documento de Identidad:</span> {{ $resultado->estudiante?->dni ?? '—' }}</p>
-                        <p><span class="text-ink-faint">Nombres del Participante:</span> {{ $resultado->estudiante?->nombres ?? '—' }}</p>
-                        <p><span class="text-ink-faint">Apellidos del Participante:</span> {{ $resultado->estudiante?->apellidos ?? '—' }}</p>
                         <p><span class="text-ink-faint">Número de Registro del Documento:</span> {{ $resultado->numero_registro }}</p>
                         <p><span class="text-ink-faint">Nombre del Curso:</span> {{ $resultado->cursoCapacitacion?->nombre ?? '—' }}</p>
                         <p><span class="text-ink-faint">Horas Lectivas del Curso:</span> {{ $resultado->cursoCapacitacion?->horas_lectivas ?? '—' }}</p>
                         @if ($resultado->cursoCapacitacion?->documento_autorizacion)
                             <p><span class="text-ink-faint">Documento de Autorización:</span> {{ $resultado->cursoCapacitacion->documento_autorizacion }}</p>
                         @endif
-
-                        @if (! empty(config('institucion.convenios')))
-                            <div class="mt-3 border-t border-border pt-3">
-                                <p class="text-ink-faint">Convenios con las siguientes instituciones:</p>
-                                <div class="mt-2 flex flex-wrap items-center gap-4">
-                                    @foreach (config('institucion.convenios') as $convenio)
-                                        <img src="{{ $convenio['logo'] }}" alt="{{ $convenio['nombre'] }}" class="h-10">
-                                    @endforeach
-                                </div>
-                            </div>
-                        @endif
                     @else
-                        <p><span class="text-ink-faint">Estudiante:</span> {{ $resultado->estudiante?->nombreCompleto() ?? '—' }}</p>
                         <p><span class="text-ink-faint">N.° de certificado:</span> {{ $resultado->numero }}</p>
                         @if ($resultado->matricula)
                             <p><span class="text-ink-faint">Semestre:</span> {{ $resultado->matricula->grado->nombre }}</p>
                             <p><span class="text-ink-faint">Ciclo:</span> {{ $resultado->matricula->ciclo->nombre }}</p>
                         @endif
                         <p><span class="text-ink-faint">Fecha de emisión:</span> {{ $resultado->fecha_emision->format('d/m/Y') }}</p>
+                    @endif
+
+                    @if (! empty(config('institucion.convenios')))
+                        <div class="mt-3 border-t border-border pt-3">
+                            <p class="text-ink-faint">Convenios con las siguientes instituciones:</p>
+                            <div class="mt-2 flex flex-wrap items-center gap-4">
+                                @foreach (config('institucion.convenios') as $convenio)
+                                    <img src="{{ $convenio['logo'] }}" alt="{{ $convenio['nombre'] }}" class="h-10">
+                                @endforeach
+                            </div>
+                        </div>
                     @endif
                 </div>
             @else

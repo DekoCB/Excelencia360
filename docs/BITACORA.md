@@ -7,6 +7,35 @@ fecha y los commits que le corresponden.
 
 ---
 
+## 2026-09-18
+
+### Certificado de estudios también muestra DNI y nombres/apellidos separados
+
+En la página pública de verificación, el Certificado de Capacitación ya
+mostraba Documento de Identidad, Nombres y Apellidos del participante por
+separado; el Certificado de estudios en cambio solo mostraba "Estudiante:
+{nombre completo}". El usuario pidió que el certificado de estudios también
+muestre esos mismos datos de identidad.
+
+- `certificados/verificar.blade.php`: DNI/Nombres/Apellidos ahora se
+  muestran para **cualquier** tipo de documento verificado, no solo
+  capacitación. Los campos propios de capacitación (Número de Registro,
+  Nombre del Curso, Horas Lectivas, Documento de Autorización) siguen
+  siendo exclusivos de ese tipo — un certificado de estudios no tiene un
+  "curso de capacitación" ni un número de registro que mostrar ahí, así
+  que forzarlos habría dejado guiones vacíos sin sentido. Lo propio del
+  certificado de estudios (N.° de certificado, Semestre, Ciclo, Fecha de
+  emisión) se mantiene igual. La sección de Convenios (si hay logos
+  configurados) ahora también es visible para cualquier tipo, no solo
+  capacitación.
+- 2 tests existentes ajustados (verificaban el nombre completo como una
+  sola cadena; ahora se separan en nombres/apellidos, que es justamente lo
+  nuevo) y 1 test nuevo cubriendo el caso de certificado de estudios
+  explícitamente. 112/112 tests de Certificados en verde.
+- Verificado en vivo contra un certificado real de la BD de desarrollo.
+
+---
+
 ## 2026-09-17 (cont. 4)
 
 ### Módulo nuevo "Apoderados" y renombrado "Tutores/Apoderados" → "Hijos"

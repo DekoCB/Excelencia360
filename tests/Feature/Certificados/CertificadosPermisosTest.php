@@ -114,7 +114,29 @@ class CertificadosPermisosTest extends TestCase
         Volt::test('certificados.verificar')
             ->set('codigo', $certificado->codigo_verificacion)
             ->call('verificar')
-            ->assertSee($estudiante->nombreCompleto());
+            ->assertSee($estudiante->nombres)
+            ->assertSee($estudiante->apellidos);
+    }
+
+    public function test_la_verificacion_de_un_certificado_de_estudios_tambien_muestra_dni_y_nombres_separados(): void
+    {
+        $estudiante = Estudiante::factory()->create(['nombres' => 'Ademir Erikson', 'apellidos' => 'Portillo Livisi', 'dni' => '72552221']);
+        $emisor = User::factory()->create();
+        $certificado = app(CertificadoService::class)->emitir($estudiante, null, null, null, $emisor);
+
+        Volt::test('certificados.verificar')
+            ->set('codigo', $certificado->codigo_verificacion)
+            ->call('verificar')
+            ->assertSee('Documento de Identidad')
+            ->assertSee('72552221')
+            ->assertSee('Nombres del Participante')
+            ->assertSee('Ademir Erikson')
+            ->assertSee('Apellidos del Participante')
+            ->assertSee('Portillo Livisi')
+            // Lo propio de capacitación no aplica a un certificado de estudios.
+            ->assertDontSee('Número de Registro del Documento')
+            ->assertDontSee('Nombre del Curso')
+            ->assertDontSee('Horas Lectivas del Curso');
     }
 
     public function test_la_verificacion_de_un_certificado_de_capacitacion_muestra_curso_y_registro(): void
@@ -162,7 +184,8 @@ class CertificadosPermisosTest extends TestCase
         $this->get($certificado->urlVerificacion())
             ->assertOk()
             ->assertSee('Certificado válido')
-            ->assertSee($estudiante->nombreCompleto());
+            ->assertSee($estudiante->nombres)
+            ->assertSee($estudiante->apellidos);
     }
 
     public function test_un_codigo_manipulado_en_la_url_no_rompe_la_pagina(): void
