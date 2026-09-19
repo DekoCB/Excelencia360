@@ -23,4 +23,4 @@ Route::middleware(['auth'])->prefix('constancias')->name('constancias.')->group(
 
 // Verificación pública: sin autenticación, para que terceros (empleadores,
 // otras instituciones) validen un certificado a partir de su código impreso.
-Volt::route('verificar-certificado', 'certificados.verificar')->name('certificados.verificar');
+Volt::route('validar', 'certificados.verificar')->name('certificados.verificar');
