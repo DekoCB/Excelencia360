@@ -58,8 +58,9 @@ new #[Layout('layouts.app')] class extends Component
                 <div>
                     <h2 class="font-display text-lg text-ink">1. Descarga la plantilla</h2>
                     <p class="mt-1 text-sm text-ink-dim">
-                        Un estudiante por fila. Si es menor de edad, completa también las columnas de apoderado
-                        (obligatorias solo en ese caso).
+                        Un estudiante por fila. La fecha de nacimiento es opcional -- si no se indica, se asume
+                        mayor de edad y no se exige apoderado en esa fila. Si es menor de edad, completa también
+                        las columnas de apoderado (obligatorias solo en ese caso).
                     </p>
                 </div>
                 <x-secondary-button type="button" wire:click="descargarPlantilla" class="shrink-0">

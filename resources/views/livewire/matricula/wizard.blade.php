@@ -241,7 +241,7 @@ new class extends Component
                 'nombres' => 'required|string|max:100',
                 'apellidos' => 'required|string|max:100',
                 'dni' => 'required|string|min:8|max:12',
-                'fechaNacimiento' => 'required|date|before:today',
+                'fechaNacimiento' => 'nullable|date|before:today',
                 'estadoCivil' => 'nullable|string|in:'.implode(',', array_column(EstadoCivilEnum::cases(), 'value')),
                 'direccion' => 'nullable|string|max:150',
                 'celular' => 'nullable|string',
@@ -465,7 +465,7 @@ new class extends Component
                 nombres: $this->nombres,
                 apellidos: $this->apellidos,
                 dni: new Dni($this->dni),
-                fechaNacimiento: $this->fechaNacimiento,
+                fechaNacimiento: $this->fechaNacimiento !== '' ? $this->fechaNacimiento : null,
                 estadoCivil: $this->estadoCivil !== '' ? EstadoCivilEnum::from($this->estadoCivil) : null,
                 direccion: $this->direccion ?: null,
                 celular: $this->celular !== '' ? new Telefono($this->celular) : null,
@@ -699,7 +699,7 @@ new class extends Component
                     </div>
                 @endif
                 <div>
-                    <x-input-label for="fechaNacimiento" value="Fecha de nacimiento" />
+                    <x-input-label for="fechaNacimiento" value="Fecha de nacimiento (opcional)" />
                     <x-date-input wire:model.live="fechaNacimiento" id="fechaNacimiento" class="mt-1 block w-full" />
                     <x-input-error :messages="$errors->get('fechaNacimiento')" class="mt-1" />
                     @if ($fechaNacimiento)

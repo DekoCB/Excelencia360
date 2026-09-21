@@ -66,6 +66,24 @@ class MatriculaMasivaServiceTest extends TestCase
         $this->assertDatabaseHas('estudiantes', ['dni' => '76543210', 'es_menor_edad' => false]);
     }
 
+    public function test_registra_un_estudiante_sin_fecha_de_nacimiento_como_no_menor_de_edad_y_sin_exigir_apoderado(): void
+    {
+        $resultado = $this->service()->registrarEstudiantesDesdeFilas($this->filas([
+            [
+                'nombres' => 'Carlos', 'apellidos' => 'Gómez Luna', 'dni' => '76543210',
+            ],
+        ]));
+
+        $this->assertSame(1, $resultado['exitosos']);
+        $this->assertCount(0, $resultado['errores']);
+        $this->assertDatabaseHas('estudiantes', [
+            'dni' => '76543210',
+            'fecha_nacimiento' => null,
+            'es_menor_edad' => false,
+        ]);
+        $this->assertDatabaseCount('apoderados', 0);
+    }
+
     public function test_registra_un_menor_de_edad_junto_con_su_apoderado(): void
     {
         $resultado = $this->service()->registrarEstudiantesDesdeFilas($this->filas([

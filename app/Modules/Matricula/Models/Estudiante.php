@@ -27,7 +27,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string|null $qr_token
  * @property string $nombres
  * @property string $apellidos
- * @property Carbon $fecha_nacimiento
+ * @property Carbon|null $fecha_nacimiento
  * @property bool $es_menor_edad
  * @property string|null $celular
  * @property EstadoEstudianteEnum $estado

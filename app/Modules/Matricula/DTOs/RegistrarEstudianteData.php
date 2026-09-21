@@ -14,7 +14,7 @@ final readonly class RegistrarEstudianteData
         public string $nombres,
         public string $apellidos,
         public Dni $dni,
-        public string $fechaNacimiento,
+        public ?string $fechaNacimiento,
         public ?EstadoCivilEnum $estadoCivil,
         public ?string $direccion,
         public ?Telefono $celular,

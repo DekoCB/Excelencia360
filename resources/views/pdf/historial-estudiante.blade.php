@@ -23,7 +23,7 @@
     <table>
         <tr><td class="etiqueta">Nombres y apellidos</td><td>{{ $estudiante->nombreCompleto() }}</td></tr>
         <tr><td class="etiqueta">DNI</td><td>{{ $estudiante->dni }}</td></tr>
-        <tr><td class="etiqueta">Fecha de nacimiento</td><td>{{ $estudiante->fecha_nacimiento->format('d/m/Y') }}</td></tr>
+        <tr><td class="etiqueta">Fecha de nacimiento</td><td>{{ $estudiante->fecha_nacimiento?->format('d/m/Y') ?? '—' }}</td></tr>
         <tr><td class="etiqueta">Estado</td><td>{{ $estudiante->estado->label() }}</td></tr>
     </table>
 

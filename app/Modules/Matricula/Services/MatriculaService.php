@@ -65,8 +65,18 @@ class MatriculaService
         return ! $this->estudiantes->existeDni($dni, $exceptoId);
     }
 
-    public static function esMenorDeEdad(string $fechaNacimiento): bool
+    /**
+     * Sin fecha de nacimiento (dato ahora opcional -- ver
+     * registrarEstudiantesDesdeFilas()) no hay forma de saber la edad: se
+     * asume que no es menor, ya que en este sistema el apoderado no es
+     * exclusivo de menores de edad.
+     */
+    public static function esMenorDeEdad(?string $fechaNacimiento): bool
     {
+        if ($fechaNacimiento === null || trim($fechaNacimiento) === '') {
+            return false;
+        }
+
         return Carbon::parse($fechaNacimiento)->age < 18;
     }
 
@@ -333,7 +343,9 @@ class MatriculaService
 
     /**
      * Crea estudiantes (y su apoderado si son menores de edad) a partir de
-     * las filas de un Excel. Cada fila se procesa en su propia transacción:
+     * las filas de un Excel. fecha_nacimiento es opcional: sin ella,
+     * es_menor_edad queda en false (ver esMenorDeEdad()) y no se exige
+     * apoderado en esta fila. Cada fila se procesa en su propia transacción:
      * una fila inválida no afecta a las demás, y su error se reporta con el
      * número de fila tal como aparece en el archivo (encabezado = fila 1).
      *
@@ -352,10 +364,9 @@ class MatriculaService
                     $apellidos = $this->celdaObligatoria($fila, 'apellidos');
                     $dniTexto = $this->celdaObligatoria($fila, 'dni');
                     $fechaNacimientoValor = $fila->get('fecha_nacimiento');
-
-                    if ($fechaNacimientoValor === null || trim((string) $fechaNacimientoValor) === '') {
-                        throw new InvalidArgumentException('La fecha de nacimiento es obligatoria.');
-                    }
+                    $fechaNacimientoTexto = $fechaNacimientoValor !== null && trim((string) $fechaNacimientoValor) !== ''
+                        ? $this->parsearFecha($fechaNacimientoValor)
+                        : null;
 
                     if (! $this->dniDisponible($dniTexto)) {
                         throw new InvalidArgumentException("Ya existe un estudiante registrado con el DNI {$dniTexto}.");
@@ -376,7 +387,7 @@ class MatriculaService
                         nombres: $nombres,
                         apellidos: $apellidos,
                         dni: new Dni($dniTexto),
-                        fechaNacimiento: $this->parsearFecha($fechaNacimientoValor),
+                        fechaNacimiento: $fechaNacimientoTexto,
                         estadoCivil: $estadoCivil,
                         direccion: $this->celdaOpcional($fila, 'direccion'),
                         celular: $celularTexto !== null ? new Telefono($celularTexto) : null,

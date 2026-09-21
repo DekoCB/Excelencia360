@@ -92,6 +92,12 @@ class MatriculaServiceTest extends TestCase
         $this->assertFalse(MatriculaService::esMenorDeEdad(now()->subYears(25)->format('Y-m-d')));
     }
 
+    public function test_sin_fecha_de_nacimiento_no_se_considera_menor_de_edad(): void
+    {
+        $this->assertFalse(MatriculaService::esMenorDeEdad(null));
+        $this->assertFalse(MatriculaService::esMenorDeEdad(''));
+    }
+
     public function test_registra_un_estudiante_correctamente(): void
     {
         $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMayor());
