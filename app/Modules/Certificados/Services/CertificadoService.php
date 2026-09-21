@@ -13,11 +13,14 @@ use App\Modules\Certificados\Models\PlantillaCertificado;
 use App\Modules\Certificados\Models\SolicitudCertificado;
 use App\Modules\Evaluaciones\Models\Libreta;
 use App\Modules\Evaluaciones\Services\LibretaService;
+use App\Modules\Matricula\DTOs\RegistrarEstudianteData;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
+use App\Modules\Matricula\Services\MatriculaService;
 use App\Modules\Notificaciones\Enums\TipoNotificacionEnum;
 use App\Modules\Notificaciones\Services\NotificacionService;
 use App\Shared\Enums\MetodoEntregaEnum;
+use App\Shared\ValueObjects\Dni;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -34,6 +37,7 @@ class CertificadoService
     public function __construct(
         private readonly NotificacionService $notificaciones,
         private readonly LibretaService $libretas,
+        private readonly MatriculaService $matricula,
     ) {}
 
     /**
@@ -364,6 +368,220 @@ class CertificadoService
         }
 
         return ['exitosos' => $exitosos, 'errores' => $errores];
+    }
+
+    /**
+     * Primer paso del "formato del cliente" (Excel con nombres y apellidos
+     * en una sola columna, sin que el estudiante exista todavía): arma una
+     * previsualización editable, sin guardar nada -- ni el estudiante ni el
+     * certificado se crean aquí. El nombre completo se separa con una regla
+     * fija (las últimas 2 palabras son apellidos) porque es la convención
+     * más común, pero el cliente mezcla el orden en algunas filas (ver
+     * bitácora), así que el resultado se muestra en pantalla para que el
+     * usuario corrija a mano antes de confirmar.
+     *
+     * @param  SupportCollection<int, SupportCollection<string, mixed>>  $filas
+     * @return list<array{fila: int, dni: string, nombres: string, apellidos: string, numero_registro: string, curso: string, horas_lectivas: int, documento_autorizacion: ?string, nota: ?float, estudiante_existe: bool}>
+     */
+    public function previsualizarImportacionCapacitacionFormatoCliente(SupportCollection $filas): array
+    {
+        $preview = [];
+
+        foreach ($filas as $indice => $fila) {
+            $dniCrudo = trim((string) ($fila->get('dni') ?? ''));
+
+            if ($dniCrudo === '') {
+                continue;
+            }
+
+            $dni = $this->normalizarDni($dniCrudo);
+
+            $nombreCompleto = trim((string) (
+                $fila->get('nombres_y_apellidos')
+                ?? $fila->get('nombres_apellidos')
+                ?? $fila->get('nombre_completo')
+                ?? ''
+            ));
+
+            [$nombres, $apellidos] = $this->dividirNombreCompleto($nombreCompleto);
+
+            $numeroRegistro = trim((string) (
+                $fila->get('num_registro')
+                ?? $fila->get('numero_registro')
+                ?? $fila->get('num_de_registro')
+                ?? $fila->get('numero_de_registro')
+                ?? ''
+            ));
+
+            $documento = trim((string) ($fila->get('documento') ?? $fila->get('documento_de_autorizacion') ?? ''));
+            $notaValor = $fila->get('nota');
+
+            $preview[] = [
+                'fila' => $indice + 2,
+                'dni' => $dni,
+                'nombres' => $nombres,
+                'apellidos' => $apellidos,
+                'numero_registro' => $numeroRegistro,
+                'curso' => trim((string) ($fila->get('curso') ?? '')),
+                'horas_lectivas' => (int) ($fila->get('horas') ?? $fila->get('horas_lectivas') ?? 0),
+                'documento_autorizacion' => $documento !== '' ? $documento : null,
+                'nota' => ($notaValor !== null && trim((string) $notaValor) !== '' && is_numeric($notaValor)) ? (float) $notaValor : null,
+                'estudiante_existe' => Estudiante::query()->where('dni', $dni)->exists(),
+            ];
+        }
+
+        return $preview;
+    }
+
+    /**
+     * Segundo paso: recibe las filas de la previsualización (con las
+     * correcciones manuales que el usuario haya hecho en pantalla) y recién
+     * ahí crea lo que falte. Si el DNI ya existe, reutiliza ese estudiante
+     * tal cual está (no le pisa el nombre); si no existe, lo crea sin fecha
+     * de nacimiento (dato opcional, ver MatriculaService::esMenorDeEdad()).
+     * Cada fila en su propia transacción, igual que emitirCapacitacionDesdeFilas().
+     *
+     * @param  list<array{fila?: int, dni: string, nombres: string, apellidos: string, numero_registro: string, curso: string, horas_lectivas: int, documento_autorizacion: ?string, nota: ?float}>  $filas
+     * @return array{exitosos: int, errores: list<array{fila: int, mensaje: string}>}
+     */
+    public function confirmarImportacionCapacitacionFormatoCliente(array $filas, User $emisor): array
+    {
+        $exitosos = 0;
+        $errores = [];
+
+        foreach ($filas as $indice => $fila) {
+            try {
+                DB::transaction(function () use ($fila, $emisor): void {
+                    $dni = trim($fila['dni']);
+
+                    if ($dni === '') {
+                        throw new InvalidArgumentException('El DNI es obligatorio.');
+                    }
+
+                    $numeroRegistro = trim($fila['numero_registro']);
+
+                    if ($numeroRegistro === '') {
+                        throw new InvalidArgumentException('El número de registro es obligatorio.');
+                    }
+
+                    if (Certificado::query()->where('numero_registro', $numeroRegistro)->exists()) {
+                        throw new InvalidArgumentException("Ya existe un certificado con el número de registro {$numeroRegistro}.");
+                    }
+
+                    $estudiante = Estudiante::query()->where('dni', $dni)->first();
+
+                    if (! $estudiante) {
+                        $nombres = trim($fila['nombres']);
+                        $apellidos = trim($fila['apellidos']);
+
+                        if ($nombres === '' || $apellidos === '') {
+                            throw new InvalidArgumentException('Nombres y apellidos son obligatorios para crear al estudiante.');
+                        }
+
+                        $estudiante = $this->matricula->registrarEstudiante(new RegistrarEstudianteData(
+                            nombres: $nombres,
+                            apellidos: $apellidos,
+                            dni: new Dni($dni),
+                            fechaNacimiento: null,
+                            estadoCivil: null,
+                            direccion: null,
+                            celular: null,
+                            observaciones: null,
+                        ));
+                    }
+
+                    $nombreCurso = trim($fila['curso']);
+
+                    if ($nombreCurso === '') {
+                        throw new InvalidArgumentException('El nombre del curso es obligatorio.');
+                    }
+
+                    $curso = CursoCapacitacion::query()->where('nombre', $nombreCurso)->first();
+
+                    if (! $curso) {
+                        $horasLectivas = $fila['horas_lectivas'];
+
+                        if ($horasLectivas < 1) {
+                            throw new InvalidArgumentException("El curso «{$nombreCurso}» no existe todavía: faltan las horas lectivas para crearlo.");
+                        }
+
+                        $curso = CursoCapacitacion::query()->create([
+                            'nombre' => $nombreCurso,
+                            'horas_lectivas' => $horasLectivas,
+                            'documento_autorizacion' => $fila['documento_autorizacion'] ?? null,
+                        ]);
+                    }
+
+                    $this->emitir(
+                        $estudiante,
+                        null,
+                        null,
+                        null,
+                        $emisor,
+                        TipoDocumentoEnum::CERTIFICADO_CAPACITACION,
+                        $curso,
+                        $numeroRegistro,
+                        $fila['nota'] ?? null,
+                    );
+                });
+
+                $exitosos++;
+            } catch (Throwable $e) {
+                $errores[] = ['fila' => $fila['fila'] ?? ($indice + 1), 'mensaje' => $e->getMessage()];
+            }
+        }
+
+        return ['exitosos' => $exitosos, 'errores' => $errores];
+    }
+
+    /**
+     * DNI peruano de 8 dígitos que llega recortado (p. ej. una celda de
+     * Excel con formato numérico se come los ceros a la izquierda): si
+     * queda corto y es solo dígitos, se rellena con ceros adelante. No se
+     * toca si ya tiene 8+ caracteres o trae letras (carné de extranjería).
+     */
+    private function normalizarDni(string $dni): string
+    {
+        $dni = trim($dni);
+
+        if (strlen($dni) < 8 && ctype_digit($dni)) {
+            return str_pad($dni, 8, '0', STR_PAD_LEFT);
+        }
+
+        return $dni;
+    }
+
+    /**
+     * Regla estándar peruana: las últimas 2 palabras son los apellidos
+     * (paterno + materno), el resto son nombres. Es solo la mejor apuesta
+     * posible sin más contexto -- el cliente a veces manda el nombre
+     * completo al revés (apellidos primero), y eso esta función no lo
+     * puede detectar; por eso el resultado se revisa en pantalla antes de
+     * confirmar, nunca se guarda directo.
+     *
+     * @return array{0: string, 1: string} [nombres, apellidos]
+     */
+    private function dividirNombreCompleto(string $nombreCompleto): array
+    {
+        $palabras = preg_split('/\s+/', trim($nombreCompleto), -1, PREG_SPLIT_NO_EMPTY);
+
+        if ($palabras === [] || $palabras === false) {
+            return ['', ''];
+        }
+
+        if (count($palabras) === 1) {
+            return [$palabras[0], ''];
+        }
+
+        $apellidos = implode(' ', array_slice($palabras, -2));
+        $nombres = implode(' ', array_slice($palabras, 0, -2));
+
+        if ($nombres === '') {
+            $nombres = $palabras[0];
+            $apellidos = implode(' ', array_slice($palabras, 1));
+        }
+
+        return [$nombres, $apellidos];
     }
 
     public function rechazarSolicitud(SolicitudCertificado $solicitud, string $motivo, User $revisor): void

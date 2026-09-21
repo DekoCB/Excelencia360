@@ -7,6 +7,77 @@ fecha y los commits que le corresponden.
 
 ---
 
+## 2026-09-21
+
+### Primer despliegue real a producción (excelencia360.pe, Hostinger) + certificados de capacitación reales
+
+**Commits:** `0ad91f3`, `f84b715`, `dcfe665`, y el de esta entrada.
+
+Primer despliegue real del sistema (antes solo se había hecho la
+investigación previa, ver 2026-09-18) y primeras cargas de datos oficiales:
+dos lotes reales de certificados de capacitación (GE-2026-004 y
+GE-2026-012, ~150 certificados en total), con estudiantes que en su
+mayoría no estaban registrados todavía.
+
+- **Ruta de verificación simplificada**: `/verificar-certificado` → `/validar`
+  (`0ad91f3`). Todo el resto del sistema usa el nombre de ruta
+  `certificados.verificar`, así que no hizo falta tocar nada más.
+- **Nota en certificados de capacitación** (`f84b715`): nueva columna
+  `certificados.nota` (decimal 0-20, nullable), disponible al emitir a
+  mano, al duplicar, y en la importación masiva (columna `nota`
+  opcional). Necesaria porque los certificados reales del cliente traen
+  un promedio ponderado final por persona.
+- **Fecha de nacimiento del estudiante pasa a ser opcional** (`dcfe665`):
+  en este sistema el apoderado no es exclusivo de menores de edad, así
+  que dejó de tener sentido exigirla. Sin fecha, `es_menor_edad` queda en
+  `false` (`MatriculaService::esMenorDeEdad()` ahora acepta `null`) y no
+  se pide apoderado en esa fila del alta masiva. 3 vistas que asumían la
+  fecha siempre presente (`historial-estudiante.blade.php` en PDF y
+  componente, `ficha-estudiante.blade.php`) se corrigieron con `?->`.
+- **Despliegue**: el servidor nunca había tenido `git` configurado (el
+  primer despliegue fue una subida manual de archivos, igual que pasó con
+  CEBA en su momento, ver 2026-09-07). Se convirtió la carpeta del
+  proyecto en un repositorio real (`git init` + `git remote add` +
+  `git fetch` + `git checkout -f -b main origin/main`, sin tocar
+  `.env`/`storage`/`vendor` porque ninguno vive en el repo) — de ahora en
+  adelante, actualizar producción es un `git pull` normal.
+- **Bug de hosting encontrado dos veces, sin causa raíz confirmada**:
+  `php artisan config:cache` guarda una versión vacía de `APP_KEY` en este
+  hosting específico, aunque `.env` y `env('APP_KEY')` sin caché son
+  correctos — pasó tanto en el despliegue inicial como en esta
+  actualización. Solución práctica: **no usar `config:cache` en este
+  servidor**, dejar que Laravel lea `.env` en cada request. No es grave
+  para el tamaño de este sistema, pero queda pendiente investigar la
+  causa real con más calma.
+- **Importación "formato del cliente"** (commit de esta entrada): el
+  cliente manda habitualmente un Excel con nombres y apellidos juntos en
+  una sola columna, y el estudiante casi nunca existe todavía en el
+  sistema. Se agregó una segunda vía de importación en
+  `Certificados → Importar` (junto a la que ya existía, que exige que el
+  estudiante ya esté registrado):
+  `CertificadoService::previsualizarImportacionCapacitacionFormatoCliente()`
+  arma una vista previa (sin guardar nada) separando nombres/apellidos con
+  la regla estándar (últimas 2 palabras = apellidos) y marcando si el DNI
+  ya existe; la pantalla muestra esa vista previa en una tabla editable
+  para que el usuario corrija a mano cualquier fila que haya quedado al
+  revés (el Excel real del cliente mezcla ambos órdenes sin avisar) antes
+  de confirmar. Recién `confirmarImportacionCapacitacionFormatoCliente()`
+  crea lo que falte: estudiante nuevo si el DNI no existe (sin fecha de
+  nacimiento), o reutiliza el existente sin pisarle el nombre; el curso de
+  capacitación se busca o se crea igual que en el importador anterior.
+  10 tests nuevos cubriendo separación de nombres, relleno de DNI con
+  ceros a la izquierda, detección de estudiante existente, reutilización
+  de estudiante/curso, DNI duplicado dentro del mismo archivo, y números
+  de registro repetidos.
+- Los dos DNI de 7 dígitos y el estudiante con nombre "al revés"
+  detectados en los lotes reales se corrigieron a mano antes de esta
+  función existir; ya con esta importación nueva, ese tipo de corrección
+  se hace en pantalla en vez de por mí.
+
+Suite completa (1177+ tests) en verde, Pint y Larastan limpios.
+
+---
+
 ## 2026-09-18
 
 ### Certificado de estudios también muestra DNI y nombres/apellidos separados

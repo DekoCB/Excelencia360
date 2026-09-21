@@ -49,6 +49,17 @@ new #[Layout('layouts.app')] class extends Component
     /** @var array{exitosos: int, errores: list<array{fila: int, mensaje: string}>}|null */
     public ?array $resultadoImportacionCapacitacion = null;
 
+    // Importación "formato del cliente": nombres y apellidos en una sola
+    // columna, el estudiante puede no existir todavía -- se revisa en
+    // pantalla antes de confirmar (ver CertificadoService::previsualizarImportacionCapacitacionFormatoCliente())
+    public $archivoFormatoCliente = null;
+
+    /** @var list<array{fila: int, dni: string, nombres: string, apellidos: string, numero_registro: string, curso: string, horas_lectivas: int, documento_autorizacion: ?string, nota: ?float, estudiante_existe: bool}> */
+    public array $previewFormatoCliente = [];
+
+    /** @var array{exitosos: int, errores: list<array{fila: int, mensaje: string}>}|null */
+    public ?array $resultadoFormatoCliente = null;
+
     // Catálogo de cursos de capacitación
     public bool $mostrarFormCurso = false;
 
@@ -242,6 +253,44 @@ new #[Layout('layouts.app')] class extends Component
 
         $this->resultadoImportacionCapacitacion = $service->emitirCapacitacionDesdeFilas($import->filas, Auth::user());
         $this->reset('archivoCapacitacion');
+    }
+
+    /**
+     * Paso 1 del "formato del cliente": solo arma la previsualización, no
+     * guarda nada todavía -- ver CertificadoService::previsualizarImportacionCapacitacionFormatoCliente().
+     */
+    public function previsualizarFormatoCliente(CertificadoService $service): void
+    {
+        abort_unless(Auth::user()->hasPermissionTo('certificados.emitir'), 403);
+
+        $this->validate([
+            'archivoFormatoCliente' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:2048'],
+        ]);
+
+        $import = new HojaConEncabezadosImport;
+        Excel::import($import, $this->archivoFormatoCliente);
+
+        $this->previewFormatoCliente = $service->previsualizarImportacionCapacitacionFormatoCliente($import->filas);
+        $this->resultadoFormatoCliente = null;
+        $this->reset('archivoFormatoCliente');
+    }
+
+    /**
+     * Paso 2: recién aquí se crea lo que falte, usando lo que quedó en
+     * $previewFormatoCliente -- incluidas las correcciones manuales que el
+     * usuario haya hecho en los campos de nombres/apellidos de la tabla.
+     */
+    public function confirmarImportacionFormatoCliente(CertificadoService $service): void
+    {
+        abort_unless(Auth::user()->hasPermissionTo('certificados.emitir'), 403);
+
+        $this->resultadoFormatoCliente = $service->confirmarImportacionCapacitacionFormatoCliente($this->previewFormatoCliente, Auth::user());
+        $this->reset('previewFormatoCliente');
+    }
+
+    public function cancelarPreviewFormatoCliente(): void
+    {
+        $this->reset('previewFormatoCliente');
     }
 
     public function emitirDeSolicitud(int $solicitudId, CertificadoService $service): void
@@ -676,6 +725,122 @@ new #[Layout('layouts.app')] class extends Component
                         </div>
                     </div>
                 @endif
+            @endif
+        </div>
+
+        <div class="max-w-4xl mt-6 rounded-2xl border border-border bg-surface shadow-sm p-6">
+            <h3 class="font-display text-sm text-ink">Importar formato del cliente (registro + certificado)</h3>
+            <p class="mt-1 text-xs text-ink-faint">
+                Para cuando el estudiante todavía no está registrado y el Excel trae los nombres y
+                apellidos juntos en una sola columna: columnas
+                <code class="rounded bg-surface-2 px-1">DNI</code>,
+                <code class="rounded bg-surface-2 px-1">Num. Registro</code>,
+                <code class="rounded bg-surface-2 px-1">Nombres y Apellidos</code>,
+                <code class="rounded bg-surface-2 px-1">Curso</code>,
+                <code class="rounded bg-surface-2 px-1">Horas</code>,
+                <code class="rounded bg-surface-2 px-1">Documento</code> y
+                <code class="rounded bg-surface-2 px-1">Nota</code> (opcional). Antes de crear nada,
+                se muestra una vista previa donde puedes corregir a mano cualquier nombre/apellido
+                mal separado.
+            </p>
+
+            @if (empty($previewFormatoCliente))
+                <form wire:submit="previsualizarFormatoCliente" class="mt-3 flex flex-wrap items-end gap-3">
+                    <div class="flex-1">
+                        <input
+                            type="file"
+                            wire:model="archivoFormatoCliente"
+                            id="archivoFormatoCliente"
+                            accept=".xlsx,.xls,.csv"
+                            class="block w-full text-sm text-ink-dim file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-1.5 file:text-sm file:text-ink"
+                        >
+                        <div wire:loading wire:target="archivoFormatoCliente,previsualizarFormatoCliente" class="mt-1 text-xs text-ink-faint">Procesando…</div>
+                        <x-input-error :messages="$errors->get('archivoFormatoCliente')" class="mt-1" />
+                    </div>
+                    <x-secondary-button type="submit" wire:loading.attr="disabled" wire:target="previsualizarFormatoCliente">
+                        <span wire:loading.remove wire:target="previsualizarFormatoCliente">Previsualizar</span>
+                        <span wire:loading wire:target="previsualizarFormatoCliente">Procesando…</span>
+                    </x-secondary-button>
+                </form>
+
+                @if ($resultadoFormatoCliente)
+                    <div class="mt-3 rounded-md border border-ok/30 bg-ok/10 px-3 py-2 text-xs text-ok">
+                        {{ $resultadoFormatoCliente['exitosos'] }} certificado{{ $resultadoFormatoCliente['exitosos'] === 1 ? '' : 's' }} creado{{ $resultadoFormatoCliente['exitosos'] === 1 ? '' : 's' }} correctamente.
+                    </div>
+
+                    @if (count($resultadoFormatoCliente['errores']) > 0)
+                        <div class="mt-2">
+                            <p class="text-xs font-semibold text-danger">{{ count($resultadoFormatoCliente['errores']) }} fila{{ count($resultadoFormatoCliente['errores']) === 1 ? '' : 's' }} con errores:</p>
+                            <div class="mt-1 max-h-48 overflow-y-auto rounded-md border border-border">
+                                <table class="min-w-full divide-y divide-border text-xs">
+                                    <tbody class="divide-y divide-border">
+                                        @foreach ($resultadoFormatoCliente['errores'] as $error)
+                                            <tr>
+                                                <td class="px-3 py-1.5 font-mono text-ink-dim">Fila {{ $error['fila'] }}</td>
+                                                <td class="px-3 py-1.5 text-danger">{{ $error['mensaje'] }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    @endif
+                @endif
+            @else
+                <div class="mt-3">
+                    <p class="text-xs text-ink-faint">
+                        Revisa nombres y apellidos antes de confirmar -- se separaron automáticamente
+                        (últimas 2 palabras = apellidos), pero si el Excel traía alguna fila al revés,
+                        corrígela aquí mismo.
+                    </p>
+
+                    <div class="mt-2 max-h-[32rem] overflow-y-auto rounded-md border border-border">
+                        <table class="min-w-full divide-y divide-border text-xs">
+                            <thead class="bg-surface-2 sticky top-0">
+                                <tr>
+                                    <th class="px-2 py-1.5 text-left font-medium text-ink-dim">Fila</th>
+                                    <th class="px-2 py-1.5 text-left font-medium text-ink-dim">DNI</th>
+                                    <th class="px-2 py-1.5 text-left font-medium text-ink-dim">Nombres</th>
+                                    <th class="px-2 py-1.5 text-left font-medium text-ink-dim">Apellidos</th>
+                                    <th class="px-2 py-1.5 text-left font-medium text-ink-dim">Registro</th>
+                                    <th class="px-2 py-1.5 text-left font-medium text-ink-dim">Nota</th>
+                                    <th class="px-2 py-1.5 text-left font-medium text-ink-dim">Estudiante</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border">
+                                @foreach ($previewFormatoCliente as $i => $fila)
+                                    <tr wire:key="preview-fila-{{ $fila['fila'] }}">
+                                        <td class="px-2 py-1 font-mono text-ink-faint">{{ $fila['fila'] }}</td>
+                                        <td class="px-2 py-1 font-mono text-ink-dim">{{ $fila['dni'] }}</td>
+                                        <td class="px-2 py-1">
+                                            <input type="text" wire:model="previewFormatoCliente.{{ $i }}.nombres" class="w-full rounded border-border bg-surface px-1.5 py-0.5 text-xs">
+                                        </td>
+                                        <td class="px-2 py-1">
+                                            <input type="text" wire:model="previewFormatoCliente.{{ $i }}.apellidos" class="w-full rounded border-border bg-surface px-1.5 py-0.5 text-xs">
+                                        </td>
+                                        <td class="px-2 py-1 font-mono text-ink-dim">{{ $fila['numero_registro'] }}</td>
+                                        <td class="px-2 py-1 text-ink-dim">{{ $fila['nota'] ?? '—' }}</td>
+                                        <td class="px-2 py-1">
+                                            @if ($fila['estudiante_existe'])
+                                                <span class="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] text-ink-dim">Ya registrado</span>
+                                            @else
+                                                <span class="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] text-accent">Nuevo</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="mt-3 flex items-center gap-3">
+                        <x-primary-button type="button" wire:click="confirmarImportacionFormatoCliente" wire:loading.attr="disabled" wire:target="confirmarImportacionFormatoCliente">
+                            <span wire:loading.remove wire:target="confirmarImportacionFormatoCliente">Confirmar y crear {{ count($previewFormatoCliente) }} certificado{{ count($previewFormatoCliente) === 1 ? '' : 's' }}</span>
+                            <span wire:loading wire:target="confirmarImportacionFormatoCliente">Creando…</span>
+                        </x-primary-button>
+                        <x-secondary-button type="button" wire:click="cancelarPreviewFormatoCliente">Cancelar</x-secondary-button>
+                    </div>
+                </div>
             @endif
         </div>
     @endif
