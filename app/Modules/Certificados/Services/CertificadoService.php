@@ -75,16 +75,18 @@ class CertificadoService
         TipoDocumentoEnum $tipo = TipoDocumentoEnum::CERTIFICADO_ESTUDIOS,
         ?CursoCapacitacion $cursoCapacitacion = null,
         ?string $numeroRegistro = null,
+        ?float $nota = null,
     ): Certificado {
         $tipo = $solicitud !== null ? $solicitud->tipo : $tipo;
 
-        return DB::transaction(function () use ($estudiante, $matricula, $solicitud, $observaciones, $emisor, $tipo, $cursoCapacitacion, $numeroRegistro) {
+        return DB::transaction(function () use ($estudiante, $matricula, $solicitud, $observaciones, $emisor, $tipo, $cursoCapacitacion, $numeroRegistro, $nota) {
             $certificado = $this->crearConNumeroUnico([
                 'estudiante_id' => $estudiante->id,
                 'tipo' => $tipo,
                 'matricula_id' => $matricula?->id,
                 'curso_capacitacion_id' => $cursoCapacitacion?->id,
                 'numero_registro' => $numeroRegistro,
+                'nota' => $nota,
                 'codigo_verificacion' => $this->generarCodigoVerificacion(),
                 'es_duplicado' => false,
                 'emitido_por' => $emisor->id,
@@ -253,6 +255,7 @@ class CertificadoService
                 'matricula_id' => $base->matricula_id,
                 'curso_capacitacion_id' => $base->curso_capacitacion_id,
                 'numero_registro' => $base->numero_registro,
+                'nota' => $base->nota,
                 'codigo_verificacion' => $base->codigo_verificacion,
                 'es_duplicado' => true,
                 'certificado_original_id' => $base->id,
@@ -270,9 +273,9 @@ class CertificadoService
     /**
      * Emisión masiva de certificados de capacitación desde un CSV/Excel:
      * columnas dni, nombres, apellidos, numero_de_registro, nombre_del_curso,
-     * horas_lectivas, documento_de_autorizacion (encabezados tal como se
-     * muestran en la UI de importación -- WithHeadingRow los normaliza a
-     * minúsculas y sin tildes). nombres/apellidos son solo de referencia
+     * horas_lectivas, documento_de_autorizacion, nota (opcional; 0-20)
+     * (encabezados tal como se muestran en la UI de importación --
+     * WithHeadingRow los normaliza a minúsculas y sin tildes). nombres/apellidos son solo de referencia
      * para quien arma el archivo: el estudiante se busca por dni, igual que
      * EvaluacionService::calificarDesdeFilas(). El curso se busca por
      * nombre_del_curso y se crea si no existe todavía (usando
@@ -337,7 +340,22 @@ class CertificadoService
                     ]);
                 }
 
-                $this->emitir($estudiante, null, null, null, $emisor, TipoDocumentoEnum::CERTIFICADO_CAPACITACION, $curso, $numeroRegistro);
+                $notaValor = $fila->get('nota');
+                $nota = null;
+
+                if ($notaValor !== null && trim((string) $notaValor) !== '') {
+                    if (! is_numeric($notaValor)) {
+                        throw new InvalidArgumentException("La nota «{$notaValor}» no es un número válido.");
+                    }
+
+                    $nota = (float) $notaValor;
+
+                    if ($nota < 0 || $nota > 20) {
+                        throw new InvalidArgumentException('La nota debe estar entre 0 y 20.');
+                    }
+                }
+
+                $this->emitir($estudiante, null, null, null, $emisor, TipoDocumentoEnum::CERTIFICADO_CAPACITACION, $curso, $numeroRegistro, $nota);
 
                 $exitosos++;
             } catch (Throwable $e) {

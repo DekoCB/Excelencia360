@@ -161,4 +161,68 @@ class CertificadoCapacitacionTest extends TestCase
 
         $this->assertNotEmpty($pdf);
     }
+
+    public function test_emitir_un_certificado_de_capacitacion_persiste_la_nota_cuando_se_indica(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $emisor = User::factory()->create();
+        $curso = CursoCapacitacion::factory()->create();
+
+        $certificado = $this->service()->emitir(
+            $estudiante,
+            null,
+            null,
+            null,
+            $emisor,
+            TipoDocumentoEnum::CERTIFICADO_CAPACITACION,
+            $curso,
+            '3002324002',
+            17.0,
+        );
+
+        $this->assertSame('17.00', (string) $certificado->nota);
+    }
+
+    public function test_emitir_un_certificado_de_capacitacion_sin_nota_queda_null(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $emisor = User::factory()->create();
+        $curso = CursoCapacitacion::factory()->create();
+
+        $certificado = $this->service()->emitir(
+            $estudiante,
+            null,
+            null,
+            null,
+            $emisor,
+            TipoDocumentoEnum::CERTIFICADO_CAPACITACION,
+            $curso,
+            '3002324002',
+        );
+
+        $this->assertNull($certificado->nota);
+    }
+
+    public function test_duplicar_un_certificado_de_capacitacion_conserva_la_nota(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $emisor = User::factory()->create();
+        $curso = CursoCapacitacion::factory()->create();
+
+        $original = $this->service()->emitir(
+            $estudiante,
+            null,
+            null,
+            null,
+            $emisor,
+            TipoDocumentoEnum::CERTIFICADO_CAPACITACION,
+            $curso,
+            '3002324002',
+            16.5,
+        );
+
+        $duplicado = $this->service()->duplicar($original, null, $emisor);
+
+        $this->assertSame('16.50', (string) $duplicado->nota);
+    }
 }

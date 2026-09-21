@@ -27,6 +27,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property int|null $matricula_id
  * @property int|null $curso_capacitacion_id
  * @property string|null $numero_registro
+ * @property float|null $nota
  * @property string $numero
  * @property string $codigo_verificacion
  * @property bool $es_duplicado
@@ -58,6 +59,7 @@ class Certificado extends Model implements HasMedia
         'matricula_id',
         'curso_capacitacion_id',
         'numero_registro',
+        'nota',
         'numero',
         'codigo_verificacion',
         'es_duplicado',
@@ -75,6 +77,7 @@ class Certificado extends Model implements HasMedia
     {
         return [
             'tipo' => TipoDocumentoEnum::class,
+            'nota' => 'decimal:2',
             'es_duplicado' => 'boolean',
             'fecha_emision' => 'datetime',
             'entregado_en' => 'datetime',

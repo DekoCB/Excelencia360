@@ -211,4 +211,87 @@ class ImportarCapacitacionDesdeFilasTest extends TestCase
         // Un solo curso creado, reutilizado por las dos filas válidas.
         $this->assertDatabaseCount('cursos_capacitacion', 1);
     }
+
+    public function test_importa_la_nota_cuando_la_fila_la_trae(): void
+    {
+        Estudiante::factory()->create(['dni' => '72552221']);
+        $emisor = User::factory()->create();
+
+        $resultado = $this->service()->emitirCapacitacionDesdeFilas($this->filas([
+            [
+                'dni' => '72552221',
+                'numero_de_registro' => '3002324002',
+                'nombre_del_curso' => 'Psicología Educativa, Tutoría y Educación Inclusiva',
+                'horas_lectivas' => '128',
+                'documento_de_autorizacion' => 'R.G.G. N° 004-2026-GE360',
+                'nota' => '17',
+            ],
+        ]), $emisor);
+
+        $this->assertSame(1, $resultado['exitosos']);
+        $this->assertDatabaseHas('certificados', [
+            'numero_registro' => '3002324002',
+            'nota' => '17.00',
+        ]);
+    }
+
+    public function test_la_nota_es_opcional_y_queda_null_si_la_fila_no_la_trae(): void
+    {
+        Estudiante::factory()->create(['dni' => '72552221']);
+        $emisor = User::factory()->create();
+
+        $resultado = $this->service()->emitirCapacitacionDesdeFilas($this->filas([
+            [
+                'dni' => '72552221',
+                'numero_de_registro' => '3002324002',
+                'nombre_del_curso' => 'Ofimática Nivel Avanzado',
+                'horas_lectivas' => '130',
+            ],
+        ]), $emisor);
+
+        $this->assertSame(1, $resultado['exitosos']);
+        $this->assertDatabaseHas('certificados', [
+            'numero_registro' => '3002324002',
+            'nota' => null,
+        ]);
+    }
+
+    public function test_una_nota_fuera_del_rango_0_20_se_reporta_como_error(): void
+    {
+        Estudiante::factory()->create(['dni' => '72552221']);
+        $emisor = User::factory()->create();
+
+        $resultado = $this->service()->emitirCapacitacionDesdeFilas($this->filas([
+            [
+                'dni' => '72552221',
+                'numero_de_registro' => '3002324002',
+                'nombre_del_curso' => 'Ofimática Nivel Avanzado',
+                'horas_lectivas' => '130',
+                'nota' => '25',
+            ],
+        ]), $emisor);
+
+        $this->assertSame(0, $resultado['exitosos']);
+        $this->assertCount(1, $resultado['errores']);
+        $this->assertDatabaseCount('certificados', 0);
+    }
+
+    public function test_una_nota_no_numerica_se_reporta_como_error(): void
+    {
+        Estudiante::factory()->create(['dni' => '72552221']);
+        $emisor = User::factory()->create();
+
+        $resultado = $this->service()->emitirCapacitacionDesdeFilas($this->filas([
+            [
+                'dni' => '72552221',
+                'numero_de_registro' => '3002324002',
+                'nombre_del_curso' => 'Ofimática Nivel Avanzado',
+                'horas_lectivas' => '130',
+                'nota' => 'diecisiete',
+            ],
+        ]), $emisor);
+
+        $this->assertSame(0, $resultado['exitosos']);
+        $this->assertCount(1, $resultado['errores']);
+    }
 }

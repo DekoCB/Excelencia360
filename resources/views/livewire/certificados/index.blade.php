@@ -39,6 +39,8 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $numeroRegistro = '';
 
+    public string $nota = '';
+
     public string $observaciones = '';
 
     // Importación masiva de certificados de capacitación
@@ -196,6 +198,7 @@ new #[Layout('layouts.app')] class extends Component
             'matriculaId' => 'nullable|integer|exists:matriculas,id',
             'cursoCapacitacionId' => $esCapacitacion ? 'required|integer|exists:cursos_capacitacion,id' : 'nullable',
             'numeroRegistro' => $esCapacitacion ? 'required|string|max:20|unique:certificados,numero_registro' : 'nullable',
+            'nota' => $esCapacitacion ? 'nullable|numeric|min:0|max:20' : 'nullable',
             'observaciones' => 'nullable|string|max:500',
         ]);
 
@@ -212,9 +215,10 @@ new #[Layout('layouts.app')] class extends Component
             TipoDocumentoEnum::from($this->tipoDocumentoEmitir),
             $cursoCapacitacion,
             $esCapacitacion ? $this->numeroRegistro : null,
+            $esCapacitacion && $this->nota !== '' ? (float) $this->nota : null,
         );
 
-        $this->reset(['estudianteSeleccionadoId', 'estudianteSeleccionadoNombre', 'matriculaId', 'cursoCapacitacionId', 'numeroRegistro', 'observaciones']);
+        $this->reset(['estudianteSeleccionadoId', 'estudianteSeleccionadoNombre', 'matriculaId', 'cursoCapacitacionId', 'numeroRegistro', 'nota', 'observaciones']);
         $this->tipoDocumentoEmitir = TipoDocumentoEnum::CERTIFICADO_ESTUDIOS->value;
         session()->flash('status', 'Documento emitido.');
     }
@@ -585,6 +589,12 @@ new #[Layout('layouts.app')] class extends Component
                     <p class="mt-1 text-xs text-ink-faint">El número de tu propio registro externo de capacitaciones -- es el código que la persona usará para validar este certificado.</p>
                     <x-input-error :messages="$errors->get('numeroRegistro')" class="mt-1" />
                 </div>
+                <div wire:key="campo-nota">
+                    <x-input-label for="nota" value="Nota (opcional)" />
+                    <x-text-input wire:model="nota" id="nota" type="number" min="0" max="20" step="0.01" class="mt-1 block w-full" placeholder="Ej. 17" />
+                    <p class="mt-1 text-xs text-ink-faint">Promedio ponderado final del curso, si corresponde (escala 0-20).</p>
+                    <x-input-error :messages="$errors->get('nota')" class="mt-1" />
+                </div>
             @elseif ($estudianteSeleccionadoId)
                 <div wire:key="campo-matricula">
                     <x-input-label for="matriculaId" value="Matrícula (opcional)" />
@@ -618,12 +628,12 @@ new #[Layout('layouts.app')] class extends Component
                 <code class="rounded bg-surface-2 px-1">Apellidos</code>,
                 <code class="rounded bg-surface-2 px-1">Numero de Registro</code>,
                 <code class="rounded bg-surface-2 px-1">Nombre del Curso</code>,
-                <code class="rounded bg-surface-2 px-1">Horas Lectivas</code> y
-                <code class="rounded bg-surface-2 px-1">Documento de Autorizacion</code>
-                (mismos campos que muestra la validación pública). Nombres y apellidos son solo de
-                referencia -- el estudiante se busca por DNI, que debe estar ya registrado. Si el
-                curso todavía no existe en el catálogo, se crea con las horas lectivas y el
-                documento de autorización de esa fila.
+                <code class="rounded bg-surface-2 px-1">Horas Lectivas</code>,
+                <code class="rounded bg-surface-2 px-1">Documento de Autorizacion</code> y, de forma
+                opcional, <code class="rounded bg-surface-2 px-1">Nota</code> (0-20). Nombres y
+                apellidos son solo de referencia -- el estudiante se busca por DNI, que debe estar
+                ya registrado. Si el curso todavía no existe en el catálogo, se crea con las horas
+                lectivas y el documento de autorización de esa fila.
             </p>
 
             <form wire:submit="importarCapacitacionDesdeExcel" class="mt-3 flex flex-wrap items-end gap-3">
