@@ -13,6 +13,7 @@ use App\Modules\Evaluaciones\Services\LibretaService;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
@@ -59,6 +60,17 @@ new #[Layout('layouts.app')] class extends Component
 
     /** @var array{exitosos: int, errores: list<array{fila: int, mensaje: string}>}|null */
     public ?array $resultadoFormatoCliente = null;
+
+    // Ver detalle / editar un certificado del historial
+    public ?int $certificadoDetalleId = null;
+
+    public ?int $certificadoEditandoId = null;
+
+    public string $editNumeroRegistro = '';
+
+    public string $editNota = '';
+
+    public string $editObservaciones = '';
 
     // Catálogo de cursos de capacitación
     public bool $mostrarFormCurso = false;
@@ -416,6 +428,63 @@ new #[Layout('layouts.app')] class extends Component
         session()->flash('status', 'Duplicado emitido.');
     }
 
+    public function verDetalle(int $certificadoId): void
+    {
+        abort_unless(Auth::user()->hasAnyPermission(['certificados.ver', 'certificados.emitir']), 403);
+
+        $this->certificadoDetalleId = $certificadoId;
+    }
+
+    public function iniciarEdicionCertificado(int $certificadoId): void
+    {
+        abort_unless(Auth::user()->hasPermissionTo('certificados.emitir'), 403);
+
+        $certificado = Certificado::query()->findOrFail($certificadoId);
+
+        $this->certificadoEditandoId = $certificadoId;
+        $this->editNumeroRegistro = $certificado->numero_registro ?? '';
+        $this->editNota = $certificado->nota !== null ? (string) $certificado->nota : '';
+        $this->editObservaciones = $certificado->observaciones ?? '';
+    }
+
+    public function cancelarEdicionCertificado(): void
+    {
+        $this->reset(['certificadoEditandoId', 'editNumeroRegistro', 'editNota', 'editObservaciones']);
+    }
+
+    public function guardarEdicionCertificado(CertificadoService $service): void
+    {
+        abort_unless(Auth::user()->hasPermissionTo('certificados.emitir'), 403);
+
+        if ($this->certificadoEditandoId === null) {
+            return;
+        }
+
+        $certificado = Certificado::query()->findOrFail($this->certificadoEditandoId);
+        $esCapacitacion = $certificado->tipo->esCapacitacion();
+
+        $this->validate([
+            'editNumeroRegistro' => [
+                $esCapacitacion ? 'required' : 'nullable',
+                'string',
+                'max:20',
+                Rule::unique('certificados', 'numero_registro')->ignore($certificado->id),
+            ],
+            'editNota' => $esCapacitacion ? 'nullable|numeric|min:0|max:20' : 'nullable',
+            'editObservaciones' => 'nullable|string|max:500',
+        ]);
+
+        $service->actualizar(
+            $certificado,
+            $this->editNumeroRegistro !== '' ? $this->editNumeroRegistro : null,
+            $esCapacitacion && $this->editNota !== '' ? (float) $this->editNota : null,
+            $this->editObservaciones !== '' ? $this->editObservaciones : null,
+        );
+
+        $this->reset(['certificadoEditandoId', 'editNumeroRegistro', 'editNota', 'editObservaciones']);
+        session()->flash('status', 'Certificado actualizado y PDF regenerado.');
+    }
+
     public function with(CertificadoService $certificados, LibretaService $libretas, CursoCapacitacionService $cursosCapacitacion): array
     {
         $user = Auth::user();
@@ -457,6 +526,8 @@ new #[Layout('layouts.app')] class extends Component
         $tiposDelModulo = TipoDocumentoEnum::certificados();
         $enEsteModulo = fn ($documento) => in_array($documento->tipo, $tiposDelModulo, true);
 
+        $historial = $puedeVerHistorial ? $certificados->todos()->filter($enEsteModulo)->values() : collect();
+
         return [
             'puedeEmitir' => $puedeEmitir,
             'puedeDuplicar' => $puedeDuplicar,
@@ -464,11 +535,13 @@ new #[Layout('layouts.app')] class extends Component
             'puedeGestionarPlantilla' => $puedeGestionarPlantilla,
             'tiposDocumentoConPlantilla' => array_values(array_filter(TipoDocumentoEnum::conPlantilla(), fn ($tipo) => in_array($tipo, $tiposDelModulo, true))),
             'solicitudesPendientes' => $puedeEmitir ? $certificados->solicitudesPendientes()->filter($enEsteModulo)->values() : collect(),
-            'historial' => $puedeVerHistorial ? $certificados->todos()->filter($enEsteModulo)->values() : collect(),
+            'historial' => $historial,
             'historialLibretas' => $puedeVerHistorial ? $libretas->todas() : collect(),
             'resultadosBusqueda' => $resultadosBusqueda,
             'matriculasDelEstudiante' => $matriculasDelEstudiante,
             'cursosCapacitacion' => $puedeEmitir || $puedeGestionarPlantilla ? $cursosCapacitacion->todos() : collect(),
+            'certificadoDetalle' => $this->certificadoDetalleId ? $historial->firstWhere('id', $this->certificadoDetalleId) : null,
+            'certificadoEditando' => $this->certificadoEditandoId ? $historial->firstWhere('id', $this->certificadoEditandoId) : null,
         ];
     }
 }; ?>
@@ -893,23 +966,18 @@ new #[Layout('layouts.app')] class extends Component
                                     <p class="mt-1 text-xs text-warn">Pendiente de recojo</p>
                                 @endif
                             </div>
-                            <div class="flex items-center gap-3">
-                                @if ($certificado->getFirstMedia('pdf'))
-                                    <a href="{{ $certificado->getFirstMediaUrl('pdf') }}" target="_blank" class="text-xs font-medium text-accent hover:underline">Ver PDF</a>
-                                @endif
+                            <div class="flex items-center gap-1">
                                 @if ($certificado->getFirstMedia('foto_entrega'))
-                                    <a href="{{ $certificado->getFirstMediaUrl('foto_entrega') }}" target="_blank" class="text-xs font-medium text-accent hover:underline">Ver foto</a>
+                                    <a href="{{ $certificado->getFirstMediaUrl('foto_entrega') }}" target="_blank" title="Ver foto de entrega" class="rounded-md p-1.5 text-accent transition hover:bg-surface-2">
+                                        <x-heroicon-o-camera class="h-4 w-4" />
+                                    </a>
                                 @endif
-                                @if ($puedeEmitir && ! $certificado->entregado_en)
-                                    <button type="button" wire:click="iniciarEntrega('certificado', {{ $certificado->id }})" class="text-xs font-medium text-ok hover:underline">
-                                        Marcar entregado
-                                    </button>
-                                @endif
-                                @if ($puedeDuplicar)
-                                    <button type="button" x-on:click="$store.confirm.preguntar('¿Emitir un duplicado de este certificado?', () => $wire.duplicar({{ $certificado->id }}), { etiquetaConfirmar: 'Duplicar' })" class="text-xs font-medium text-ink-dim hover:underline">
-                                        Duplicar
-                                    </button>
-                                @endif
+                                <x-certificados.acciones-fila
+                                    :certificado="$certificado"
+                                    :puede-emitir="$puedeEmitir"
+                                    :puede-duplicar="$puedeDuplicar"
+                                    tipo-entrega="certificado"
+                                />
                             </div>
                         </div>
                     @empty
@@ -917,6 +985,9 @@ new #[Layout('layouts.app')] class extends Component
                     @endforelse
                 </div>
             </div>
+
+            <x-certificados.detalle-modal :certificado="$certificadoDetalle" />
+            <x-certificados.editar-modal :certificado="$certificadoEditando" />
 
             <div>
                 <h2 class="mb-2 font-display text-sm text-ink">Libretas de notas</h2>

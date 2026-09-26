@@ -275,6 +275,27 @@ class CertificadoService
     }
 
     /**
+     * Corrige datos de un certificado ya emitido (típicamente un error de
+     * tipeo detectado después de importar datos reales de terceros) y
+     * regenera su PDF para que el documento coincida con la corrección --
+     * generarPdf() ya lee todo desde el propio $certificado, así que
+     * basta con actualizarlo primero. singleFile() en la colección "pdf"
+     * se encarga de reemplazar el archivo anterior, no deja los dos.
+     */
+    public function actualizar(Certificado $certificado, ?string $numeroRegistro, ?float $nota, ?string $observaciones): Certificado
+    {
+        $certificado->update([
+            'numero_registro' => $numeroRegistro,
+            'nota' => $nota,
+            'observaciones' => $observaciones,
+        ]);
+
+        $this->generarPdf($certificado);
+
+        return $certificado;
+    }
+
+    /**
      * Emisión masiva de certificados de capacitación desde un CSV/Excel:
      * columnas dni, nombres, apellidos, numero_de_registro, nombre_del_curso,
      * horas_lectivas, documento_de_autorizacion, nota (opcional; 0-20)
