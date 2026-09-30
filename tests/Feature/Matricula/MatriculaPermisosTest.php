@@ -938,6 +938,61 @@ class MatriculaPermisosTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_la_ficha_muestra_los_cursos_de_la_matricula_vigente(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+
+        $ciclo = Ciclo::factory()->activo()->create();
+        $grado = Grado::factory()->create();
+        $curso = Curso::factory()->hasAttached($grado)->create(['nombre' => 'Contabilidad Básica']);
+        $docente = User::factory()->create(['name' => 'Prof. Ana Torres']);
+        Horario::factory()->create([
+            'curso_id' => $curso->id,
+            'grado_id' => $grado->id,
+            'ciclo_id' => $ciclo->id,
+            'docente_id' => $docente->id,
+        ]);
+        $estudiante = Estudiante::factory()->create();
+        Matricula::factory()->create([
+            'estudiante_id' => $estudiante->id,
+            'ciclo_id' => $ciclo->id,
+            'grado_id' => $grado->id,
+            'estado' => 'aprobada',
+        ]);
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.show', ['estudiante' => $estudiante])
+            ->assertSee('Cursos actuales')
+            ->assertSee('Contabilidad Básica')
+            ->assertSee('Prof. Ana Torres');
+    }
+
+    public function test_la_ficha_ignora_cursos_de_una_matricula_anulada_al_mostrar_los_actuales(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+
+        $cicloViejo = Ciclo::factory()->create();
+        $gradoViejo = Grado::factory()->create();
+        $cursoViejo = Curso::factory()->hasAttached($gradoViejo)->create(['nombre' => 'Curso Anulado']);
+        Horario::factory()->create(['curso_id' => $cursoViejo->id, 'grado_id' => $gradoViejo->id, 'ciclo_id' => $cicloViejo->id]);
+        $estudiante = Estudiante::factory()->create();
+        Matricula::factory()->create([
+            'estudiante_id' => $estudiante->id,
+            'ciclo_id' => $cicloViejo->id,
+            'grado_id' => $gradoViejo->id,
+            'estado' => 'anulada',
+            'fecha_matricula' => now()->subYear(),
+        ]);
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.show', ['estudiante' => $estudiante])
+            ->assertDontSee('Cursos actuales');
+    }
+
     public function test_editar_monto_del_plan_de_pago_desde_la_pagina_completa_de_la_ficha(): void
     {
         $usuario = User::factory()->create();

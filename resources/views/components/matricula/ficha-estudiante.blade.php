@@ -62,6 +62,34 @@
         </dl>
     </div>
 
+    @php
+        $matriculaActual = $matriculas->first(fn ($matricula) => $matricula->estado->value !== 'anulada');
+        $cursosActuales = $matriculaActual ? ($cursosConHorarios[$matriculaActual->id] ?? collect()) : collect();
+    @endphp
+
+    @if ($matriculaActual)
+        <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
+            <h2 class="text-sm font-semibold text-ink">Cursos actuales</h2>
+            <p class="mt-1 text-xs text-ink-faint">{{ $matriculaActual->ciclo->nombre }} · {{ $matriculaActual->grado->nombre }}</p>
+            <div class="mt-4 divide-y divide-border">
+                @forelse ($cursosActuales as $entrada)
+                    <div class="py-2 text-sm">
+                        <span class="text-ink">{{ $entrada['curso']->nombre }}</span>
+                        @if ($entrada['asignado'])
+                            <span class="text-ink-faint"> · {{ $entrada['asignado']->docente?->name }} · {{ $entrada['asignado']->diasResumen() }}</span>
+                        @elseif ($entrada['ambiguo'])
+                            <span class="text-warn"> · Sin sección asignada</span>
+                        @elseif ($entrada['opciones']->isNotEmpty())
+                            <span class="text-ink-faint"> · {{ $entrada['opciones']->first()->docente?->name }} · {{ $entrada['opciones']->first()->diasResumen() }}</span>
+                        @endif
+                    </div>
+                @empty
+                    <p class="py-2 text-sm text-ink-faint">Sin cursos con horario creado en este período todavía.</p>
+                @endforelse
+            </div>
+        </div>
+    @endif
+
     @if ($estudiante->es_menor_edad && $estudiante->apoderado)
         <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
             <h2 class="text-sm font-semibold text-ink">Apoderado</h2>
