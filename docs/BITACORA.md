@@ -60,6 +60,23 @@ Pint y Larastan limpios, y recorrido manual en `localhost:8360` para el
 punto 3 (crear curso de capacitación sin semestre, emitir un certificado con
 él, confirmar PDF y que la pestaña vieja ya no existe).
 
+**Incidente real en el despliegue a producción de este lote** (`d201508`):
+la migración de la fusión (punto 3) rompió en el primer intento real,
+`SQLSTATE[22001]: Data too long for column 'nombre'` — un curso de
+capacitación real (del lote GE-2026-012) tiene 147 caracteres en el nombre
+(resolución oficial larga), y `cursos.nombre` nació en 100 (la tabla vieja
+`cursos_capacitacion.nombre` permitía 150). La transacción que copiaba los
+datos se revirtió sola sin perder nada, pero el `ALTER TABLE` que ya había
+agregado `cursos.tipo`/`documento_autorizacion` y `certificados.curso_id`
+no se revierte con una transacción (DDL de MySQL). Se corrigió la misma
+migración para que sea idempotente (cada paso de esquema se salta si ya se
+aplicó) y se agrandó `cursos.nombre` a 150 antes de copiar datos; re-correr
+`php artisan migrate --force` con el fix completó la fusión sin pérdidas:
+10 cursos de capacitación y 351 certificados remapeados, verificado además
+con un certificado real puntual (GE-2026-012/087). Lección para la próxima
+vez que se fusionen catálogos: revisar el ancho real de los datos de
+producción, no solo los de desarrollo, antes de fijar el tamaño de columna.
+
 ---
 
 ## 2026-09-21
