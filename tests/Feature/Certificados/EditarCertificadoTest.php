@@ -72,6 +72,29 @@ class EditarCertificadoTest extends TestCase
         $this->assertNull($actualizado->observaciones);
     }
 
+    public function test_actualizar_corrige_el_nombre_del_estudiante_vinculado(): void
+    {
+        $estudiante = Estudiante::factory()->create(['nombres' => 'Nombre Con Error', 'apellidos' => 'Apellido Original']);
+        $emisor = User::factory()->create();
+        $certificado = $this->service()->emitir($estudiante, null, null, null, $emisor);
+
+        $this->service()->actualizar($certificado, null, null, null, 'Nombre Corregido', 'Apellido Original');
+
+        $this->assertSame('Nombre Corregido', $estudiante->fresh()->nombres);
+        $this->assertSame('Apellido Original', $estudiante->fresh()->apellidos);
+    }
+
+    public function test_actualizar_sin_nombres_no_toca_al_estudiante(): void
+    {
+        $estudiante = Estudiante::factory()->create(['nombres' => 'Nombre Intacto']);
+        $emisor = User::factory()->create();
+        $certificado = $this->service()->emitir($estudiante, null, null, null, $emisor);
+
+        $this->service()->actualizar($certificado, null, null, null);
+
+        $this->assertSame('Nombre Intacto', $estudiante->fresh()->nombres);
+    }
+
     public function test_coordinador_puede_editar_un_certificado_desde_el_panel(): void
     {
         $coordinador = User::factory()->create();
@@ -96,6 +119,33 @@ class EditarCertificadoTest extends TestCase
         $certificado->refresh();
         $this->assertSame('2000000002', $certificado->numero_registro);
         $this->assertSame('19.00', (string) $certificado->nota);
+    }
+
+    public function test_editar_el_nombre_del_estudiante_desde_el_panel_de_certificados(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create(['nombres' => 'Juan', 'apellidos' => 'Perez']);
+        $curso = CursoCapacitacion::factory()->create();
+        $certificado = $this->service()->emitir(
+            $estudiante, null, null, null, $coordinador,
+            TipoDocumentoEnum::CERTIFICADO_CAPACITACION, $curso, '1000000009',
+        );
+
+        $this->actingAs($coordinador);
+        Volt::test('certificados.index')
+            ->set('tab', 'historial')
+            ->call('iniciarEdicionCertificado', $certificado->id)
+            ->assertSet('editNombresEstudiante', 'Juan')
+            ->assertSet('editApellidosEstudiante', 'Perez')
+            ->set('editNombresEstudiante', 'Juan Carlos')
+            ->set('editApellidosEstudiante', 'Perez Gomez')
+            ->call('guardarEdicionCertificado')
+            ->assertHasNoErrors();
+
+        $estudiante->refresh();
+        $this->assertSame('Juan Carlos', $estudiante->nombres);
+        $this->assertSame('Perez Gomez', $estudiante->apellidos);
     }
 
     public function test_editar_con_un_numero_de_registro_ya_usado_por_otro_falla_la_validacion(): void

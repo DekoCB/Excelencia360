@@ -52,6 +52,28 @@ class EditarConstanciaTest extends TestCase
         $this->assertSame('Corrección de constancia', $constancia->fresh()->observaciones);
     }
 
+    public function test_editar_el_nombre_del_estudiante_desde_el_panel_de_constancias(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create(['nombres' => 'Maria', 'apellidos' => 'Lopez']);
+        $constancia = $this->service()->emitir(
+            $estudiante, null, null, null, $coordinador, TipoDocumentoEnum::CONSTANCIA_MATRICULA,
+        );
+
+        $this->actingAs($coordinador);
+
+        Volt::test('constancias.index')
+            ->set('tab', 'historial')
+            ->call('iniciarEdicionCertificado', $constancia->id)
+            ->assertSet('editNombresEstudiante', 'Maria')
+            ->set('editNombresEstudiante', 'Maria Fernanda')
+            ->call('guardarEdicionCertificado')
+            ->assertHasNoErrors();
+
+        $this->assertSame('Maria Fernanda', $estudiante->fresh()->nombres);
+    }
+
     public function test_un_docente_no_puede_editar_una_constancia(): void
     {
         $docente = User::factory()->create();

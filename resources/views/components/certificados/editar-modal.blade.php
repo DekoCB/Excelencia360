@@ -14,6 +14,20 @@
     </div>
 
     <form wire:submit="guardarEdicionCertificado" class="space-y-4 p-6">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+                <x-input-label for="editNombresEstudiante" value="Nombres del estudiante" />
+                <x-text-input wire:model="editNombresEstudiante" id="editNombresEstudiante" class="mt-1 block w-full" />
+                <x-input-error :messages="$errors->get('editNombresEstudiante')" class="mt-1" />
+            </div>
+            <div>
+                <x-input-label for="editApellidosEstudiante" value="Apellidos del estudiante" />
+                <x-text-input wire:model="editApellidosEstudiante" id="editApellidosEstudiante" class="mt-1 block w-full" />
+                <x-input-error :messages="$errors->get('editApellidosEstudiante')" class="mt-1" />
+            </div>
+        </div>
+        <p class="text-xs text-ink-faint">Este nombre es del estudiante, no solo de este documento: el cambio se aplica a su ficha y a todos sus certificados.</p>
+
         @if ($certificado?->cursoCapacitacion || $certificado?->tipo?->esCapacitacion())
             <div>
                 <x-input-label for="editNumeroRegistro" value="Número de registro" />

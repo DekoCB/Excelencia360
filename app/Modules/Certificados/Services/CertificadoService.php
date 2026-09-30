@@ -281,14 +281,32 @@ class CertificadoService
      * generarPdf() ya lee todo desde el propio $certificado, así que
      * basta con actualizarlo primero. singleFile() en la colección "pdf"
      * se encarga de reemplazar el archivo anterior, no deja los dos.
+     *
+     * $nombresEstudiante/$apellidosEstudiante corrigen al Estudiante
+     * vinculado, no al certificado: el nombre no se guarda por separado en
+     * cada documento, así que el cambio queda reflejado en todos sus
+     * certificados y en el resto del sistema, no solo en este PDF.
      */
-    public function actualizar(Certificado $certificado, ?string $numeroRegistro, ?float $nota, ?string $observaciones): Certificado
-    {
+    public function actualizar(
+        Certificado $certificado,
+        ?string $numeroRegistro,
+        ?float $nota,
+        ?string $observaciones,
+        ?string $nombresEstudiante = null,
+        ?string $apellidosEstudiante = null,
+    ): Certificado {
         $certificado->update([
             'numero_registro' => $numeroRegistro,
             'nota' => $nota,
             'observaciones' => $observaciones,
         ]);
+
+        if ($nombresEstudiante !== null && $apellidosEstudiante !== null && $certificado->estudiante !== null) {
+            $certificado->estudiante->update([
+                'nombres' => $nombresEstudiante,
+                'apellidos' => $apellidosEstudiante,
+            ]);
+        }
 
         $this->generarPdf($certificado);
 

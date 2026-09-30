@@ -72,6 +72,10 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $editObservaciones = '';
 
+    public string $editNombresEstudiante = '';
+
+    public string $editApellidosEstudiante = '';
+
     // Catálogo de cursos de capacitación
     public bool $mostrarFormCurso = false;
 
@@ -445,11 +449,13 @@ new #[Layout('layouts.app')] class extends Component
         $this->editNumeroRegistro = $certificado->numero_registro ?? '';
         $this->editNota = $certificado->nota !== null ? (string) $certificado->nota : '';
         $this->editObservaciones = $certificado->observaciones ?? '';
+        $this->editNombresEstudiante = $certificado->estudiante?->nombres ?? '';
+        $this->editApellidosEstudiante = $certificado->estudiante?->apellidos ?? '';
     }
 
     public function cancelarEdicionCertificado(): void
     {
-        $this->reset(['certificadoEditandoId', 'editNumeroRegistro', 'editNota', 'editObservaciones']);
+        $this->reset(['certificadoEditandoId', 'editNumeroRegistro', 'editNota', 'editObservaciones', 'editNombresEstudiante', 'editApellidosEstudiante']);
     }
 
     public function guardarEdicionCertificado(CertificadoService $service): void
@@ -472,6 +478,8 @@ new #[Layout('layouts.app')] class extends Component
             ],
             'editNota' => $esCapacitacion ? 'nullable|numeric|min:0|max:20' : 'nullable',
             'editObservaciones' => 'nullable|string|max:500',
+            'editNombresEstudiante' => 'required|string|max:100',
+            'editApellidosEstudiante' => 'required|string|max:100',
         ]);
 
         $service->actualizar(
@@ -479,9 +487,11 @@ new #[Layout('layouts.app')] class extends Component
             $this->editNumeroRegistro !== '' ? $this->editNumeroRegistro : null,
             $esCapacitacion && $this->editNota !== '' ? (float) $this->editNota : null,
             $this->editObservaciones !== '' ? $this->editObservaciones : null,
+            $this->editNombresEstudiante,
+            $this->editApellidosEstudiante,
         );
 
-        $this->reset(['certificadoEditandoId', 'editNumeroRegistro', 'editNota', 'editObservaciones']);
+        $this->reset(['certificadoEditandoId', 'editNumeroRegistro', 'editNota', 'editObservaciones', 'editNombresEstudiante', 'editApellidosEstudiante']);
         session()->flash('status', 'Certificado actualizado y PDF regenerado.');
     }
 
