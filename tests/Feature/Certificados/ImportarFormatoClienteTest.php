@@ -8,8 +8,13 @@ use App\Modules\Certificados\Models\CursoCapacitacion;
 use App\Modules\Certificados\Services\CertificadoService;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Models\Estudiante;
+use App\Shared\Enums\RolEnum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
+use Livewire\Volt\Volt;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\TestCase;
 
 class ImportarFormatoClienteTest extends TestCase
@@ -244,5 +249,44 @@ class ImportarFormatoClienteTest extends TestCase
         $this->assertSame(1, $resultado['exitosos']);
         $this->assertCount(1, $resultado['errores']);
         $this->assertSame(2, $resultado['errores'][0]['fila']);
+    }
+
+    /**
+     * @param  list<string>  $encabezados
+     * @param  list<list<string>>  $filas
+     */
+    private function archivoExcel(array $encabezados, array $filas): UploadedFile
+    {
+        $hoja = new Spreadsheet;
+        $hoja->getActiveSheet()->fromArray($encabezados, null, 'A1');
+        $hoja->getActiveSheet()->fromArray($filas, null, 'A2');
+
+        $ruta = tempnam(sys_get_temp_dir(), 'formato_cliente_test_').'.xlsx';
+        (new Xlsx($hoja))->save($ruta);
+
+        $archivo = UploadedFile::fake()->createWithContent('formato_cliente.xlsx', file_get_contents($ruta));
+        unlink($ruta);
+
+        return $archivo;
+    }
+
+    public function test_la_vista_previa_muestra_el_curso_de_cada_fila(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+
+        $archivo = $this->archivoExcel(
+            ['DNI', 'Num. Registro', 'Nombres y Apellidos', 'Curso', 'Horas', 'Documento', 'Nota'],
+            [['72276899', 'GE-2026-004/001', 'MARIA ROSA PISCOYA INCHAUSTEGUI', 'Psicologia Educativa', '128', 'R.G.G. N 004', '17']],
+        );
+
+        $this->actingAs($coordinador);
+
+        Volt::test('certificados.index')
+            ->set('tab', 'emitir')
+            ->set('archivoFormatoCliente', $archivo)
+            ->call('previsualizarFormatoCliente')
+            ->assertHasNoErrors()
+            ->assertSee('Psicologia Educativa');
     }
 }

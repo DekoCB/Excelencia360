@@ -875,6 +875,7 @@ new #[Layout('layouts.app')] class extends Component
                                     <th class="px-2 py-1.5 text-left font-medium text-ink-dim">DNI</th>
                                     <th class="px-2 py-1.5 text-left font-medium text-ink-dim">Nombres</th>
                                     <th class="px-2 py-1.5 text-left font-medium text-ink-dim">Apellidos</th>
+                                    <th class="px-2 py-1.5 text-left font-medium text-ink-dim">Curso</th>
                                     <th class="px-2 py-1.5 text-left font-medium text-ink-dim">Registro</th>
                                     <th class="px-2 py-1.5 text-left font-medium text-ink-dim">Nota</th>
                                     <th class="px-2 py-1.5 text-left font-medium text-ink-dim">Estudiante</th>
@@ -891,6 +892,7 @@ new #[Layout('layouts.app')] class extends Component
                                         <td class="px-2 py-1">
                                             <input type="text" wire:model="previewFormatoCliente.{{ $i }}.apellidos" class="w-full rounded border-border bg-surface px-1.5 py-0.5 text-xs">
                                         </td>
+                                        <td class="px-2 py-1 max-w-[220px] truncate text-ink-dim" title="{{ $fila['curso'] }}">{{ $fila['curso'] !== '' ? $fila['curso'] : '—' }}</td>
                                         <td class="px-2 py-1 font-mono text-ink-dim">{{ $fila['numero_registro'] }}</td>
                                         <td class="px-2 py-1 text-ink-dim">{{ $fila['nota'] ?? '—' }}</td>
                                         <td class="px-2 py-1">
