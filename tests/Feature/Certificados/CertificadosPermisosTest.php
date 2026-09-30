@@ -4,8 +4,8 @@ namespace Tests\Feature\Certificados;
 
 use App\Models\User;
 use App\Modules\Academico\Models\Ciclo;
+use App\Modules\Academico\Models\Curso;
 use App\Modules\Certificados\Enums\TipoDocumentoEnum;
-use App\Modules\Certificados\Models\CursoCapacitacion;
 use App\Modules\Certificados\Models\SolicitudCertificado;
 use App\Modules\Certificados\Services\CertificadoService;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
@@ -143,9 +143,9 @@ class CertificadosPermisosTest extends TestCase
     {
         $estudiante = Estudiante::factory()->create(['nombres' => 'Ademir Erikson', 'apellidos' => 'Portillo Livisi', 'dni' => '72552221']);
         $emisor = User::factory()->create();
-        $curso = CursoCapacitacion::factory()->create([
+        $curso = Curso::factory()->capacitacion()->create([
             'nombre' => 'Ofimática Nivel Avanzado',
-            'horas_lectivas' => 130,
+            'horas' => 130,
             'documento_autorizacion' => 'R.D.R. N°2182-2023-DREP',
         ]);
         $certificado = app(CertificadoService::class)->emitir(

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Academico;
 
 use App\Models\User;
+use App\Modules\Academico\Enums\TipoCursoEnum;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Services\CursoService;
@@ -107,5 +108,95 @@ class CursoCodigoTest extends TestCase
         ]);
         $this->assertDatabaseHas('curso_grado', ['curso_id' => $curso->id, 'grado_id' => $otroGrado->id]);
         $this->assertDatabaseMissing('curso_grado', ['curso_id' => $curso->id, 'grado_id' => $gradoOriginal->id]);
+    }
+
+    public function test_genera_el_codigo_de_capacitacion_con_prefijo_cap(): void
+    {
+        $codigo = $this->service()->generarCodigoCapacitacion('Ofimática Básica');
+
+        $this->assertSame('CAP-OFI', $codigo);
+    }
+
+    public function test_agrega_sufijo_al_codigo_de_capacitacion_si_ya_existe(): void
+    {
+        Curso::factory()->capacitacion()->create(['nombre' => 'Ofimática', 'codigo' => 'CAP-OFI']);
+
+        $codigo = $this->service()->generarCodigoCapacitacion('Ofimática Avanzada');
+
+        $this->assertSame('CAP-OFI-2', $codigo);
+    }
+
+    public function test_de_capacitacion_solo_devuelve_cursos_de_ese_tipo(): void
+    {
+        Curso::factory()->capacitacion()->create(['nombre' => 'Primeros Auxilios']);
+        Curso::factory()->create(['nombre' => 'Matemática']);
+
+        $resultado = $this->service()->deCapacitacion();
+
+        $this->assertCount(1, $resultado);
+        $this->assertSame('Primeros Auxilios', $resultado->first()->nombre);
+    }
+
+    public function test_crear_un_curso_de_capacitacion_no_exige_semestre(): void
+    {
+        $this->seed(RolesAndPermissionsSeeder::class);
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+
+        $this->actingAs($coordinador);
+
+        Volt::test('academico.cursos.index')
+            ->call('abrirModal')
+            ->set('tipo', 'capacitacion')
+            ->set('nombre', 'Gestión Educativa')
+            ->set('horas', '128')
+            ->set('documentoAutorizacion', 'R.G.G. N° 004-2026-GE360')
+            ->call('guardar')
+            ->assertHasNoErrors();
+
+        $curso = Curso::query()->where('nombre', 'Gestión Educativa')->firstOrFail();
+        $this->assertSame(TipoCursoEnum::CAPACITACION, $curso->tipo);
+        $this->assertSame('R.G.G. N° 004-2026-GE360', $curso->documento_autorizacion);
+        $this->assertSame(0, $curso->grados()->count());
+    }
+
+    public function test_un_curso_de_capacitacion_sin_horas_no_pasa_de_500_falla(): void
+    {
+        $this->seed(RolesAndPermissionsSeeder::class);
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+
+        $this->actingAs($coordinador);
+
+        Volt::test('academico.cursos.index')
+            ->call('abrirModal')
+            ->set('tipo', 'capacitacion')
+            ->set('nombre', 'Curso Largo')
+            ->set('horas', '1200')
+            ->call('guardar')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('cursos', ['nombre' => 'Curso Largo', 'horas' => 1200]);
+    }
+
+    public function test_el_filtro_de_tipo_solo_muestra_cursos_de_ese_tipo(): void
+    {
+        $this->seed(RolesAndPermissionsSeeder::class);
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        Curso::factory()->create(['nombre' => 'Curso Académico Visible']);
+        Curso::factory()->capacitacion()->create(['nombre' => 'Curso Capacitación Visible']);
+
+        $this->actingAs($coordinador);
+
+        Volt::test('academico.cursos.index')
+            ->assertSee('Curso Académico Visible')
+            ->assertDontSee('Curso Capacitación Visible')
+            ->set('tipoFiltro', 'capacitacion')
+            ->assertSee('Curso Capacitación Visible')
+            ->assertDontSee('Curso Académico Visible')
+            ->set('tipoFiltro', 'todos')
+            ->assertSee('Curso Académico Visible')
+            ->assertSee('Curso Capacitación Visible');
     }
 }

@@ -1,13 +1,13 @@
 <?php
 
+use App\Modules\Academico\Models\Curso;
+use App\Modules\Academico\Services\CursoService;
 use App\Modules\Certificados\Enums\TipoDocumentoEnum;
 use App\Modules\Certificados\Imports\HojaConEncabezadosImport;
 use App\Modules\Certificados\Models\Certificado;
-use App\Modules\Certificados\Models\CursoCapacitacion;
 use App\Modules\Certificados\Models\PlantillaCertificado;
 use App\Modules\Certificados\Models\SolicitudCertificado;
 use App\Modules\Certificados\Services\CertificadoService;
-use App\Modules\Certificados\Services\CursoCapacitacionService;
 use App\Modules\Evaluaciones\Models\Libreta;
 use App\Modules\Evaluaciones\Services\LibretaService;
 use App\Modules\Matricula\Models\Estudiante;
@@ -36,7 +36,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $matriculaId = '';
 
-    public string $cursoCapacitacionId = '';
+    public string $cursoId = '';
 
     public string $numeroRegistro = '';
 
@@ -75,17 +75,6 @@ new #[Layout('layouts.app')] class extends Component
     public string $editNombresEstudiante = '';
 
     public string $editApellidosEstudiante = '';
-
-    // Catálogo de cursos de capacitación
-    public bool $mostrarFormCurso = false;
-
-    public ?int $cursoEditandoId = null;
-
-    public string $cursoNombre = '';
-
-    public string $cursoHorasLectivas = '';
-
-    public string $cursoDocumentoAutorizacion = '';
 
     // Rechazo de solicitud
     /** @var array<int, string> */
@@ -223,7 +212,7 @@ new #[Layout('layouts.app')] class extends Component
             'estudianteSeleccionadoId' => 'required|integer|exists:estudiantes,id',
             'tipoDocumentoEmitir' => 'required|string|in:'.implode(',', array_column(array_filter(TipoDocumentoEnum::conPlantilla(), fn ($tipo) => in_array($tipo, TipoDocumentoEnum::certificados(), true)), 'value')),
             'matriculaId' => 'nullable|integer|exists:matriculas,id',
-            'cursoCapacitacionId' => $esCapacitacion ? 'required|integer|exists:cursos_capacitacion,id' : 'nullable',
+            'cursoId' => $esCapacitacion ? 'required|integer|exists:cursos,id' : 'nullable',
             'numeroRegistro' => $esCapacitacion ? 'required|string|max:20|unique:certificados,numero_registro' : 'nullable',
             'nota' => $esCapacitacion ? 'nullable|numeric|min:0|max:20' : 'nullable',
             'observaciones' => 'nullable|string|max:500',
@@ -231,7 +220,7 @@ new #[Layout('layouts.app')] class extends Component
 
         $estudiante = Estudiante::query()->findOrFail($this->estudianteSeleccionadoId);
         $matricula = $this->matriculaId !== '' ? Matricula::query()->findOrFail($this->matriculaId) : null;
-        $cursoCapacitacion = $esCapacitacion ? CursoCapacitacion::query()->findOrFail($this->cursoCapacitacionId) : null;
+        $curso = $esCapacitacion ? Curso::query()->findOrFail($this->cursoId) : null;
 
         $service->emitir(
             $estudiante,
@@ -240,12 +229,12 @@ new #[Layout('layouts.app')] class extends Component
             $this->observaciones ?: null,
             Auth::user(),
             TipoDocumentoEnum::from($this->tipoDocumentoEmitir),
-            $cursoCapacitacion,
+            $curso,
             $esCapacitacion ? $this->numeroRegistro : null,
             $esCapacitacion && $this->nota !== '' ? (float) $this->nota : null,
         );
 
-        $this->reset(['estudianteSeleccionadoId', 'estudianteSeleccionadoNombre', 'matriculaId', 'cursoCapacitacionId', 'numeroRegistro', 'nota', 'observaciones']);
+        $this->reset(['estudianteSeleccionadoId', 'estudianteSeleccionadoNombre', 'matriculaId', 'cursoId', 'numeroRegistro', 'nota', 'observaciones']);
         $this->tipoDocumentoEmitir = TipoDocumentoEnum::CERTIFICADO_ESTUDIOS->value;
         session()->flash('status', 'Documento emitido.');
     }
@@ -372,52 +361,6 @@ new #[Layout('layouts.app')] class extends Component
         session()->flash('status', 'Documento marcado como entregado.');
     }
 
-    public function abrirFormCurso(?int $cursoId = null): void
-    {
-        abort_unless(Auth::user()->hasPermissionTo('certificados.gestionar_plantilla'), 403);
-
-        $curso = $cursoId ? CursoCapacitacion::query()->find($cursoId) : null;
-
-        $this->cursoEditandoId = $curso?->id;
-        $this->cursoNombre = $curso?->nombre ?? '';
-        $this->cursoHorasLectivas = $curso ? (string) $curso->horas_lectivas : '';
-        $this->cursoDocumentoAutorizacion = (string) $curso?->documento_autorizacion;
-        $this->mostrarFormCurso = true;
-    }
-
-    public function cerrarFormCurso(): void
-    {
-        $this->reset(['mostrarFormCurso', 'cursoEditandoId', 'cursoNombre', 'cursoHorasLectivas', 'cursoDocumentoAutorizacion']);
-        $this->resetErrorBag();
-    }
-
-    public function guardarCurso(CursoCapacitacionService $service): void
-    {
-        abort_unless(Auth::user()->hasPermissionTo('certificados.gestionar_plantilla'), 403);
-
-        $this->validate([
-            'cursoNombre' => 'required|string|max:150',
-            'cursoHorasLectivas' => 'required|integer|min:1|max:2000',
-            'cursoDocumentoAutorizacion' => 'nullable|string|max:150',
-        ]);
-
-        if ($this->cursoEditandoId) {
-            $curso = CursoCapacitacion::query()->findOrFail($this->cursoEditandoId);
-            $service->actualizar($curso, $this->cursoNombre, (int) $this->cursoHorasLectivas, $this->cursoDocumentoAutorizacion ?: null);
-        } else {
-            $service->crear($this->cursoNombre, (int) $this->cursoHorasLectivas, $this->cursoDocumentoAutorizacion ?: null);
-        }
-
-        $this->cerrarFormCurso();
-    }
-
-    public function eliminarCurso(int $cursoId, CursoCapacitacionService $service): void
-    {
-        abort_unless(Auth::user()->hasPermissionTo('certificados.gestionar_plantilla'), 403);
-
-        $service->eliminar(CursoCapacitacion::query()->findOrFail($cursoId));
-    }
-
     public function duplicar(int $certificadoId, CertificadoService $service): void
     {
         abort_unless(Auth::user()->hasPermissionTo('certificados.duplicar'), 403);
@@ -495,7 +438,7 @@ new #[Layout('layouts.app')] class extends Component
         session()->flash('status', 'Certificado actualizado y PDF regenerado.');
     }
 
-    public function with(CertificadoService $certificados, LibretaService $libretas, CursoCapacitacionService $cursosCapacitacion): array
+    public function with(CertificadoService $certificados, LibretaService $libretas, CursoService $cursos): array
     {
         $user = Auth::user();
         $puedeEmitir = $user->hasPermissionTo('certificados.emitir');
@@ -549,7 +492,7 @@ new #[Layout('layouts.app')] class extends Component
             'historialLibretas' => $puedeVerHistorial ? $libretas->todas() : collect(),
             'resultadosBusqueda' => $resultadosBusqueda,
             'matriculasDelEstudiante' => $matriculasDelEstudiante,
-            'cursosCapacitacion' => $puedeEmitir || $puedeGestionarPlantilla ? $cursosCapacitacion->todos() : collect(),
+            'cursosCapacitacion' => $puedeEmitir || $puedeGestionarPlantilla ? $cursos->deCapacitacion() : collect(),
             'certificadoDetalle' => $this->certificadoDetalleId ? $historial->firstWhere('id', $this->certificadoDetalleId) : null,
             'certificadoEditando' => $this->certificadoEditandoId ? $historial->firstWhere('id', $this->certificadoEditandoId) : null,
         ];
@@ -586,9 +529,6 @@ new #[Layout('layouts.app')] class extends Component
         @if ($puedeGestionarPlantilla)
             <button wire:click="$set('tab', 'plantilla')" @class(['border-b-2 px-4 py-2 font-display text-sm font-medium transition', 'border-accent text-accent' => $tab === 'plantilla', 'border-transparent text-ink-faint hover:text-ink' => $tab !== 'plantilla'])>
                 Plantilla
-            </button>
-            <button wire:click="$set('tab', 'cursos-capacitacion')" @class(['border-b-2 px-4 py-2 font-display text-sm font-medium transition', 'border-accent text-accent' => $tab === 'cursos-capacitacion', 'border-transparent text-ink-faint hover:text-ink' => $tab !== 'cursos-capacitacion'])>
-                Cursos de capacitación
             </button>
         @endif
     </div>
@@ -704,16 +644,16 @@ new #[Layout('layouts.app')] class extends Component
             --}}
             @if ($tipoDocumentoEmitir === \App\Modules\Certificados\Enums\TipoDocumentoEnum::CERTIFICADO_CAPACITACION->value)
                 <div wire:key="campos-capacitacion">
-                    <x-input-label for="cursoCapacitacionId" value="Curso de capacitación" />
+                    <x-input-label for="cursoId" value="Curso de capacitación" />
                     <x-select-input
-                        wire:model="cursoCapacitacionId"
-                        id="cursoCapacitacionId"
+                        wire:model="cursoId"
+                        id="cursoId"
                         class="mt-1 block w-full"
                         placeholder="Selecciona…"
-                        :options="collect($cursosCapacitacion)->mapWithKeys(fn ($curso) => [(string) $curso->id => $curso->nombre.' ('.$curso->horas_lectivas.' h)'])"
+                        :options="collect($cursosCapacitacion)->mapWithKeys(fn ($curso) => [(string) $curso->id => $curso->nombre.' ('.$curso->horas.' h)'])"
                     />
-                    <p class="mt-1 text-xs text-ink-faint">Se gestionan en la pestaña «Cursos de capacitación».</p>
-                    <x-input-error :messages="$errors->get('cursoCapacitacionId')" class="mt-1" />
+                    <p class="mt-1 text-xs text-ink-faint">Se gestionan desde Académico → Cursos.</p>
+                    <x-input-error :messages="$errors->get('cursoId')" class="mt-1" />
                 </div>
                 <div wire:key="campo-numero-registro">
                     <x-input-label for="numeroRegistro" value="Número de registro del documento" />
@@ -965,8 +905,8 @@ new #[Layout('layouts.app')] class extends Component
                                     @if ($certificado->matricula)
                                         · {{ $certificado->matricula->grado->nombre }}
                                     @endif
-                                    @if ($certificado->cursoCapacitacion)
-                                        · {{ $certificado->cursoCapacitacion->nombre }} · registro {{ $certificado->numero_registro }}
+                                    @if ($certificado->curso)
+                                        · {{ $certificado->curso->nombre }} · registro {{ $certificado->numero_registro }}
                                     @endif
                                     · {{ $certificado->fecha_emision->format('d/m/Y') }}
                                 </p>
@@ -1110,59 +1050,4 @@ new #[Layout('layouts.app')] class extends Component
         </div>
     @endif
 
-    {{-- Catálogo de cursos de capacitación --}}
-    @if ($tab === 'cursos-capacitacion' && $puedeGestionarPlantilla)
-        <div class="max-w-2xl space-y-4">
-            <div class="flex justify-end">
-                <x-secondary-button type="button" wire:click="abrirFormCurso">+ Nuevo curso</x-secondary-button>
-            </div>
-
-            @if ($mostrarFormCurso)
-                <form wire:submit="guardarCurso" class="space-y-3 rounded-2xl border border-border bg-surface shadow-sm p-4">
-                    <div>
-                        <x-input-label for="cursoNombre" value="Nombre del curso" />
-                        <x-text-input wire:model="cursoNombre" id="cursoNombre" class="mt-1 block w-full" placeholder="Ej. Ofimática Nivel Avanzado" />
-                        <x-input-error :messages="$errors->get('cursoNombre')" class="mt-1" />
-                    </div>
-                    <div>
-                        <x-input-label for="cursoHorasLectivas" value="Horas lectivas" />
-                        <x-text-input wire:model="cursoHorasLectivas" id="cursoHorasLectivas" type="number" min="1" class="mt-1 block w-full" />
-                        <x-input-error :messages="$errors->get('cursoHorasLectivas')" class="mt-1" />
-                    </div>
-                    <div>
-                        <x-input-label for="cursoDocumentoAutorizacion" value="Documento de autorización (opcional)" />
-                        <x-text-input wire:model="cursoDocumentoAutorizacion" id="cursoDocumentoAutorizacion" class="mt-1 block w-full" placeholder="Ej. R.D.R. N°2182-2023-DREP" />
-                        <p class="mt-1 text-xs text-ink-faint">La resolución que autoriza a la institución a certificar este curso. Se imprime en el certificado y en la validación pública.</p>
-                        <x-input-error :messages="$errors->get('cursoDocumentoAutorizacion')" class="mt-1" />
-                    </div>
-                    <div class="flex justify-end gap-2">
-                        <x-secondary-button type="button" wire:click="cerrarFormCurso">Cancelar</x-secondary-button>
-                        <x-primary-button type="submit">Guardar</x-primary-button>
-                    </div>
-                </form>
-            @endif
-
-            <div class="divide-y divide-border rounded-2xl border border-border bg-surface shadow-sm">
-                @forelse ($cursosCapacitacion as $curso)
-                    <div class="flex items-center justify-between gap-4 px-4 py-3 text-sm">
-                        <div>
-                            <p class="text-ink">{{ $curso->nombre }}</p>
-                            <p class="text-xs text-ink-faint">
-                                {{ $curso->horas_lectivas }} horas lectivas
-                                @if ($curso->documento_autorizacion)
-                                    · {{ $curso->documento_autorizacion }}
-                                @endif
-                            </p>
-                        </div>
-                        <div class="flex shrink-0 gap-3 text-xs">
-                            <button type="button" wire:click="abrirFormCurso({{ $curso->id }})" class="font-medium text-accent hover:underline">Editar</button>
-                            <button type="button" x-on:click="$store.confirm.preguntar('¿Eliminar este curso de capacitación?', () => $wire.eliminarCurso({{ $curso->id }}), { peligro: true, etiquetaConfirmar: 'Eliminar' })" class="font-medium text-danger hover:underline">Eliminar</button>
-                        </div>
-                    </div>
-                @empty
-                    <p class="px-4 py-8 text-center text-sm text-ink-faint">Todavía no hay cursos de capacitación registrados.</p>
-                @endforelse
-            </div>
-        </div>
-    @endif
 </div>

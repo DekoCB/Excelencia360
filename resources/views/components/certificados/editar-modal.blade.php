@@ -28,7 +28,7 @@
         </div>
         <p class="text-xs text-ink-faint">Este nombre es del estudiante, no solo de este documento: el cambio se aplica a su ficha y a todos sus certificados.</p>
 
-        @if ($certificado?->cursoCapacitacion || $certificado?->tipo?->esCapacitacion())
+        @if ($certificado?->curso || $certificado?->tipo?->esCapacitacion())
             <div>
                 <x-input-label for="editNumeroRegistro" value="Número de registro" />
                 <x-text-input wire:model="editNumeroRegistro" id="editNumeroRegistro" class="mt-1 block w-full" />

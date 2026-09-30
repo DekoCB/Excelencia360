@@ -3,8 +3,8 @@
 namespace Tests\Feature\Certificados;
 
 use App\Models\User;
+use App\Modules\Academico\Models\Curso;
 use App\Modules\Certificados\Enums\TipoDocumentoEnum;
-use App\Modules\Certificados\Models\CursoCapacitacion;
 use App\Modules\Certificados\Models\PlantillaCertificado;
 use App\Modules\Certificados\Services\CertificadoService;
 use App\Modules\Matricula\Models\Estudiante;
@@ -24,7 +24,7 @@ class CertificadoCapacitacionTest extends TestCase
     {
         $estudiante = Estudiante::factory()->create();
         $emisor = User::factory()->create();
-        $curso = CursoCapacitacion::factory()->create(['nombre' => 'Ofimática Nivel Avanzado', 'horas_lectivas' => 130]);
+        $curso = Curso::factory()->capacitacion()->create(['nombre' => 'Ofimática Nivel Avanzado', 'horas' => 130]);
 
         $certificado = $this->service()->emitir(
             $estudiante,
@@ -37,7 +37,7 @@ class CertificadoCapacitacionTest extends TestCase
             '3002324002',
         );
 
-        $this->assertSame($curso->id, $certificado->curso_capacitacion_id);
+        $this->assertSame($curso->id, $certificado->curso_id);
         $this->assertSame('3002324002', $certificado->numero_registro);
         $this->assertNotNull($certificado->getFirstMedia('pdf'));
     }
@@ -46,7 +46,7 @@ class CertificadoCapacitacionTest extends TestCase
     {
         $estudiante = Estudiante::factory()->create();
         $emisor = User::factory()->create();
-        $curso = CursoCapacitacion::factory()->create();
+        $curso = Curso::factory()->capacitacion()->create();
 
         $certificado = $this->service()->emitir(
             $estudiante,
@@ -87,7 +87,7 @@ class CertificadoCapacitacionTest extends TestCase
     {
         $estudiante = Estudiante::factory()->create();
         $emisor = User::factory()->create();
-        $curso = CursoCapacitacion::factory()->create();
+        $curso = Curso::factory()->capacitacion()->create();
 
         $original = $this->service()->emitir(
             $estudiante,
@@ -102,7 +102,7 @@ class CertificadoCapacitacionTest extends TestCase
 
         $duplicado = $this->service()->duplicar($original, null, $emisor);
 
-        $this->assertSame($curso->id, $duplicado->curso_capacitacion_id);
+        $this->assertSame($curso->id, $duplicado->curso_id);
         $this->assertSame('3002324002', $duplicado->numero_registro);
         $this->assertTrue($duplicado->es_duplicado);
 
@@ -116,9 +116,9 @@ class CertificadoCapacitacionTest extends TestCase
     {
         $estudiante = Estudiante::factory()->create();
         $emisor = User::factory()->create();
-        $curso = CursoCapacitacion::factory()->create([
+        $curso = Curso::factory()->capacitacion()->create([
             'nombre' => 'Ofimática Nivel Avanzado',
-            'horas_lectivas' => 130,
+            'horas' => 130,
             'documento_autorizacion' => 'R.D.R. N°2182-2023-DREP',
         ]);
 
@@ -133,7 +133,7 @@ class CertificadoCapacitacionTest extends TestCase
             '3002324002',
         );
 
-        $certificado->load(['estudiante', 'cursoCapacitacion']);
+        $certificado->load(['estudiante', 'curso']);
         $plantilla = PlantillaCertificado::paraTipo($certificado->tipo);
 
         $html = view('pdf.certificado', [
@@ -143,7 +143,7 @@ class CertificadoCapacitacionTest extends TestCase
                 'estudiante' => $certificado->estudiante->nombreCompleto(),
                 'dni' => $certificado->estudiante->dni,
                 'curso' => $curso->nombre,
-                'horas_lectivas' => (string) $curso->horas_lectivas,
+                'horas_lectivas' => (string) $curso->horas,
             ]),
         ])->render();
 
@@ -166,7 +166,7 @@ class CertificadoCapacitacionTest extends TestCase
     {
         $estudiante = Estudiante::factory()->create();
         $emisor = User::factory()->create();
-        $curso = CursoCapacitacion::factory()->create();
+        $curso = Curso::factory()->capacitacion()->create();
 
         $certificado = $this->service()->emitir(
             $estudiante,
@@ -187,7 +187,7 @@ class CertificadoCapacitacionTest extends TestCase
     {
         $estudiante = Estudiante::factory()->create();
         $emisor = User::factory()->create();
-        $curso = CursoCapacitacion::factory()->create();
+        $curso = Curso::factory()->capacitacion()->create();
 
         $certificado = $this->service()->emitir(
             $estudiante,
@@ -207,7 +207,7 @@ class CertificadoCapacitacionTest extends TestCase
     {
         $estudiante = Estudiante::factory()->create();
         $emisor = User::factory()->create();
-        $curso = CursoCapacitacion::factory()->create();
+        $curso = Curso::factory()->capacitacion()->create();
 
         $original = $this->service()->emitir(
             $estudiante,

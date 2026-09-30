@@ -3,8 +3,8 @@
 namespace Tests\Feature\Certificados;
 
 use App\Models\User;
+use App\Modules\Academico\Models\Curso;
 use App\Modules\Certificados\Enums\TipoDocumentoEnum;
-use App\Modules\Certificados\Models\CursoCapacitacion;
 use App\Modules\Certificados\Services\CertificadoService;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Models\Estudiante;
@@ -33,7 +33,7 @@ class EditarCertificadoTest extends TestCase
     {
         $estudiante = Estudiante::factory()->create();
         $emisor = User::factory()->create();
-        $curso = CursoCapacitacion::factory()->create();
+        $curso = Curso::factory()->capacitacion()->create();
 
         $certificado = $this->service()->emitir(
             $estudiante,
@@ -100,7 +100,7 @@ class EditarCertificadoTest extends TestCase
         $coordinador = User::factory()->create();
         $coordinador->assignRole(RolEnum::COORDINADOR->value);
         $estudiante = Estudiante::factory()->create();
-        $curso = CursoCapacitacion::factory()->create();
+        $curso = Curso::factory()->capacitacion()->create();
         $certificado = $this->service()->emitir(
             $estudiante, null, null, null, $coordinador,
             TipoDocumentoEnum::CERTIFICADO_CAPACITACION, $curso, '1000000001',
@@ -126,7 +126,7 @@ class EditarCertificadoTest extends TestCase
         $coordinador = User::factory()->create();
         $coordinador->assignRole(RolEnum::COORDINADOR->value);
         $estudiante = Estudiante::factory()->create(['nombres' => 'Juan', 'apellidos' => 'Perez']);
-        $curso = CursoCapacitacion::factory()->create();
+        $curso = Curso::factory()->capacitacion()->create();
         $certificado = $this->service()->emitir(
             $estudiante, null, null, null, $coordinador,
             TipoDocumentoEnum::CERTIFICADO_CAPACITACION, $curso, '1000000009',
@@ -153,7 +153,7 @@ class EditarCertificadoTest extends TestCase
         $coordinador = User::factory()->create();
         $coordinador->assignRole(RolEnum::COORDINADOR->value);
         $estudiante = Estudiante::factory()->create();
-        $curso = CursoCapacitacion::factory()->create();
+        $curso = Curso::factory()->capacitacion()->create();
 
         $this->service()->emitir(
             $estudiante, null, null, null, $coordinador,

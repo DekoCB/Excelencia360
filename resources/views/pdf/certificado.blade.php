@@ -118,8 +118,8 @@
         @if ($certificado->numero_registro)
             <p class="pie-codigo">N.° de registro: {{ $certificado->numero_registro }}</p>
         @endif
-        @if ($certificado->cursoCapacitacion?->documento_autorizacion)
-            <p class="pie-codigo">{{ $certificado->cursoCapacitacion->documento_autorizacion }}</p>
+        @if ($certificado->curso?->documento_autorizacion)
+            <p class="pie-codigo">{{ $certificado->curso->documento_autorizacion }}</p>
         @endif
     @elseif ($plantilla->codigo_documento_aprobacion)
         <p class="pie-codigo">{{ $plantilla->codigo_documento_aprobacion }}</p>

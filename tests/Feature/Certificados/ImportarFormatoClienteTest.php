@@ -3,8 +3,8 @@
 namespace Tests\Feature\Certificados;
 
 use App\Models\User;
+use App\Modules\Academico\Models\Curso;
 use App\Modules\Certificados\Models\Certificado;
-use App\Modules\Certificados\Models\CursoCapacitacion;
 use App\Modules\Certificados\Services\CertificadoService;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Models\Estudiante;
@@ -196,7 +196,7 @@ class ImportarFormatoClienteTest extends TestCase
     public function test_confirmar_reutiliza_el_curso_si_ya_existe(): void
     {
         $emisor = User::factory()->create();
-        $curso = CursoCapacitacion::factory()->create(['nombre' => 'Curso Ya Existente', 'horas_lectivas' => 100]);
+        $curso = Curso::factory()->capacitacion()->create(['nombre' => 'Curso Ya Existente', 'horas' => 100]);
 
         $this->service()->confirmarImportacionCapacitacionFormatoCliente([
             [
@@ -206,9 +206,9 @@ class ImportarFormatoClienteTest extends TestCase
             ],
         ], $emisor);
 
-        $this->assertDatabaseCount('cursos_capacitacion', 1);
-        $this->assertDatabaseHas('certificados', ['curso_capacitacion_id' => $curso->id]);
-        $this->assertDatabaseHas('cursos_capacitacion', ['id' => $curso->id, 'horas_lectivas' => 100]);
+        $this->assertDatabaseCount('cursos', 1);
+        $this->assertDatabaseHas('certificados', ['curso_id' => $curso->id]);
+        $this->assertDatabaseHas('cursos', ['id' => $curso->id, 'horas' => 100]);
     }
 
     public function test_confirmar_una_fila_de_estudiante_nuevo_sin_nombre_se_reporta_como_error(): void

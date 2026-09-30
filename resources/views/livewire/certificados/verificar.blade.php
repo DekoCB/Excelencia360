@@ -67,10 +67,10 @@ new #[Layout('layouts.guest')] class extends Component
 
                     @if ($resultado->tipo->esCapacitacion())
                         <p><span class="text-ink-faint">Número de Registro del Documento:</span> {{ $resultado->numero_registro }}</p>
-                        <p><span class="text-ink-faint">Nombre del Curso:</span> {{ $resultado->cursoCapacitacion?->nombre ?? '—' }}</p>
-                        <p><span class="text-ink-faint">Horas Lectivas del Curso:</span> {{ $resultado->cursoCapacitacion?->horas_lectivas ?? '—' }}</p>
-                        @if ($resultado->cursoCapacitacion?->documento_autorizacion)
-                            <p><span class="text-ink-faint">Documento de Autorización:</span> {{ $resultado->cursoCapacitacion->documento_autorizacion }}</p>
+                        <p><span class="text-ink-faint">Nombre del Curso:</span> {{ $resultado->curso?->nombre ?? '—' }}</p>
+                        <p><span class="text-ink-faint">Horas Lectivas del Curso:</span> {{ $resultado->curso?->horas ?? '—' }}</p>
+                        @if ($resultado->curso?->documento_autorizacion)
+                            <p><span class="text-ink-faint">Documento de Autorización:</span> {{ $resultado->curso->documento_autorizacion }}</p>
                         @endif
                     @else
                         <p><span class="text-ink-faint">N.° de certificado:</span> {{ $resultado->numero }}</p>

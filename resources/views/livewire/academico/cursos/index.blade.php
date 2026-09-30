@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Academico\Enums\FranjaHorarioEnum;
+use App\Modules\Academico\Enums\TipoCursoEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
@@ -24,6 +25,8 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $codigo = '';
 
+    public string $tipo = 'academico';
+
     /** @var list<int> */
     public array $gradoIds = [];
 
@@ -32,11 +35,23 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $horas = '';
 
+    public string $documentoAutorizacion = '';
+
     public bool $activo = true;
+
+    // Filtro de la lista: "académico" y "capacitación" son catálogos con
+    // reglas distintas (semestre obligatorio vs. sin semestre), así que se
+    // muestran en pestañas separadas en vez de mezclados por defecto.
+    public string $tipoFiltro = 'academico';
 
     public function mount(): void
     {
         Gate::authorize('academico.ver');
+    }
+
+    public function updatedTipoFiltro(): void
+    {
+        $this->resetPage();
     }
 
     public function abrirModal(?int $cursoId = null): void
@@ -50,12 +65,15 @@ new #[Layout('layouts.app')] class extends Component
             $curso = Curso::query()->with('grados')->findOrFail($cursoId);
             $this->nombre = $curso->nombre;
             $this->codigo = $curso->codigo;
+            $this->tipo = $curso->tipo->value;
             $this->gradoIds = $curso->grados->pluck('id')->all();
             $this->franjasPermitidas = $curso->franjas_permitidas ?? [];
             $this->horas = (string) $curso->horas;
+            $this->documentoAutorizacion = $curso->documento_autorizacion ?? '';
             $this->activo = $curso->activo;
         } else {
-            $this->reset(['nombre', 'codigo', 'gradoIds', 'franjasPermitidas', 'horas']);
+            $this->reset(['nombre', 'codigo', 'gradoIds', 'franjasPermitidas', 'horas', 'documentoAutorizacion']);
+            $this->tipo = $this->tipoFiltro !== 'todos' ? $this->tipoFiltro : TipoCursoEnum::ACADEMICO->value;
             $this->activo = true;
         }
 
@@ -72,17 +90,39 @@ new #[Layout('layouts.app')] class extends Component
         $this->sugerirCodigo($service);
     }
 
+    public function updatedTipo(CursoService $service): void
+    {
+        if ($this->editandoId) {
+            return;
+        }
+
+        $this->gradoIds = [];
+        $this->sugerirCodigo($service);
+    }
+
     /**
      * Solo sugiere el código para un curso nuevo: si se está editando uno
      * existente, su código ya fue asignado y no debe pisarse sin querer al
      * corregir el nombre o los semestres. Un curso puede quedar en varios
      * semestres a la vez: el código se basa en el de menor orden (el
      * "primer" semestre donde se dicta), sin que eso implique que los
-     * demás sean menos válidos.
+     * demás sean menos válidos. Un curso de capacitación no tiene semestre,
+     * así que su código sale de generarCodigoCapacitacion() en cuanto haya
+     * nombre, sin esperar a ningún grado.
      */
     private function sugerirCodigo(CursoService $service): void
     {
-        if ($this->editandoId || trim($this->nombre) === '' || $this->gradoIds === []) {
+        if ($this->editandoId || trim($this->nombre) === '') {
+            return;
+        }
+
+        if ($this->tipo === TipoCursoEnum::CAPACITACION->value) {
+            $this->codigo = $service->generarCodigoCapacitacion($this->nombre);
+
+            return;
+        }
+
+        if ($this->gradoIds === []) {
             return;
         }
 
@@ -99,25 +139,33 @@ new #[Layout('layouts.app')] class extends Component
     {
         Gate::authorize('academico.gestionar');
 
+        $esCapacitacion = $this->tipo === TipoCursoEnum::CAPACITACION->value;
+
         // El código se recalcula aquí (no solo en los hooks updated*) para
         // que un envío antes de que el debounce del nombre dispare no deje
         // el campo vacío: al crear, el código nunca lo escribe la persona.
-        if (! $this->editandoId && $this->gradoIds !== []) {
-            $grado = Grado::query()->whereIn('id', $this->gradoIds)->orderBy('orden')->first();
+        if (! $this->editandoId) {
+            if ($esCapacitacion) {
+                $this->codigo = $service->generarCodigoCapacitacion($this->nombre);
+            } elseif ($this->gradoIds !== []) {
+                $grado = Grado::query()->whereIn('id', $this->gradoIds)->orderBy('orden')->first();
 
-            if ($grado) {
-                $this->codigo = $service->generarCodigo($this->nombre, $grado);
+                if ($grado) {
+                    $this->codigo = $service->generarCodigo($this->nombre, $grado);
+                }
             }
         }
 
         $this->validate([
             'nombre' => 'required|string|max:100',
             'codigo' => 'required|string|max:20',
-            'gradoIds' => 'required|array|min:1',
+            'tipo' => 'required|string|in:'.implode(',', array_column(TipoCursoEnum::cases(), 'value')),
+            'gradoIds' => $esCapacitacion ? 'array' : 'required|array|min:1',
             'gradoIds.*' => 'integer|exists:grados,id',
             'franjasPermitidas' => 'array',
             'franjasPermitidas.*' => 'string|in:'.implode(',', array_column(FranjaHorarioEnum::cases(), 'value')),
-            'horas' => 'required|integer|min:1|max:500',
+            'horas' => 'required|integer|min:1|max:'.($esCapacitacion ? 2000 : 500),
+            'documentoAutorizacion' => 'nullable|string|max:150',
         ]);
 
         if (! $service->codigoDisponible($this->codigo, $this->editandoId)) {
@@ -129,9 +177,11 @@ new #[Layout('layouts.app')] class extends Component
         $datos = [
             'nombre' => $this->nombre,
             'codigo' => strtoupper($this->codigo),
-            'grado_ids' => array_map('intval', $this->gradoIds),
-            'franjas_permitidas' => $this->franjasPermitidas !== [] ? $this->franjasPermitidas : null,
+            'tipo' => $this->tipo,
+            'grado_ids' => $esCapacitacion ? [] : array_map('intval', $this->gradoIds),
+            'franjas_permitidas' => ! $esCapacitacion && $this->franjasPermitidas !== [] ? $this->franjasPermitidas : null,
             'horas' => (int) $this->horas,
+            'documento_autorizacion' => $esCapacitacion ? ($this->documentoAutorizacion ?: null) : null,
         ];
 
         if ($this->editandoId) {
@@ -146,7 +196,9 @@ new #[Layout('layouts.app')] class extends Component
 
     public function with(CursoService $service): array
     {
-        $cursos = $service->listar();
+        $cursos = $this->tipoFiltro === 'todos'
+            ? $service->listar()
+            : $service->listarPorTipo(TipoCursoEnum::from($this->tipoFiltro));
         $ciclo = Ciclo::query()->where('estado', 'activo')->first();
 
         // El docente se muestra para el período activo: un curso puede
@@ -177,7 +229,7 @@ new #[Layout('layouts.app')] class extends Component
 <div>
     <x-slot name="header">
         <h1 class="font-display text-2xl text-ink">Cursos</h1>
-        <p class="mt-1 text-sm text-ink-dim">Catálogo de cursos por semestre.</p>
+        <p class="mt-1 text-sm text-ink-dim">Catálogo de cursos por semestre y de capacitación.</p>
     </x-slot>
 
     {{-- Ver academico/grados/index.blade.php: el botón no puede vivir en x-slot="header". --}}
@@ -194,6 +246,22 @@ new #[Layout('layouts.app')] class extends Component
         <x-alert class="mb-4">{{ session('status') }}</x-alert>
     @endif
 
+    <div class="mb-4 flex gap-2 border-b border-border">
+        @foreach (['academico' => 'Académicos', 'capacitacion' => 'Capacitación', 'todos' => 'Todos'] as $valor => $etiqueta)
+            <button
+                type="button"
+                wire:click="$set('tipoFiltro', '{{ $valor }}')"
+                @class([
+                    'border-b-2 px-4 py-2 font-display text-sm font-medium transition',
+                    'border-accent text-accent' => $tipoFiltro === $valor,
+                    'border-transparent text-ink-faint hover:text-ink' => $tipoFiltro !== $valor,
+                ])
+            >
+                {{ $etiqueta }}
+            </button>
+        @endforeach
+    </div>
+
     <p class="mb-4 text-xs text-ink-faint">
         @if ($ciclo)
             Docente del ciclo activo: {{ $ciclo->nombre }}.
@@ -208,6 +276,7 @@ new #[Layout('layouts.app')] class extends Component
                 <tr>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Código</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Nombre</th>
+                    <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Tipo</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Semestres</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Docente</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Horas</th>
@@ -224,7 +293,16 @@ new #[Layout('layouts.app')] class extends Component
                     <tr wire:key="curso-{{ $curso->id }}">
                         <td class="px-4 py-3 font-mono text-ink-dim">{{ $curso->codigo }}</td>
                         <td class="px-4 py-3 font-medium text-ink">{{ $curso->nombre }}</td>
-                        <td class="px-4 py-3 text-ink-dim">{{ $curso->grados->pluck('nombre')->implode(', ') }}</td>
+                        <td class="px-4 py-3">
+                            <span @class([
+                                'rounded-full px-2 py-0.5 text-xs font-medium',
+                                'bg-accent-soft text-accent' => $curso->tipo->value === 'capacitacion',
+                                'bg-ink-faint/10 text-ink-dim' => $curso->tipo->value !== 'capacitacion',
+                            ])>
+                                {{ $curso->tipo->label() }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-ink-dim">{{ $curso->grados->pluck('nombre')->implode(', ') ?: '—' }}</td>
                         <td class="px-4 py-3 text-ink-dim">{{ $docentes->isNotEmpty() ? $docentes->implode(', ') : '—' }}</td>
                         <td class="px-4 py-3 text-ink-dim">{{ $curso->horas }}</td>
                         <td class="px-4 py-3">
@@ -239,7 +317,7 @@ new #[Layout('layouts.app')] class extends Component
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="px-4 py-8 text-center text-sm text-ink-faint">No hay cursos registrados.</td></tr>
+                    <tr><td colspan="8" class="px-4 py-8 text-center text-sm text-ink-faint">No hay cursos registrados.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -279,43 +357,67 @@ new #[Layout('layouts.app')] class extends Component
                     </div>
 
                     <div>
-                        <x-input-label value="Semestres en los que se dicta" />
-                        <p class="mt-1 text-xs text-ink-faint">Un curso puede pertenecer a varios programas de estudio a la vez.</p>
-                        <div class="mt-2 max-h-48 space-y-3 overflow-y-auto rounded-md border border-border p-3">
-                            @forelse ($programas as $programa)
-                                <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ $programa->nombre }}</p>
-                                    <div class="mt-1 space-y-1">
-                                        @forelse ($programa->grados as $grado)
-                                            <label class="flex items-center gap-2 text-sm text-ink-dim">
-                                                <input type="checkbox" wire:model.live="gradoIds" value="{{ $grado->id }}" class="rounded border-border text-accent focus:ring-accent">
-                                                {{ $grado->nombre }}
-                                            </label>
-                                        @empty
-                                            <p class="text-xs text-ink-faint">Sin semestres.</p>
-                                        @endforelse
-                                    </div>
-                                </div>
-                            @empty
-                                <p class="text-xs text-ink-faint">No hay programas de estudio activos. Crea uno primero.</p>
-                            @endforelse
-                        </div>
-                        <x-input-error :messages="$errors->get('gradoIds')" class="mt-1" />
+                        <x-input-label for="tipo" value="Tipo" />
+                        <x-select-input
+                            wire:model.live="tipo"
+                            id="tipo"
+                            class="mt-1 block w-full"
+                            :disabled="(bool) $editandoId"
+                            :options="collect(\App\Modules\Academico\Enums\TipoCursoEnum::cases())->mapWithKeys(fn ($opcion) => [$opcion->value => $opcion->label()])"
+                        />
+                        @if ($editandoId)
+                            <p class="mt-1 text-xs text-ink-faint">El tipo no se puede cambiar una vez creado el curso.</p>
+                        @endif
+                        <x-input-error :messages="$errors->get('tipo')" class="mt-1" />
                     </div>
 
-                    <div>
-                        <x-input-label value="Franjas en las que se dicta (opcional)" />
-                        <p class="mt-1 text-xs text-ink-faint">Si no marcas ninguna, se puede crear el horario en cualquiera de las 3.</p>
-                        <div class="mt-2 space-y-1">
-                            @foreach (\App\Modules\Academico\Enums\FranjaHorarioEnum::cases() as $franja)
-                                <label class="flex items-center gap-2 text-sm text-ink-dim">
-                                    <input type="checkbox" wire:model="franjasPermitidas" value="{{ $franja->value }}" class="rounded border-border text-accent focus:ring-accent">
-                                    {{ $franja->label() }}
-                                </label>
-                            @endforeach
+                    @unless ($tipo === 'capacitacion')
+                        <div>
+                            <x-input-label value="Semestres en los que se dicta" />
+                            <p class="mt-1 text-xs text-ink-faint">Un curso puede pertenecer a varios programas de estudio a la vez.</p>
+                            <div class="mt-2 max-h-48 space-y-3 overflow-y-auto rounded-md border border-border p-3">
+                                @forelse ($programas as $programa)
+                                    <div>
+                                        <p class="text-xs font-semibold uppercase tracking-wide text-ink-faint">{{ $programa->nombre }}</p>
+                                        <div class="mt-1 space-y-1">
+                                            @forelse ($programa->grados as $grado)
+                                                <label class="flex items-center gap-2 text-sm text-ink-dim">
+                                                    <input type="checkbox" wire:model.live="gradoIds" value="{{ $grado->id }}" class="rounded border-border text-accent focus:ring-accent">
+                                                    {{ $grado->nombre }}
+                                                </label>
+                                            @empty
+                                                <p class="text-xs text-ink-faint">Sin semestres.</p>
+                                            @endforelse
+                                        </div>
+                                    </div>
+                                @empty
+                                    <p class="text-xs text-ink-faint">No hay programas de estudio activos. Crea uno primero.</p>
+                                @endforelse
+                            </div>
+                            <x-input-error :messages="$errors->get('gradoIds')" class="mt-1" />
                         </div>
-                        <x-input-error :messages="$errors->get('franjasPermitidas')" class="mt-1" />
-                    </div>
+
+                        <div>
+                            <x-input-label value="Franjas en las que se dicta (opcional)" />
+                            <p class="mt-1 text-xs text-ink-faint">Si no marcas ninguna, se puede crear el horario en cualquiera de las 3.</p>
+                            <div class="mt-2 space-y-1">
+                                @foreach (\App\Modules\Academico\Enums\FranjaHorarioEnum::cases() as $franja)
+                                    <label class="flex items-center gap-2 text-sm text-ink-dim">
+                                        <input type="checkbox" wire:model="franjasPermitidas" value="{{ $franja->value }}" class="rounded border-border text-accent focus:ring-accent">
+                                        {{ $franja->label() }}
+                                    </label>
+                                @endforeach
+                            </div>
+                            <x-input-error :messages="$errors->get('franjasPermitidas')" class="mt-1" />
+                        </div>
+                    @else
+                        <div>
+                            <x-input-label for="documentoAutorizacion" value="Documento de autorización (opcional)" />
+                            <x-text-input wire:model="documentoAutorizacion" id="documentoAutorizacion" class="mt-1 block w-full" placeholder="Ej. R.D.R. N°2182-2023-DREP" />
+                            <p class="mt-1 text-xs text-ink-faint">La resolución que autoriza a la institución a certificar este curso. Se imprime en el certificado y en la validación pública.</p>
+                            <x-input-error :messages="$errors->get('documentoAutorizacion')" class="mt-1" />
+                        </div>
+                    @endunless
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>

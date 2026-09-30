@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Academico\Models;
 
 use App\Modules\Academico\Database\Factories\CursoFactory;
+use App\Modules\Academico\Enums\TipoCursoEnum;
 use App\Modules\Identidad\Support\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -17,7 +18,10 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property int $id
  * @property string $nombre
  * @property string $codigo
+ * @property TipoCursoEnum $tipo
  * @property list<string>|null $franjas_permitidas
+ * @property string|null $documento_autorizacion
+ * @property int $horas
  */
 class Curso extends Model implements HasMedia
 {
@@ -27,8 +31,10 @@ class Curso extends Model implements HasMedia
     protected $fillable = [
         'nombre',
         'codigo',
+        'tipo',
         'franjas_permitidas',
         'horas',
+        'documento_autorizacion',
         'activo',
     ];
 
@@ -37,6 +43,7 @@ class Curso extends Model implements HasMedia
         return [
             'activo' => 'boolean',
             'franjas_permitidas' => 'array',
+            'tipo' => TipoCursoEnum::class,
         ];
     }
 

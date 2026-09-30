@@ -3,7 +3,7 @@
 namespace Tests\Feature\Certificados;
 
 use App\Models\User;
-use App\Modules\Certificados\Models\CursoCapacitacion;
+use App\Modules\Academico\Models\Curso;
 use App\Modules\Certificados\Services\CertificadoService;
 use App\Modules\Matricula\Models\Estudiante;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -48,9 +48,10 @@ class ImportarCapacitacionDesdeFilasTest extends TestCase
         $this->assertSame(1, $resultado['exitosos']);
         $this->assertCount(0, $resultado['errores']);
 
-        $this->assertDatabaseHas('cursos_capacitacion', [
+        $this->assertDatabaseHas('cursos', [
             'nombre' => 'Ofimática Nivel Avanzado',
-            'horas_lectivas' => 130,
+            'tipo' => 'capacitacion',
+            'horas' => 130,
             'documento_autorizacion' => 'R.D.R. N°2182-2023-DREP',
         ]);
         $this->assertDatabaseHas('certificados', [
@@ -64,9 +65,9 @@ class ImportarCapacitacionDesdeFilasTest extends TestCase
     {
         $estudiante = Estudiante::factory()->create(['dni' => '72552221']);
         $emisor = User::factory()->create();
-        $curso = CursoCapacitacion::factory()->create([
+        $curso = Curso::factory()->capacitacion()->create([
             'nombre' => 'Ofimática Nivel Avanzado',
-            'horas_lectivas' => 130,
+            'horas' => 130,
             'documento_autorizacion' => 'R.D.R. N°2182-2023-DREP',
         ]);
 
@@ -81,14 +82,14 @@ class ImportarCapacitacionDesdeFilasTest extends TestCase
         ]), $emisor);
 
         $this->assertSame(1, $resultado['exitosos']);
-        $this->assertDatabaseCount('cursos_capacitacion', 1);
+        $this->assertDatabaseCount('cursos', 1);
         $this->assertDatabaseHas('certificados', [
-            'curso_capacitacion_id' => $curso->id,
+            'curso_id' => $curso->id,
             'numero_registro' => '3002324002',
         ]);
         // El curso ya existía: no se sobrescriben sus horas/documento con
         // lo que traía la fila.
-        $this->assertDatabaseHas('cursos_capacitacion', ['id' => $curso->id, 'horas_lectivas' => 130]);
+        $this->assertDatabaseHas('cursos', ['id' => $curso->id, 'horas' => 130]);
     }
 
     public function test_una_fila_con_dni_inexistente_se_reporta_como_error(): void
@@ -115,14 +116,14 @@ class ImportarCapacitacionDesdeFilasTest extends TestCase
         $estudianteUno = Estudiante::factory()->create(['dni' => '11111111']);
         $estudianteDos = Estudiante::factory()->create(['dni' => '22222222']);
         $emisor = User::factory()->create();
-        $curso = CursoCapacitacion::factory()->create();
+        $curso = Curso::factory()->capacitacion()->create();
 
         $this->service()->emitirCapacitacionDesdeFilas($this->filas([
             [
                 'dni' => '11111111',
                 'numero_de_registro' => '3002324002',
                 'nombre_del_curso' => $curso->nombre,
-                'horas_lectivas' => (string) $curso->horas_lectivas,
+                'horas_lectivas' => (string) $curso->horas,
             ],
         ]), $emisor);
 
@@ -131,7 +132,7 @@ class ImportarCapacitacionDesdeFilasTest extends TestCase
                 'dni' => '22222222',
                 'numero_de_registro' => '3002324002',
                 'nombre_del_curso' => $curso->nombre,
-                'horas_lectivas' => (string) $curso->horas_lectivas,
+                'horas_lectivas' => (string) $curso->horas,
             ],
         ]), $emisor);
 
@@ -157,7 +158,7 @@ class ImportarCapacitacionDesdeFilasTest extends TestCase
 
         $this->assertSame(0, $resultado['exitosos']);
         $this->assertCount(1, $resultado['errores']);
-        $this->assertDatabaseCount('cursos_capacitacion', 0);
+        $this->assertDatabaseCount('cursos', 0);
     }
 
     public function test_una_fila_sin_numero_de_registro_se_reporta_como_error(): void
@@ -209,7 +210,7 @@ class ImportarCapacitacionDesdeFilasTest extends TestCase
         $this->assertSame(3, $resultado['errores'][0]['fila']);
         $this->assertDatabaseCount('certificados', 2);
         // Un solo curso creado, reutilizado por las dos filas válidas.
-        $this->assertDatabaseCount('cursos_capacitacion', 1);
+        $this->assertDatabaseCount('cursos', 1);
     }
 
     public function test_importa_la_nota_cuando_la_fila_la_trae(): void

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Certificados\Models;
 
 use App\Models\User;
+use App\Modules\Academico\Models\Curso;
 use App\Modules\Certificados\Database\Factories\CertificadoFactory;
 use App\Modules\Certificados\Enums\TipoDocumentoEnum;
 use App\Modules\Identidad\Support\Auditable;
@@ -25,7 +26,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property int $estudiante_id
  * @property TipoDocumentoEnum $tipo
  * @property int|null $matricula_id
- * @property int|null $curso_capacitacion_id
+ * @property int|null $curso_id
  * @property string|null $numero_registro
  * @property float|null $nota
  * @property string $numero
@@ -41,7 +42,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property string|null $correo_entrega
  * @property-read Estudiante|null $estudiante
  * @property-read Matricula|null $matricula
- * @property-read CursoCapacitacion|null $cursoCapacitacion
+ * @property-read Curso|null $curso
  * @property-read Certificado|null $original
  * @property-read User $emisor
  * @property-read User|null $entregadoPor
@@ -57,7 +58,7 @@ class Certificado extends Model implements HasMedia
         'estudiante_id',
         'tipo',
         'matricula_id',
-        'curso_capacitacion_id',
+        'curso_id',
         'numero_registro',
         'nota',
         'numero',
@@ -106,9 +107,9 @@ class Certificado extends Model implements HasMedia
         return $this->belongsTo(Matricula::class);
     }
 
-    public function cursoCapacitacion(): BelongsTo
+    public function curso(): BelongsTo
     {
-        return $this->belongsTo(CursoCapacitacion::class);
+        return $this->belongsTo(Curso::class);
     }
 
     public function original(): BelongsTo

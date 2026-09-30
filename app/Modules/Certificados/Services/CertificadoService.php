@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Modules\Certificados\Services;
 
 use App\Models\User;
+use App\Modules\Academico\Enums\TipoCursoEnum;
+use App\Modules\Academico\Models\Curso;
+use App\Modules\Academico\Services\CursoService;
 use App\Modules\Certificados\Enums\EstadoSolicitudCertificadoEnum;
 use App\Modules\Certificados\Enums\TipoDocumentoEnum;
 use App\Modules\Certificados\Models\Certificado;
-use App\Modules\Certificados\Models\CursoCapacitacion;
 use App\Modules\Certificados\Models\PlantillaCertificado;
 use App\Modules\Certificados\Models\SolicitudCertificado;
 use App\Modules\Evaluaciones\Models\Libreta;
@@ -38,6 +40,7 @@ class CertificadoService
         private readonly NotificacionService $notificaciones,
         private readonly LibretaService $libretas,
         private readonly MatriculaService $matricula,
+        private readonly CursoService $cursos,
     ) {}
 
     /**
@@ -77,18 +80,18 @@ class CertificadoService
         ?string $observaciones,
         User $emisor,
         TipoDocumentoEnum $tipo = TipoDocumentoEnum::CERTIFICADO_ESTUDIOS,
-        ?CursoCapacitacion $cursoCapacitacion = null,
+        ?Curso $curso = null,
         ?string $numeroRegistro = null,
         ?float $nota = null,
     ): Certificado {
         $tipo = $solicitud !== null ? $solicitud->tipo : $tipo;
 
-        return DB::transaction(function () use ($estudiante, $matricula, $solicitud, $observaciones, $emisor, $tipo, $cursoCapacitacion, $numeroRegistro, $nota) {
+        return DB::transaction(function () use ($estudiante, $matricula, $solicitud, $observaciones, $emisor, $tipo, $curso, $numeroRegistro, $nota) {
             $certificado = $this->crearConNumeroUnico([
                 'estudiante_id' => $estudiante->id,
                 'tipo' => $tipo,
                 'matricula_id' => $matricula?->id,
-                'curso_capacitacion_id' => $cursoCapacitacion?->id,
+                'curso_id' => $curso?->id,
                 'numero_registro' => $numeroRegistro,
                 'nota' => $nota,
                 'codigo_verificacion' => $this->generarCodigoVerificacion(),
@@ -257,7 +260,7 @@ class CertificadoService
                 'estudiante_id' => $base->estudiante_id,
                 'tipo' => $base->tipo,
                 'matricula_id' => $base->matricula_id,
-                'curso_capacitacion_id' => $base->curso_capacitacion_id,
+                'curso_id' => $base->curso_id,
                 'numero_registro' => $base->numero_registro,
                 'nota' => $base->nota,
                 'codigo_verificacion' => $base->codigo_verificacion,
@@ -365,7 +368,7 @@ class CertificadoService
                     throw new InvalidArgumentException('La columna «nombre_del_curso» es obligatoria.');
                 }
 
-                $curso = CursoCapacitacion::query()->where('nombre', $nombreCurso)->first();
+                $curso = Curso::query()->where('tipo', TipoCursoEnum::CAPACITACION)->where('nombre', $nombreCurso)->first();
 
                 if (! $curso) {
                     $horasLectivas = (int) ($fila->get('horas_lectivas') ?? 0);
@@ -376,10 +379,13 @@ class CertificadoService
 
                     $documentoAutorizacion = trim((string) ($fila->get('documento_de_autorizacion') ?? ''));
 
-                    $curso = CursoCapacitacion::query()->create([
+                    $curso = Curso::query()->create([
                         'nombre' => $nombreCurso,
-                        'horas_lectivas' => $horasLectivas,
+                        'codigo' => $this->cursos->generarCodigoCapacitacion($nombreCurso),
+                        'tipo' => TipoCursoEnum::CAPACITACION,
+                        'horas' => $horasLectivas,
                         'documento_autorizacion' => $documentoAutorizacion !== '' ? $documentoAutorizacion : null,
+                        'activo' => true,
                     ]);
                 }
 
@@ -535,7 +541,7 @@ class CertificadoService
                         throw new InvalidArgumentException('El nombre del curso es obligatorio.');
                     }
 
-                    $curso = CursoCapacitacion::query()->where('nombre', $nombreCurso)->first();
+                    $curso = Curso::query()->where('tipo', TipoCursoEnum::CAPACITACION)->where('nombre', $nombreCurso)->first();
 
                     if (! $curso) {
                         $horasLectivas = $fila['horas_lectivas'];
@@ -544,10 +550,13 @@ class CertificadoService
                             throw new InvalidArgumentException("El curso «{$nombreCurso}» no existe todavía: faltan las horas lectivas para crearlo.");
                         }
 
-                        $curso = CursoCapacitacion::query()->create([
+                        $curso = Curso::query()->create([
                             'nombre' => $nombreCurso,
-                            'horas_lectivas' => $horasLectivas,
+                            'codigo' => $this->cursos->generarCodigoCapacitacion($nombreCurso),
+                            'tipo' => TipoCursoEnum::CAPACITACION,
+                            'horas' => $horasLectivas,
                             'documento_autorizacion' => $fila['documento_autorizacion'] ?? null,
+                            'activo' => true,
                         ]);
                     }
 
@@ -672,8 +681,8 @@ class CertificadoService
             'dni' => '00000000',
         ]));
         $certificado->setRelation('matricula', null);
-        $certificado->setRelation('cursoCapacitacion', $plantilla->tipo->esCapacitacion()
-            ? new CursoCapacitacion(['nombre' => 'Curso de ejemplo', 'horas_lectivas' => 100, 'documento_autorizacion' => 'R.D.R. N.°0000-0000-DREP'])
+        $certificado->setRelation('curso', $plantilla->tipo->esCapacitacion()
+            ? new Curso(['nombre' => 'Curso de ejemplo', 'horas' => 100, 'documento_autorizacion' => 'R.D.R. N.°0000-0000-DREP'])
             : null);
 
         return $this->renderizarPdf($certificado, $plantilla)->output();
@@ -696,7 +705,7 @@ class CertificadoService
                     ->orWhere('numero_registro', $codigo);
             })
             ->where('es_duplicado', false)
-            ->with(['estudiante', 'matricula.grado', 'matricula.ciclo', 'cursoCapacitacion'])
+            ->with(['estudiante', 'matricula.grado', 'matricula.ciclo', 'curso'])
             ->first();
     }
 
@@ -742,14 +751,14 @@ class CertificadoService
     public function todos(): Collection
     {
         return Certificado::query()
-            ->with(['estudiante', 'matricula.grado', 'cursoCapacitacion', 'emisor', 'entregadoPor'])
+            ->with(['estudiante', 'matricula.grado', 'curso', 'emisor', 'entregadoPor'])
             ->latest('fecha_emision')
             ->get();
     }
 
     private function generarPdf(Certificado $certificado): void
     {
-        $certificado->load(['estudiante', 'matricula.grado', 'matricula.ciclo', 'cursoCapacitacion']);
+        $certificado->load(['estudiante', 'matricula.grado', 'matricula.ciclo', 'curso']);
 
         $pdf = $this->renderizarPdf($certificado);
 
@@ -787,7 +796,7 @@ class CertificadoService
             )
             : 'se encuentra registrado(a) en esta institución,';
 
-        $curso = $certificado->cursoCapacitacion;
+        $curso = $certificado->curso;
 
         return [
             'estudiante' => $certificado->estudiante?->nombreCompleto() ?? '—',
@@ -800,7 +809,7 @@ class CertificadoService
             // palabra en el texto final.
             'periodo' => $certificado->matricula?->ciclo->nombre ?? 'correspondiente',
             'curso' => $curso !== null ? $curso->nombre : 'curso correspondiente',
-            'horas_lectivas' => $curso !== null ? (string) $curso->horas_lectivas : '',
+            'horas_lectivas' => $curso !== null ? (string) $curso->horas : '',
             'numero' => $certificado->numero,
             'fecha_emision' => $certificado->fecha_emision->format('d/m/Y'),
             'codigo_verificacion' => $certificado->codigo_verificacion,

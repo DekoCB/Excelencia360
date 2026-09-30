@@ -44,10 +44,10 @@
                     </div>
                 @endif
 
-                @if ($certificado->cursoCapacitacion)
+                @if ($certificado->curso)
                     <div class="sm:col-span-2">
                         <dt class="text-ink-faint">Curso de capacitación</dt>
-                        <dd class="text-ink">{{ $certificado->cursoCapacitacion->nombre }} ({{ $certificado->cursoCapacitacion->horas_lectivas }} h)</dd>
+                        <dd class="text-ink">{{ $certificado->curso->nombre }} ({{ $certificado->curso->horas }} h)</dd>
                     </div>
                     <div>
                         <dt class="text-ink-faint">Número de registro</dt>
