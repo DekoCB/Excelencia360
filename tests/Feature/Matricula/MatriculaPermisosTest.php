@@ -993,6 +993,105 @@ class MatriculaPermisosTest extends TestCase
             ->assertDontSee('Cursos actuales');
     }
 
+    public function test_coordinador_edita_los_datos_personales_desde_la_ficha_completa(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create([
+            'nombres' => 'Nombre Viejo',
+            'dni' => '12345678',
+            'estado' => 'activo',
+        ]);
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.show', ['estudiante' => $estudiante])
+            ->call('iniciarEdicionDatosPersonales')
+            ->assertSet('editNombres', 'Nombre Viejo')
+            ->set('editNombres', 'Nombre Nuevo')
+            ->set('editApellidos', 'Apellido Nuevo')
+            ->set('editFechaNacimiento', '2000-05-10')
+            ->set('editEstadoCivil', 'casado')
+            ->set('editDireccion', 'Av. Siempre Viva 123')
+            ->set('editCelular', '987654321')
+            ->set('editEmail', 'nuevo@correo.test')
+            ->set('editEstado', 'pausa')
+            ->call('guardarDatosPersonales')
+            ->assertHasNoErrors();
+
+        $estudiante->refresh();
+        $this->assertSame('Nombre Nuevo', $estudiante->nombres);
+        $this->assertSame('Apellido Nuevo', $estudiante->apellidos);
+        $this->assertSame('2000-05-10', $estudiante->fecha_nacimiento->format('Y-m-d'));
+        $this->assertSame('casado', $estudiante->estado_civil->value);
+        $this->assertSame('Av. Siempre Viva 123', $estudiante->direccion);
+        $this->assertSame('987654321', $estudiante->celular);
+        $this->assertSame('nuevo@correo.test', $estudiante->email);
+        $this->assertSame('pausa', $estudiante->estado->value);
+        $this->assertSame('12345678', $estudiante->dni, 'El DNI no debe poder editarse desde aquí.');
+    }
+
+    public function test_el_boton_de_editar_datos_personales_no_aparece_sin_el_permiso_de_editar_matricula(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::DOCENTE->value);
+        $usuario->givePermissionTo('matricula.ver');
+        $estudiante = Estudiante::factory()->create();
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.show', ['estudiante' => $estudiante])
+            ->assertDontSee('Editar datos personales');
+    }
+
+    public function test_no_se_puede_guardar_datos_personales_sin_el_permiso_de_editar_matricula(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::DOCENTE->value);
+        $usuario->givePermissionTo('matricula.ver');
+        $estudiante = Estudiante::factory()->create();
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.show', ['estudiante' => $estudiante])
+            ->call('guardarDatosPersonales')
+            ->assertForbidden();
+    }
+
+    public function test_un_celular_invalido_no_pasa_la_validacion_al_editar_datos_personales(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create();
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.show', ['estudiante' => $estudiante])
+            ->call('iniciarEdicionDatosPersonales')
+            ->set('editCelular', '123')
+            ->call('guardarDatosPersonales')
+            ->assertHasErrors('editCelular');
+    }
+
+    public function test_editar_datos_personales_desde_el_modal_de_ficha(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create(['nombres' => 'Antes']);
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.ficha-modal')
+            ->call('abrir', $estudiante->id)
+            ->call('iniciarEdicionDatosPersonales')
+            ->assertSet('editNombres', 'Antes')
+            ->set('editNombres', 'Despues')
+            ->call('guardarDatosPersonales')
+            ->assertHasNoErrors();
+
+        $this->assertSame('Despues', $estudiante->fresh()->nombres);
+    }
+
     public function test_editar_monto_del_plan_de_pago_desde_la_pagina_completa_de_la_ficha(): void
     {
         $usuario = User::factory()->create();

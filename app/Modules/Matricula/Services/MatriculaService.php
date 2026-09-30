@@ -81,6 +81,32 @@ class MatriculaService
     }
 
     /**
+     * Corrige los datos personales del estudiante desde su ficha (botón de
+     * lápiz). El DNI no se toca aquí a propósito: de él se derivan el
+     * correo institucional y la cuenta de acceso (ver registrarEstudiante()),
+     * así que corregirlo necesita un tratamiento aparte, no uno genérico de
+     * "editar ficha".
+     *
+     * @param  array{nombres: string, apellidos: string, fechaNacimiento: ?string, estadoCivil: ?string, direccion: ?string, celular: ?string, email: ?string, estado: string}  $datos
+     */
+    public function actualizarDatosPersonales(Estudiante $estudiante, array $datos): Estudiante
+    {
+        $estudiante->update([
+            'nombres' => $datos['nombres'],
+            'apellidos' => $datos['apellidos'],
+            'fecha_nacimiento' => $datos['fechaNacimiento'],
+            'es_menor_edad' => self::esMenorDeEdad($datos['fechaNacimiento']),
+            'estado_civil' => $datos['estadoCivil'],
+            'direccion' => $datos['direccion'],
+            'celular' => $datos['celular'],
+            'email' => $datos['email'],
+            'estado' => $datos['estado'],
+        ]);
+
+        return $estudiante->fresh();
+    }
+
+    /**
      * Sin fecha de nacimiento (dato ahora opcional -- ver
      * registrarEstudiantesDesdeFilas()) no hay forma de saber la edad: se
      * asume que no es menor, ya que en este sistema el apoderado no es

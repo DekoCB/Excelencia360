@@ -18,6 +18,17 @@
     'agregandoCargo' => false,
     'cargoConceptoNuevo' => '',
     'cargoMontoNuevo' => '',
+    'editandoDatosPersonales' => false,
+    'editNombres' => '',
+    'editApellidos' => '',
+    'editFechaNacimiento' => '',
+    'editEstadoCivil' => '',
+    'editDireccion' => '',
+    'editCelular' => '',
+    'editEmail' => '',
+    'editEstado' => '',
+    'estadosCiviles' => [],
+    'estadosEstudiante' => [],
 ])
 
 {{--
@@ -39,27 +50,99 @@
     </div>
 
     <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
-        <h2 class="text-sm font-semibold text-ink">Datos personales</h2>
-        <dl class="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-            <div><dt class="text-ink-faint">Fecha de nacimiento</dt><dd class="text-ink">{{ $estudiante->fecha_nacimiento?->format('d/m/Y') ?? '—' }}</dd></div>
-            <div><dt class="text-ink-faint">Estado civil</dt><dd class="text-ink">{{ $estudiante->estado_civil?->label() ?? '—' }}</dd></div>
-            <div>
-                <dt class="text-ink-faint">Celular</dt>
-                <dd class="text-ink">
-                    {{ $estudiante->celular ?? '—' }}
-                    @foreach ($estudiante->telefonos as $telefono)
-                        <span class="block text-ink-dim">{{ $telefono->numero }}</span>
-                    @endforeach
-                </dd>
-            </div>
-            <div><dt class="text-ink-faint">Correo</dt><dd class="text-ink">{{ $estudiante->email ?? '—' }}</dd></div>
-            <div class="sm:col-span-2"><dt class="text-ink-faint">Dirección</dt><dd class="text-ink">{{ $estudiante->direccion ?? '—' }}</dd></div>
-            <div><dt class="text-ink-faint">Semestre actual</dt><dd class="text-ink">{{ $estudiante->gradoActual?->nombre ?? '—' }}</dd></div>
-            <div>
-                <dt class="text-ink-faint">Ciclos completados</dt>
-                <dd class="text-ink">{{ $estudiante->ciclos_completados }}{{ $matriculas->last()?->ciclo?->modalidad?->value !== 'anual' ? ' / 4' : '' }}</dd>
-            </div>
-        </dl>
+        <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-ink">Datos personales</h2>
+            @can('matricula.editar')
+                @if (! $editandoDatosPersonales)
+                    <button type="button" wire:click="iniciarEdicionDatosPersonales" class="rounded-md p-1.5 text-ink-faint transition hover:bg-surface-2 hover:text-ink" aria-label="Editar datos personales">
+                        <x-heroicon-o-pencil class="h-4 w-4" />
+                    </button>
+                @endif
+            @endcan
+        </div>
+
+        @if ($editandoDatosPersonales)
+            <form wire:submit="guardarDatosPersonales" class="mt-4 space-y-4">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <x-input-label for="editNombres" value="Nombres" />
+                        <x-text-input wire:model="editNombres" id="editNombres" class="mt-1 block w-full" />
+                        <x-input-error :messages="$errors->get('editNombres')" class="mt-1" />
+                    </div>
+                    <div>
+                        <x-input-label for="editApellidos" value="Apellidos" />
+                        <x-text-input wire:model="editApellidos" id="editApellidos" class="mt-1 block w-full" />
+                        <x-input-error :messages="$errors->get('editApellidos')" class="mt-1" />
+                    </div>
+                    <div>
+                        <x-input-label for="editFechaNacimiento" value="Fecha de nacimiento" />
+                        <x-date-input wire:model="editFechaNacimiento" id="editFechaNacimiento" class="mt-1 block w-full" />
+                        <x-input-error :messages="$errors->get('editFechaNacimiento')" class="mt-1" />
+                    </div>
+                    <div>
+                        <x-input-label for="editEstadoCivil" value="Estado civil" />
+                        <x-select-input
+                            wire:model="editEstadoCivil"
+                            id="editEstadoCivil"
+                            class="mt-1 block w-full"
+                            :options="collect($estadosCiviles)->mapWithKeys(fn ($opcion) => [$opcion->value => $opcion->label()])->prepend('Sin especificar', '')"
+                        />
+                    </div>
+                    <div>
+                        <x-input-label for="editCelular" value="Celular" />
+                        <x-text-input wire:model="editCelular" id="editCelular" class="mt-1 block w-full" />
+                        <x-input-error :messages="$errors->get('editCelular')" class="mt-1" />
+                    </div>
+                    <div>
+                        <x-input-label for="editEmail" value="Correo" />
+                        <x-text-input wire:model="editEmail" id="editEmail" type="email" class="mt-1 block w-full" />
+                        <x-input-error :messages="$errors->get('editEmail')" class="mt-1" />
+                    </div>
+                    <div class="sm:col-span-2">
+                        <x-input-label for="editDireccion" value="Dirección" />
+                        <x-text-input wire:model="editDireccion" id="editDireccion" class="mt-1 block w-full" />
+                        <x-input-error :messages="$errors->get('editDireccion')" class="mt-1" />
+                    </div>
+                    <div>
+                        <x-input-label for="editEstado" value="Estado" />
+                        <x-select-input
+                            wire:model="editEstado"
+                            id="editEstado"
+                            class="mt-1 block w-full"
+                            :options="collect($estadosEstudiante)->mapWithKeys(fn ($opcion) => [$opcion->value => $opcion->label()])"
+                        />
+                        <x-input-error :messages="$errors->get('editEstado')" class="mt-1" />
+                    </div>
+                </div>
+                <p class="text-xs text-ink-faint">El DNI no se puede cambiar desde aquí: de él dependen el correo institucional y el acceso al sistema.</p>
+                <div class="flex justify-end gap-3">
+                    <x-secondary-button type="button" wire:click="cancelarEdicionDatosPersonales">Cancelar</x-secondary-button>
+                    <x-primary-button type="submit">Guardar</x-primary-button>
+                </div>
+            </form>
+        @else
+            <dl class="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+                <div><dt class="text-ink-faint">Fecha de nacimiento</dt><dd class="text-ink">{{ $estudiante->fecha_nacimiento?->format('d/m/Y') ?? '—' }}</dd></div>
+                <div><dt class="text-ink-faint">Estado civil</dt><dd class="text-ink">{{ $estudiante->estado_civil?->label() ?? '—' }}</dd></div>
+                <div>
+                    <dt class="text-ink-faint">Celular</dt>
+                    <dd class="text-ink">
+                        {{ $estudiante->celular ?? '—' }}
+                        @foreach ($estudiante->telefonos as $telefono)
+                            <span class="block text-ink-dim">{{ $telefono->numero }}</span>
+                        @endforeach
+                    </dd>
+                </div>
+                <div><dt class="text-ink-faint">Correo</dt><dd class="text-ink">{{ $estudiante->email ?? '—' }}</dd></div>
+                <div class="sm:col-span-2"><dt class="text-ink-faint">Dirección</dt><dd class="text-ink">{{ $estudiante->direccion ?? '—' }}</dd></div>
+                <div><dt class="text-ink-faint">Estado</dt><dd class="text-ink">{{ $estudiante->estado->label() }}</dd></div>
+                <div><dt class="text-ink-faint">Semestre actual</dt><dd class="text-ink">{{ $estudiante->gradoActual?->nombre ?? '—' }}</dd></div>
+                <div>
+                    <dt class="text-ink-faint">Ciclos completados</dt>
+                    <dd class="text-ink">{{ $estudiante->ciclos_completados }}{{ $matriculas->last()?->ciclo?->modalidad?->value !== 'anual' ? ' / 4' : '' }}</dd>
+                </div>
+            </dl>
+        @endif
     </div>
 
     @php

@@ -2,6 +2,8 @@
 
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\Matricula\Enums\EstadoCivilEnum;
+use App\Modules\Matricula\Enums\EstadoEstudianteEnum;
 use App\Modules\Matricula\Models\DocumentoEstudiante;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
@@ -54,6 +56,24 @@ new class extends Component
 
     public string $cargoMontoNuevo = '';
 
+    public bool $editandoDatosPersonales = false;
+
+    public string $editNombres = '';
+
+    public string $editApellidos = '';
+
+    public string $editFechaNacimiento = '';
+
+    public string $editEstadoCivil = '';
+
+    public string $editDireccion = '';
+
+    public string $editCelular = '';
+
+    public string $editEmail = '';
+
+    public string $editEstado = '';
+
     #[On('ver-estudiante')]
     public function abrir(int $estudianteId): void
     {
@@ -73,6 +93,60 @@ new class extends Component
         $this->agregandoCargo = false;
         $this->cargoConceptoNuevo = '';
         $this->cargoMontoNuevo = '';
+        $this->editandoDatosPersonales = false;
+    }
+
+    public function iniciarEdicionDatosPersonales(): void
+    {
+        Gate::authorize('matricula.editar');
+
+        $estudiante = Estudiante::query()->findOrFail($this->estudianteId);
+
+        $this->editandoDatosPersonales = true;
+        $this->editNombres = $estudiante->nombres;
+        $this->editApellidos = $estudiante->apellidos;
+        $this->editFechaNacimiento = $estudiante->fecha_nacimiento?->format('Y-m-d') ?? '';
+        $this->editEstadoCivil = $estudiante->estado_civil?->value ?? '';
+        $this->editDireccion = $estudiante->direccion ?? '';
+        $this->editCelular = $estudiante->celular ?? '';
+        $this->editEmail = $estudiante->email ?? '';
+        $this->editEstado = $estudiante->estado->value;
+    }
+
+    public function cancelarEdicionDatosPersonales(): void
+    {
+        $this->editandoDatosPersonales = false;
+    }
+
+    public function guardarDatosPersonales(MatriculaService $service): void
+    {
+        Gate::authorize('matricula.editar');
+
+        $datos = $this->validate([
+            'editNombres' => 'required|string|max:100',
+            'editApellidos' => 'required|string|max:100',
+            'editFechaNacimiento' => 'nullable|date|before:today',
+            'editEstadoCivil' => 'nullable|string|in:'.implode(',', array_column(EstadoCivilEnum::cases(), 'value')),
+            'editDireccion' => 'nullable|string|max:150',
+            'editCelular' => 'nullable|regex:/^9[0-9]{8}$/',
+            'editEmail' => 'nullable|email|max:150',
+            'editEstado' => 'required|string|in:'.implode(',', array_column(EstadoEstudianteEnum::cases(), 'value')),
+        ]);
+
+        $estudiante = Estudiante::query()->findOrFail($this->estudianteId);
+
+        $service->actualizarDatosPersonales($estudiante, [
+            'nombres' => $datos['editNombres'],
+            'apellidos' => $datos['editApellidos'],
+            'fechaNacimiento' => $datos['editFechaNacimiento'] ?: null,
+            'estadoCivil' => $datos['editEstadoCivil'] ?: null,
+            'direccion' => $datos['editDireccion'] ?: null,
+            'celular' => $datos['editCelular'] ?: null,
+            'email' => $datos['editEmail'] ?: null,
+            'estado' => $datos['editEstado'],
+        ]);
+
+        $this->editandoDatosPersonales = false;
     }
 
     public function verificarDocumento(int $documentoId, DocumentoEstudianteService $service): void
@@ -340,6 +414,8 @@ new class extends Component
             'cargosAdicionales' => $estudiante !== null && Auth::user()->hasPermissionTo('pagos.ver')
                 ? CargoAdicional::query()->where('estudiante_id', $estudiante->id)->get()
                 : collect(),
+            'estadosCiviles' => EstadoCivilEnum::cases(),
+            'estadosEstudiante' => EstadoEstudianteEnum::cases(),
         ];
     }
 }; ?>
@@ -380,6 +456,17 @@ new class extends Component
                     :agregando-cargo="$agregandoCargo"
                     :cargo-concepto-nuevo="$cargoConceptoNuevo"
                     :cargo-monto-nuevo="$cargoMontoNuevo"
+                    :editando-datos-personales="$editandoDatosPersonales"
+                    :edit-nombres="$editNombres"
+                    :edit-apellidos="$editApellidos"
+                    :edit-fecha-nacimiento="$editFechaNacimiento"
+                    :edit-estado-civil="$editEstadoCivil"
+                    :edit-direccion="$editDireccion"
+                    :edit-celular="$editCelular"
+                    :edit-email="$editEmail"
+                    :edit-estado="$editEstado"
+                    :estados-civiles="$estadosCiviles"
+                    :estados-estudiante="$estadosEstudiante"
                 />
             @else
                 <p class="py-8 text-center text-sm text-ink-faint">Cargando…</p>
