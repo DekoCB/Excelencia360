@@ -5,6 +5,7 @@ namespace Tests\Feature\Auth;
 use App\Models\User;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Identidad\Models\RegistroIngreso;
+use App\Shared\Enums\CategoriaAccesoEnum;
 use App\Shared\Enums\EstadoUsuarioEnum;
 use App\Shared\Enums\RolEnum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -166,23 +167,24 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticatedAs($docente);
     }
 
-    public function test_elegir_apoderado_y_autenticarse_con_credenciales_de_apoderado_completa_el_login(): void
+    public function test_la_categoria_apoderado_ya_no_existe_como_puerta_de_entrada(): void
     {
-        $this->seed(RolesAndPermissionsSeeder::class);
+        $this->assertNull(CategoriaAccesoEnum::tryFrom('apoderado'));
 
-        $apoderado = User::factory()->create();
-        $apoderado->assignRole(RolEnum::APODERADO->value);
+        $this->expectException(\ValueError::class);
 
-        Volt::test('pages.auth.login')
-            ->call('elegirCategoria', 'apoderado')
-            ->set('form.nombre', 'Quien Ingresa')
-            ->set('form.email', $apoderado->email)
-            ->set('form.password', 'password')
-            ->call('login')
-            ->assertHasNoErrors()
-            ->assertRedirect(route('dashboard', absolute: false));
+        Volt::test('pages.auth.login')->call('elegirCategoria', 'apoderado');
+    }
 
-        $this->assertAuthenticatedAs($apoderado);
+    public function test_el_selector_de_login_solo_muestra_personal_y_estudiante(): void
+    {
+        $response = $this->get('/login');
+
+        $response
+            ->assertOk()
+            ->assertSee('Estudiante')
+            ->assertSee('Personal administrativo')
+            ->assertDontSee('Apoderado');
     }
 
     public function test_elegir_estudiante_pero_autenticarse_con_credenciales_de_apoderado_es_rechazado(): void
@@ -194,6 +196,25 @@ class AuthenticationTest extends TestCase
 
         Volt::test('pages.auth.login')
             ->call('elegirCategoria', 'estudiante')
+            ->set('form.nombre', 'Quien Ingresa')
+            ->set('form.email', $apoderado->email)
+            ->set('form.password', 'password')
+            ->call('login')
+            ->assertHasErrors('form.email')
+            ->assertNoRedirect();
+
+        $this->assertGuest();
+    }
+
+    public function test_elegir_personal_pero_autenticarse_con_credenciales_de_apoderado_es_rechazado(): void
+    {
+        $this->seed(RolesAndPermissionsSeeder::class);
+
+        $apoderado = User::factory()->create();
+        $apoderado->assignRole(RolEnum::APODERADO->value);
+
+        Volt::test('pages.auth.login')
+            ->call('elegirCategoria', 'personal')
             ->set('form.nombre', 'Quien Ingresa')
             ->set('form.email', $apoderado->email)
             ->set('form.password', 'password')

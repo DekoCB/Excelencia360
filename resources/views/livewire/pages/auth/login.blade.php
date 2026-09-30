@@ -60,12 +60,10 @@ new #[Layout('layouts.login')] class extends Component
         @php
             $iconoPorCategoria = [
                 CategoriaAccesoEnum::ESTUDIANTE->value => 'academic-cap',
-                CategoriaAccesoEnum::APODERADO->value => 'user-group',
                 CategoriaAccesoEnum::PERSONAL->value => 'briefcase',
             ];
             $descripcionPorCategoria = [
                 CategoriaAccesoEnum::ESTUDIANTE->value => 'Matrícula, notas y asistencia',
-                CategoriaAccesoEnum::APODERADO->value => 'Notas, pagos y documentos de tu(s) hijo(s)',
                 CategoriaAccesoEnum::PERSONAL->value => 'Docentes, coordinación, dirección, tesorería y administrativo',
             ];
         @endphp
@@ -75,7 +73,7 @@ new #[Layout('layouts.login')] class extends Component
                 <button
                     type="button"
                     wire:click="elegirCategoria('{{ $opcion->value }}')"
-                    class="group w-full rounded-2xl border border-border bg-surface-2 p-4 text-center transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-accent-soft sm:w-[calc((100%-1.5rem)/3)]"
+                    class="group w-full rounded-2xl border border-border bg-surface-2 p-4 text-center transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-accent-soft sm:w-[calc((100%-0.75rem)/2)]"
                 >
                     <span class="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent transition duration-300 group-hover:scale-110">
                         <x-dynamic-component :component="'heroicon-o-'.$iconoPorCategoria[$opcion->value]" class="h-5 w-5" />
