@@ -40,9 +40,45 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $docenteFiltro = '';
 
+    /** @var list<int> */
+    public array $seleccionados = [];
+
+    /** @var list<int> */
+    public array $idsPaginaActual = [];
+
     public function mount(): void
     {
         Gate::authorize('matricula.ver');
+    }
+
+    public function alternarSeleccionTodos(): void
+    {
+        $idsDeLaPagina = $this->idsPaginaActual;
+
+        $todosSeleccionados = $idsDeLaPagina !== [] && count(array_diff($idsDeLaPagina, $this->seleccionados)) === 0;
+
+        $this->seleccionados = $todosSeleccionados
+            ? array_values(array_diff($this->seleccionados, $idsDeLaPagina))
+            : array_values(array_unique([...$this->seleccionados, ...$idsDeLaPagina]));
+    }
+
+    public function limpiarSeleccion(): void
+    {
+        $this->seleccionados = [];
+    }
+
+    public function eliminarSeleccionados(MatriculaService $service): void
+    {
+        Gate::authorize('matricula.eliminar');
+
+        if ($this->seleccionados === []) {
+            return;
+        }
+
+        $eliminados = $service->eliminarEstudiantes($this->seleccionados);
+
+        $this->seleccionados = [];
+        session()->flash('status', $eliminados === 1 ? '1 estudiante eliminado.' : "{$eliminados} estudiantes eliminados.");
     }
 
     #[On('wizard-cerrado')]
@@ -115,6 +151,8 @@ new #[Layout('layouts.app')] class extends Component
             cursoId: $this->cursoFiltro !== '' ? (int) $this->cursoFiltro : null,
             docenteId: $this->docenteFiltro !== '' ? (int) $this->docenteFiltro : null,
         );
+
+        $this->idsPaginaActual = $estudiantes->pluck('id')->all();
 
         return [
             'estudiantes' => $estudiantes,
@@ -274,6 +312,36 @@ new #[Layout('layouts.app')] class extends Component
         </div>
     @endif
 
+    @can('matricula.eliminar')
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface-2 px-4 py-2.5">
+            <label class="flex items-center gap-2 text-sm font-medium text-ink-dim">
+                <input
+                    type="checkbox"
+                    wire:click="alternarSeleccionTodos"
+                    @checked($idsPaginaActual !== [] && count(array_diff($idsPaginaActual, $seleccionados)) === 0)
+                    class="rounded border-border text-accent focus:ring-accent"
+                >
+                Seleccionar todos en esta página
+            </label>
+
+            @if (count($seleccionados) > 0)
+                <div class="flex items-center gap-3">
+                    <span class="text-sm text-ink-dim">{{ count($seleccionados) }} seleccionado{{ count($seleccionados) === 1 ? '' : 's' }}</span>
+                    <button type="button" wire:click="limpiarSeleccion" class="text-sm font-medium text-ink-faint hover:underline">Cancelar</button>
+                    <x-danger-button
+                        type="button"
+                        x-data
+                        x-on:click="$store.confirm.preguntar('¿Eliminar a {{ count($seleccionados) }} estudiante(s)? Dejan de aparecer en el sistema, pero su información no se borra y se puede restaurar si fue un error.', () => $wire.eliminarSeleccionados(), { etiquetaConfirmar: 'Eliminar' })"
+                        class="gap-1.5 normal-case tracking-normal"
+                    >
+                        <x-heroicon-o-trash class="h-4 w-4" />
+                        Eliminar
+                    </x-danger-button>
+                </div>
+            @endif
+        </div>
+    @endcan
+
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         @forelse ($estudiantes as $estudiante)
             <div wire:key="estudiante-{{ $estudiante->id }}" class="relative overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition hover:shadow-md">
@@ -284,6 +352,16 @@ new #[Layout('layouts.app')] class extends Component
                 ])>
                     {{ $estudiante->estado->label() }}
                 </span>
+
+                @can('matricula.eliminar')
+                    <input
+                        type="checkbox"
+                        wire:model.live="seleccionados"
+                        value="{{ $estudiante->id }}"
+                        class="absolute right-3 top-3 h-4 w-4 rounded border-border text-accent focus:ring-accent"
+                        aria-label="Seleccionar a {{ $estudiante->nombreCompleto() }}"
+                    >
+                @endcan
 
                 <div class="flex flex-col items-center gap-3 p-6 pt-10">
                     @if ($estudiante->fotoUrl())

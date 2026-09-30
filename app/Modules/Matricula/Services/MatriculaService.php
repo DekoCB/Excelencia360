@@ -66,6 +66,21 @@ class MatriculaService
     }
 
     /**
+     * Borrado reversible (soft delete): los estudiantes desaparecen de
+     * listas y búsquedas, pero su fila y todo lo relacionado (matrículas,
+     * pagos, certificados, notas...) se conservan intactos -- Estudiante
+     * ya usa SoftDeletes, así que ->delete() aquí nunca dispara el
+     * cascadeOnDelete real de la base de datos (eso solo pasa con
+     * forceDelete(), que esta función no usa a propósito).
+     *
+     * @param  list<int>  $ids
+     */
+    public function eliminarEstudiantes(array $ids): int
+    {
+        return Estudiante::query()->whereIn('id', $ids)->delete();
+    }
+
+    /**
      * Sin fecha de nacimiento (dato ahora opcional -- ver
      * registrarEstudiantesDesdeFilas()) no hay forma de saber la edad: se
      * asume que no es menor, ya que en este sistema el apoderado no es
