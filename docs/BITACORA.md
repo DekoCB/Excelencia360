@@ -7,6 +7,61 @@ fecha y los commits que le corresponden.
 
 ---
 
+## 2026-09-30
+
+### Backlog de 7 puntos: eliminación masiva, cursos de capacitación fusionados con Académico, ficha de estudiante editable, y más
+
+**Commits:** `631b346`, `c4c82f4`, `7e1d1b5`, `740c8c2`, `82b6c75`, `a574249`, `7709520`.
+
+1. **Eliminar estudiantes de forma masiva** (`631b346`): borrado reversible
+   (`Estudiante` ya usaba `SoftDeletes`, solo faltaba exponerlo en la UI de
+   Matrícula) — desaparecen de listas/búsquedas pero conservan matrículas,
+   pagos, certificados y notas intactos. Selección por casilla + "Seleccionar
+   todos en esta página", gateado por `matricula.eliminar` (nuevo permiso,
+   Coordinador y Dirección).
+2. **Columna "Curso" en la previsualización de importación masiva de
+   certificados** (`c4c82f4`): el dato ya se calculaba, solo faltaba
+   mostrarlo en la tabla de vista previa.
+3. **Fusión completa de cursos de capacitación con el módulo Académico**
+   (`7709520`, el cambio más grande del lote): `cursos_capacitacion` deja de
+   existir como tabla aparte. Un curso de capacitación pasa a ser una fila
+   más de `cursos` con `tipo=capacitacion` (nuevo discriminador), sin
+   semestre ni horario — relajando solo la validación del formulario, ya
+   que la relación con Grado no estaba forzada a nivel de base de datos
+   desde la reestructuración de Programa de Estudio. Migración única que
+   remapea cada certificado existente a su curso nuevo antes de borrar la
+   tabla vieja (verificado contra los datos reales de desarrollo, incluidos
+   los lotes GE-2026-004/012). La pestaña "Cursos de capacitación" dentro de
+   Certificados desaparece; el catálogo unificado vive en Académico → Cursos
+   con un selector de Tipo y pestañas de filtro.
+4. **Cursos actuales en la ficha del estudiante** (`740c8c2`): nueva tarjeta
+   que muestra los cursos de la matrícula vigente (la más reciente no
+   anulada) con docente y horario, reusando datos que ya se calculaban por
+   matrícula.
+5. **Login: solo Personal administrativo y Estudiante** (`7e1d1b5`): se quita
+   la puerta de entrada de Apoderado (decisión del cliente: las cuentas de
+   apoderado existentes dejan de poder entrar). `CategoriaAccesoEnum` pierde
+   el caso `APODERADO`, así que ni la UI ni una llamada directa forzando esa
+   categoría pueden pasar el chequeo — el resto del Portal de Apoderados
+   (listado para staff, mis-hijos) sigue intacto, solo se cierra el login.
+6. **Editar el nombre del estudiante desde el modal de certificados/constancias**
+   (`82b6c75`): corrige al `Estudiante` vinculado (no al certificado, que no
+   guarda copia propia del nombre), así que el cambio se ve en toda su ficha
+   y en el resto de sus documentos.
+7. **Editar todos los datos personales desde la ficha del estudiante**
+   (`a574249`): botón de lápiz en "Datos personales" (modal y página
+   completa). El DNI queda de solo lectura a propósito — de él dependen el
+   correo institucional y la cuenta de acceso, así que corregirlo necesita
+   un tratamiento aparte (decisión confirmada con el cliente).
+
+Verificación de todo el lote: suite completa en verde (1211/1212 — la 1
+falla es un flake preexistente de AulaVirtual ya conocido, no relacionado),
+Pint y Larastan limpios, y recorrido manual en `localhost:8360` para el
+punto 3 (crear curso de capacitación sin semestre, emitir un certificado con
+él, confirmar PDF y que la pestaña vieja ya no existe).
+
+---
+
 ## 2026-09-21
 
 ### Primer despliegue real a producción (excelencia360.pe, Hostinger) + certificados de capacitación reales
