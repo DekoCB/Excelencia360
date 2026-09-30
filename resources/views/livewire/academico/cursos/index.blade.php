@@ -157,7 +157,11 @@ new #[Layout('layouts.app')] class extends Component
         }
 
         $this->validate([
-            'nombre' => 'required|string|max:100',
+            // cursos.nombre admite 150: los cursos de capacitación traen
+            // nombres largos de resolución oficial (hay uno real con 147
+            // caracteres); los académicos se quedan en el tope corto de
+            // siempre.
+            'nombre' => 'required|string|max:'.($esCapacitacion ? 150 : 100),
             'codigo' => 'required|string|max:20',
             'tipo' => 'required|string|in:'.implode(',', array_column(TipoCursoEnum::cases(), 'value')),
             'gradoIds' => $esCapacitacion ? 'array' : 'required|array|min:1',

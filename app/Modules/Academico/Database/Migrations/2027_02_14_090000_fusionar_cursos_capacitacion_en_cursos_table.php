@@ -18,46 +18,76 @@ use Illuminate\Support\Facades\Schema;
  */
 return new class extends Migration
 {
+    /**
+     * Idempotente a propósito: en el primer intento real (producción,
+     * 2026-09-30) esta migración reventó a mitad de camino porque un
+     * nombre de curso real (147 caracteres, resolución oficial larga) no
+     * entraba en cursos.nombre (100) -- cursos.nombre nació pensado solo
+     * para cursos académicos cortos. Cada paso de esquema se salta si ya
+     * se aplicó en un intento anterior, así que re-correr esta migración
+     * después de arreglar la causa (el ancho de la columna) termina el
+     * trabajo sin chocar con lo que ya haya quedado a medias.
+     */
     public function up(): void
     {
+        if (! Schema::hasColumn('cursos', 'tipo')) {
+            Schema::table('cursos', function (Blueprint $table) {
+                $table->string('tipo', 20)->default('academico')->after('codigo');
+            });
+        }
+
+        if (! Schema::hasColumn('cursos', 'documento_autorizacion')) {
+            Schema::table('cursos', function (Blueprint $table) {
+                $table->string('documento_autorizacion', 150)->nullable()->after('horas');
+            });
+        }
+
+        // cursos_capacitacion.nombre permitía 150 caracteres (resoluciones
+        // oficiales largas); cursos.nombre nació en 100, pensado solo para
+        // cursos académicos cortos. Se agranda antes de copiar datos.
         Schema::table('cursos', function (Blueprint $table) {
-            $table->string('tipo', 20)->default('academico')->after('codigo');
-            $table->string('documento_autorizacion', 150)->nullable()->after('horas');
+            $table->string('nombre', 150)->change();
         });
 
-        Schema::table('certificados', function (Blueprint $table) {
-            $table->foreignId('curso_id')->nullable()->after('curso_capacitacion_id')
-                ->constrained('cursos')->nullOnDelete();
-        });
+        if (! Schema::hasColumn('certificados', 'curso_id')) {
+            Schema::table('certificados', function (Blueprint $table) {
+                $table->foreignId('curso_id')->nullable()->after('curso_capacitacion_id')
+                    ->constrained('cursos')->nullOnDelete();
+            });
+        }
 
-        DB::transaction(function () {
-            $mapaIds = [];
+        if (Schema::hasTable('cursos_capacitacion')) {
+            DB::transaction(function () {
+                $mapaIds = [];
 
-            foreach (DB::table('cursos_capacitacion')->get() as $cursoCapacitacion) {
-                $nuevoId = DB::table('cursos')->insertGetId([
-                    'nombre' => $cursoCapacitacion->nombre,
-                    'codigo' => $this->generarCodigoCapacitacion($cursoCapacitacion->nombre),
-                    'tipo' => 'capacitacion',
-                    'horas' => $cursoCapacitacion->horas_lectivas,
-                    'documento_autorizacion' => $cursoCapacitacion->documento_autorizacion,
-                    'activo' => true,
-                    'created_at' => $cursoCapacitacion->created_at,
-                    'updated_at' => $cursoCapacitacion->updated_at,
-                ]);
+                foreach (DB::table('cursos_capacitacion')->get() as $cursoCapacitacion) {
+                    $nuevoId = DB::table('cursos')->insertGetId([
+                        'nombre' => $cursoCapacitacion->nombre,
+                        'codigo' => $this->generarCodigoCapacitacion($cursoCapacitacion->nombre),
+                        'tipo' => 'capacitacion',
+                        'horas' => $cursoCapacitacion->horas_lectivas,
+                        'documento_autorizacion' => $cursoCapacitacion->documento_autorizacion,
+                        'activo' => true,
+                        'created_at' => $cursoCapacitacion->created_at,
+                        'updated_at' => $cursoCapacitacion->updated_at,
+                    ]);
 
-                $mapaIds[$cursoCapacitacion->id] = $nuevoId;
+                    $mapaIds[$cursoCapacitacion->id] = $nuevoId;
+                }
+
+                foreach ($mapaIds as $idViejo => $idNuevo) {
+                    DB::table('certificados')->where('curso_capacitacion_id', $idViejo)->update(['curso_id' => $idNuevo]);
+                }
+            });
+
+            if (Schema::hasColumn('certificados', 'curso_capacitacion_id')) {
+                Schema::table('certificados', function (Blueprint $table) {
+                    $table->dropConstrainedForeignId('curso_capacitacion_id');
+                });
             }
 
-            foreach ($mapaIds as $idViejo => $idNuevo) {
-                DB::table('certificados')->where('curso_capacitacion_id', $idViejo)->update(['curso_id' => $idNuevo]);
-            }
-        });
-
-        Schema::table('certificados', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('curso_capacitacion_id');
-        });
-
-        Schema::dropIfExists('cursos_capacitacion');
+            Schema::dropIfExists('cursos_capacitacion');
+        }
     }
 
     public function down(): void

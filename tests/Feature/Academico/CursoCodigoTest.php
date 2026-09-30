@@ -199,4 +199,42 @@ class CursoCodigoTest extends TestCase
             ->assertSee('Curso Académico Visible')
             ->assertSee('Curso Capacitación Visible');
     }
+
+    /**
+     * Regresión: en el primer intento real de la migración de fusión
+     * (producción, 2026-09-30) un nombre de curso de capacitación real de
+     * 147 caracteres (resolución oficial larga) reventó el insert porque
+     * cursos.nombre nació en 100 -- cursos_capacitacion.nombre permitía
+     * 150. Se agrandó la columna a 150; este test cubre tanto el guardado
+     * directo como el formulario.
+     */
+    public function test_un_curso_de_capacitacion_admite_un_nombre_largo_de_resolucion_oficial(): void
+    {
+        $nombreLargo = 'Psicología Educativa, Tutoría y Educación Inclusiva para el Acompañamiento Socioemocional y Desarrollo de Habilidades Blandas en Educación Superior';
+        $this->assertSame(147, mb_strlen($nombreLargo));
+
+        $curso = Curso::factory()->capacitacion()->create(['nombre' => $nombreLargo]);
+
+        $this->assertSame($nombreLargo, $curso->fresh()->nombre);
+    }
+
+    public function test_crear_un_curso_de_capacitacion_con_nombre_largo_desde_el_formulario(): void
+    {
+        $this->seed(RolesAndPermissionsSeeder::class);
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $nombreLargo = 'Psicología Educativa, Tutoría y Educación Inclusiva para el Acompañamiento Socioemocional y Desarrollo de Habilidades Blandas en Educación Superior';
+
+        $this->actingAs($coordinador);
+
+        Volt::test('academico.cursos.index')
+            ->call('abrirModal')
+            ->set('tipo', 'capacitacion')
+            ->set('nombre', $nombreLargo)
+            ->set('horas', '128')
+            ->call('guardar')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('cursos', ['nombre' => $nombreLargo, 'tipo' => 'capacitacion']);
+    }
 }
