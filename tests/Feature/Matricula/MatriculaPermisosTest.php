@@ -14,6 +14,7 @@ use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Enums\TipoDocumentoEnum;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
+use App\Modules\Matricula\Models\MatriculaCursoCorto;
 use App\Modules\Matricula\Services\DocumentoEstudianteService;
 use App\Modules\Pagos\Models\CargoAdicional;
 use App\Modules\Pagos\Models\Pago;
@@ -563,6 +564,87 @@ class MatriculaPermisosTest extends TestCase
             ->assertHasErrors('dni');
 
         $this->assertDatabaseCount('estudiantes', 1);
+    }
+
+    public function test_elegir_curso_corto_en_el_wizard_salta_programa_y_semestre_y_matricula_al_curso(): void
+    {
+        Storage::fake('public');
+
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+
+        $curso = Curso::factory()->capacitacion()->create(['nombre' => 'Ofimática Básica']);
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.wizard')
+            ->set('nombres', 'Hugo')
+            ->set('apellidos', 'Ramos Castro')
+            ->set('dni', '55667744')
+            ->set('fechaNacimiento', now()->subYears(25)->format('Y-m-d'))
+            ->call('avanzar')
+            ->assertSet('paso', 3)
+            ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
+            ->call('avanzar')
+            ->assertSet('paso', 4)
+            ->call('avanzar')
+            ->assertSet('paso', 5)
+            ->set('tipoMatricula', 'curso_corto')
+            ->set('cursoCortoId', (string) $curso->id)
+            ->set('fechaMatricula', now()->format('Y-m-d'))
+            ->call('avanzar')
+            ->assertHasNoErrors()
+            ->assertSet('paso', 6)
+            ->call('confirmar')
+            ->assertHasNoErrors()
+            ->assertDispatched('matricula-registrada');
+
+        $estudiante = Estudiante::query()->where('dni', '55667744')->firstOrFail();
+
+        $this->assertDatabaseCount('matriculas', 0);
+        $this->assertDatabaseHas('matriculas_curso_corto', [
+            'estudiante_id' => $estudiante->id,
+            'curso_id' => $curso->id,
+        ]);
+    }
+
+    public function test_el_wizard_no_crea_plan_de_pago_al_matricular_un_curso_corto(): void
+    {
+        Storage::fake('public');
+
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+
+        $curso = Curso::factory()->capacitacion()->create();
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.wizard')
+            ->set('nombres', 'Elena')
+            ->set('apellidos', 'Quiroz Paz')
+            ->set('dni', '55667745')
+            ->set('fechaNacimiento', now()->subYears(25)->format('Y-m-d'))
+            ->call('avanzar')
+            ->assertSet('paso', 3)
+            ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
+            ->call('avanzar')
+            ->assertSet('paso', 4)
+            ->call('avanzar')
+            ->assertSet('paso', 5)
+            ->set('tipoMatricula', 'curso_corto')
+            ->set('cursoCortoId', (string) $curso->id)
+            ->set('fechaMatricula', now()->format('Y-m-d'))
+            ->call('avanzar')
+            ->assertSet('paso', 6)
+            ->call('confirmar')
+            ->assertHasNoErrors()
+            ->assertDispatched('matricula-registrada');
+
+        $estudiante = Estudiante::query()->where('dni', '55667745')->firstOrFail();
+
+        $this->assertDatabaseMissing('planes_pago', ['matricula_id' => null]);
+        $this->assertSame(0, PlanPago::query()->count());
+        $this->assertSame(0, $estudiante->matriculas()->count());
     }
 
     public function test_el_wizard_configura_un_cronograma_de_pagos_personalizado_al_matricular(): void
@@ -1126,6 +1208,97 @@ class MatriculaPermisosTest extends TestCase
 
         Volt::test('matricula.show', ['estudiante' => $estudiante])
             ->assertDontSee('Cursos actuales');
+    }
+
+    public function test_la_ficha_muestra_los_cursos_cortos_del_estudiante(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+
+        $estudiante = Estudiante::factory()->create();
+        $curso = Curso::factory()->capacitacion()->create(['nombre' => 'Excel Intermedio']);
+        MatriculaCursoCorto::factory()->create([
+            'estudiante_id' => $estudiante->id,
+            'curso_id' => $curso->id,
+        ]);
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.show', ['estudiante' => $estudiante])
+            ->assertSee('Cursos cortos')
+            ->assertSee('Excel Intermedio');
+    }
+
+    public function test_la_ficha_no_muestra_la_tarjeta_de_cursos_cortos_sin_ninguno(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create();
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.show', ['estudiante' => $estudiante])
+            ->assertDontSee('Cursos cortos');
+    }
+
+    public function test_marcar_un_curso_corto_como_concluido_desde_la_ficha(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+
+        $estudiante = Estudiante::factory()->create();
+        $cursoCorto = MatriculaCursoCorto::factory()->create([
+            'estudiante_id' => $estudiante->id,
+        ]);
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.show', ['estudiante' => $estudiante])
+            ->call('finalizarCursoCorto', $cursoCorto->id, 'concluido')
+            ->assertHasNoErrors();
+
+        $this->assertSame('concluido', $cursoCorto->fresh()->estado->value);
+        $this->assertNotNull($cursoCorto->fresh()->fecha_fin);
+    }
+
+    public function test_marcar_un_curso_corto_como_concluido_desde_el_modal_de_ficha(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+
+        $estudiante = Estudiante::factory()->create();
+        $cursoCorto = MatriculaCursoCorto::factory()->create([
+            'estudiante_id' => $estudiante->id,
+        ]);
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.ficha-modal')
+            ->call('abrir', $estudiante->id)
+            ->call('finalizarCursoCorto', $cursoCorto->id, 'retirado')
+            ->assertHasNoErrors();
+
+        $this->assertSame('retirado', $cursoCorto->fresh()->estado->value);
+    }
+
+    public function test_no_se_puede_finalizar_un_curso_corto_sin_el_permiso_de_editar_matricula(): void
+    {
+        $docente = User::factory()->create();
+        $docente->assignRole(RolEnum::DOCENTE->value);
+        $docente->givePermissionTo('matricula.ver');
+
+        $estudiante = Estudiante::factory()->create();
+        $cursoCorto = MatriculaCursoCorto::factory()->create([
+            'estudiante_id' => $estudiante->id,
+        ]);
+
+        $this->actingAs($docente);
+
+        Volt::test('matricula.show', ['estudiante' => $estudiante])
+            ->call('finalizarCursoCorto', $cursoCorto->id, 'concluido')
+            ->assertForbidden();
+
+        $this->assertSame('activo', $cursoCorto->fresh()->estado->value);
     }
 
     public function test_coordinador_edita_los_datos_personales_desde_la_ficha_completa(): void

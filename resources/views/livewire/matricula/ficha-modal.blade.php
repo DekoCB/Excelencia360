@@ -4,10 +4,12 @@ use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Matricula\Enums\EstadoCivilEnum;
 use App\Modules\Matricula\Enums\EstadoEstudianteEnum;
+use App\Modules\Matricula\Enums\EstadoMatriculaCursoCortoEnum;
 use App\Modules\Matricula\Enums\TipoDocumentoEnum;
 use App\Modules\Matricula\Models\DocumentoEstudiante;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
+use App\Modules\Matricula\Models\MatriculaCursoCorto;
 use App\Modules\Matricula\Services\DocumentoEstudianteService;
 use App\Modules\Matricula\Services\MatriculaService;
 use App\Modules\Pagos\Enums\EstadoCuotaEnum;
@@ -282,6 +284,15 @@ new class extends Component
         $this->fechaFinEstudioNueva = '';
     }
 
+    public function finalizarCursoCorto(int $cursoCortoId, string $estado, MatriculaService $service): void
+    {
+        Gate::authorize('matricula.editar');
+
+        $cursoCorto = MatriculaCursoCorto::query()->findOrFail($cursoCortoId);
+
+        $service->finalizarCursoCorto($cursoCorto, EstadoMatriculaCursoCortoEnum::from($estado));
+    }
+
     public function editarHorario(int $matriculaId, int $cursoId): void
     {
         Gate::authorize('matricula.editar');
@@ -472,6 +483,7 @@ new class extends Component
             'documentos' => $estudiante?->documentos()->with('media')->get(),
             'examenes' => $estudiante?->examenesUbicacion()->with('gradoAsignado')->latest('fecha')->get(),
             'matriculas' => $matriculas,
+            'cursosCortos' => $estudiante?->cursosCortos()->with('curso')->latest('fecha_inicio')->get() ?? collect(),
             'cursosConHorarios' => $matriculas?->mapWithKeys(fn (Matricula $matricula) => [$matricula->id => $this->cursosConHorarios($matricula)]) ?? collect(),
             'planesPorMatricula' => $matriculas !== null && Auth::user()->hasPermissionTo('pagos.ver')
                 ? $matriculas->mapWithKeys(fn (Matricula $matricula) => [$matricula->id => $planes->planDe($matricula)])
@@ -507,6 +519,7 @@ new class extends Component
                     :documentos="$documentos"
                     :examenes="$examenes"
                     :matriculas="$matriculas"
+                    :cursos-cortos="$cursosCortos"
                     :cursos-con-horarios="$cursosConHorarios"
                     :editando-horario-matricula-id="$editandoHorarioMatriculaId"
                     :editando-horario-curso-id="$editandoHorarioCursoId"

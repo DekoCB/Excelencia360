@@ -3,6 +3,7 @@
     'documentos',
     'examenes',
     'matriculas',
+    'cursosCortos' => [],
     'cursosConHorarios' => [],
     'editandoHorarioMatriculaId' => null,
     'editandoHorarioCursoId' => null,
@@ -172,6 +173,42 @@
                 @empty
                     <p class="py-2 text-sm text-ink-faint">Sin cursos con horario creado en este período todavía.</p>
                 @endforelse
+            </div>
+        </div>
+    @endif
+
+    @if (count($cursosCortos) > 0)
+        <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
+            <h2 class="text-sm font-semibold text-ink">Cursos cortos</h2>
+            <div class="mt-4 divide-y divide-border">
+                @foreach ($cursosCortos as $cursoCorto)
+                    <div class="flex items-center justify-between gap-4 py-2 text-sm">
+                        <div>
+                            <span class="text-ink">{{ $cursoCorto->curso->nombre }}</span>
+                            <span class="text-ink-faint">
+                                · Desde {{ $cursoCorto->fecha_inicio->format('d/m/Y') }}
+                                @if ($cursoCorto->fecha_fin)
+                                    hasta {{ $cursoCorto->fecha_fin->format('d/m/Y') }}
+                                @endif
+                            </span>
+                            <x-badge :variant="match ($cursoCorto->estado->value) {
+                                'activo' => 'ok',
+                                'concluido' => 'neutral',
+                                default => 'danger',
+                            }" class="ml-1">
+                                {{ $cursoCorto->estado->label() }}
+                            </x-badge>
+                        </div>
+                        @can('matricula.editar')
+                            @if ($cursoCorto->estado->value === 'activo')
+                                <div class="flex shrink-0 gap-3">
+                                    <button type="button" wire:click="finalizarCursoCorto({{ $cursoCorto->id }}, 'concluido')" class="text-xs font-medium text-accent hover:underline">Marcar concluido</button>
+                                    <button type="button" wire:click="finalizarCursoCorto({{ $cursoCorto->id }}, 'retirado')" class="text-xs font-medium text-danger hover:underline">Marcar retirado</button>
+                                </div>
+                            @endif
+                        @endcan
+                    </div>
+                @endforeach
             </div>
         </div>
     @endif

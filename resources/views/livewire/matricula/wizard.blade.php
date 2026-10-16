@@ -5,6 +5,7 @@ use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Siagie;
 use App\Modules\Academico\Services\CicloService;
+use App\Modules\Academico\Services\CursoService;
 use App\Modules\Matricula\DTOs\RegistrarApoderadoData;
 use App\Modules\Matricula\DTOs\RegistrarEstudianteData;
 use App\Modules\Matricula\DTOs\RegistrarMatriculaData;
@@ -115,6 +116,8 @@ new class extends Component
     public string $examenObservaciones = '';
 
     // Paso 5 — matrícula
+    public string $tipoMatricula = 'instituto';
+
     public string $modalidadCiclo = 'seis_meses';
 
     public string $cicloId = '';
@@ -126,6 +129,9 @@ new class extends Component
     public string $fechaMatricula = '';
 
     public string $observacionesMatricula = '';
+
+    // Paso 5 — curso corto (alternativa a Instituto; ver tipoMatricula)
+    public string $cursoCortoId = '';
 
     // Paso 6 — cronograma de pagos (opcional)
     public bool $configurarCronograma = false;
@@ -313,13 +319,20 @@ new class extends Component
         }
 
         if ($this->paso === 5) {
-            $this->validate([
-                'modalidadCiclo' => 'required|string|in:seis_meses,anual',
-                'cicloId' => 'required|integer|exists:ciclos,id',
-                'gradoId' => 'required|integer|exists:grados,id',
-                'siagieId' => 'nullable|integer|exists:siagies,id',
-                'fechaMatricula' => 'required|date',
-            ]);
+            if ($this->tipoMatricula === 'curso_corto') {
+                $this->validate([
+                    'cursoCortoId' => 'required|integer|exists:cursos,id',
+                    'fechaMatricula' => 'required|date',
+                ]);
+            } else {
+                $this->validate([
+                    'modalidadCiclo' => 'required|string|in:seis_meses,anual',
+                    'cicloId' => 'required|integer|exists:ciclos,id',
+                    'gradoId' => 'required|integer|exists:grados,id',
+                    'siagieId' => 'nullable|integer|exists:siagies,id',
+                    'fechaMatricula' => 'required|date',
+                ]);
+            }
 
             $this->paso = 6;
         }
@@ -531,16 +544,26 @@ new class extends Component
                 ]);
             }
 
-            $matricula = $matriculaService->matricular($estudiante, new RegistrarMatriculaData(
-                cicloId: (int) $this->cicloId,
-                gradoId: (int) $this->gradoId,
-                observaciones: $this->observacionesMatricula ?: null,
-                registradoPor: auth()->id(),
-                siagieId: $this->siagieId !== '' ? (int) $this->siagieId : null,
-                fechaMatricula: $this->fechaMatricula !== '' ? $this->fechaMatricula : null,
-            ));
+            if ($this->tipoMatricula === 'curso_corto') {
+                $matriculaService->matricularCursoCorto($estudiante, [
+                    'curso_id' => (int) $this->cursoCortoId,
+                    'fecha_inicio' => $this->fechaMatricula,
+                    'observaciones' => $this->observacionesMatricula ?: null,
+                    'registrado_por' => auth()->id(),
+                ]);
+            } else {
+                $matricula = $matriculaService->matricular($estudiante, new RegistrarMatriculaData(
+                    cicloId: (int) $this->cicloId,
+                    gradoId: (int) $this->gradoId,
+                    observaciones: $this->observacionesMatricula ?: null,
+                    registradoPor: auth()->id(),
+                    siagieId: $this->siagieId !== '' ? (int) $this->siagieId : null,
+                    fechaMatricula: $this->fechaMatricula !== '' ? $this->fechaMatricula : null,
+                ));
 
-            $this->crearCronogramaSiCorresponde($matricula, $planPagoService);
+                $this->crearCronogramaSiCorresponde($matricula, $planPagoService);
+            }
+
             $this->crearCargosAdicionalesSiCorresponde($estudiante);
 
             return $estudiante;
@@ -588,7 +611,7 @@ new class extends Component
         }
     }
 
-    public function with(CicloService $ciclos): array
+    public function with(CicloService $ciclos, CursoService $cursos): array
     {
         $grados = Grado::query()->where('activo', true)->with('programaEstudio')->orderBy('orden')->get();
 
@@ -611,6 +634,7 @@ new class extends Component
             'ciclosDisponibles' => $ciclosConMatriculaAbierta,
             'cicloAnualVigente' => $ciclos->cicloAnualVigente(),
             'numerosCuotas' => NumeroCuotasEnum::cases(),
+            'cursosCortosDisponibles' => $cursos->deCapacitacion(),
         ];
     }
 }; ?>
@@ -913,66 +937,92 @@ new class extends Component
                     (DNI {{ $this->estudianteEncontrado->dni }}).
                 </p>
             @endif
+            @unless ($esRematricula)
+                <div class="mt-4">
+                    <x-input-label for="tipoMatricula" value="Tipo de matrícula" />
+                    <x-select-input
+                        wire:model.live="tipoMatricula"
+                        id="tipoMatricula"
+                        class="mt-1 block w-full sm:w-1/2"
+                        :options="['instituto' => 'Instituto', 'curso_corto' => 'Curso corto']"
+                    />
+                    <p class="mt-1 text-xs text-ink-faint">Curso corto: el estudiante solo lleva un curso de capacitación individual, sin programa de estudio ni semestre.</p>
+                </div>
+            @endunless
             <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div class="sm:col-span-2">
-                    <x-input-label for="modalidadCiclo" value="Modalidad" />
-                    <x-select-input
-                        wire:model.live="modalidadCiclo"
-                        id="modalidadCiclo"
-                        class="mt-1 block w-full"
-                        :options="collect($modalidadesCiclo)->mapWithKeys(fn ($modalidad) => [$modalidad->value => $modalidad->label()])"
-                    />
-                    <x-input-error :messages="$errors->get('modalidadCiclo')" class="mt-1" />
-                </div>
-                <div class="sm:col-span-2">
-                    <x-input-label for="siagieId" value="Periodo académico (opcional)" />
-                    <x-select-input
-                        wire:model="siagieId"
-                        id="siagieId"
-                        placeholder="Sin registrar…"
-                        class="mt-1 block w-full"
-                        :options="collect($siagiesDisponibles)->mapWithKeys(fn ($siagie) => [$siagie->id => $siagie->nombreCompleto()])"
-                    />
-                    <p class="mt-1 text-xs text-ink-faint">Independiente del Período de Matrícula: es la clasificación propia del periodo académico.</p>
-                    <x-input-error :messages="$errors->get('siagieId')" class="mt-1" />
-                </div>
-                @if ($modalidadCiclo === 'anual')
+                @if ($tipoMatricula === 'instituto')
+                    <div class="sm:col-span-2">
+                        <x-input-label for="modalidadCiclo" value="Modalidad" />
+                        <x-select-input
+                            wire:model.live="modalidadCiclo"
+                            id="modalidadCiclo"
+                            class="mt-1 block w-full"
+                            :options="collect($modalidadesCiclo)->mapWithKeys(fn ($modalidad) => [$modalidad->value => $modalidad->label()])"
+                        />
+                        <x-input-error :messages="$errors->get('modalidadCiclo')" class="mt-1" />
+                    </div>
+                    <div class="sm:col-span-2">
+                        <x-input-label for="siagieId" value="Periodo académico (opcional)" />
+                        <x-select-input
+                            wire:model="siagieId"
+                            id="siagieId"
+                            placeholder="Sin registrar…"
+                            class="mt-1 block w-full"
+                            :options="collect($siagiesDisponibles)->mapWithKeys(fn ($siagie) => [$siagie->id => $siagie->nombreCompleto()])"
+                        />
+                        <p class="mt-1 text-xs text-ink-faint">Independiente del Período de Matrícula: es la clasificación propia del periodo académico.</p>
+                        <x-input-error :messages="$errors->get('siagieId')" class="mt-1" />
+                    </div>
+                    @if ($modalidadCiclo === 'anual')
+                        <div>
+                            <x-input-label value="Año" />
+                            @if ($cicloAnualVigente)
+                                <p class="mt-1 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-ink">{{ $cicloAnualVigente->anio }}</p>
+                            @else
+                                <p class="mt-1 text-xs text-danger">No hay ningún periodo académico anual registrado todavía. Créalo primero en Ciclos.</p>
+                            @endif
+                            <x-input-error :messages="$errors->get('cicloId')" class="mt-1" />
+                        </div>
+                    @else
+                        <div>
+                            <x-input-label for="cicloId" value="Período de matrícula" />
+                            <x-select-input
+                                wire:model.live="cicloId"
+                                id="cicloId"
+                                class="mt-1 block w-full"
+                                :options="collect($ciclosDisponibles)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])"
+                            />
+                            @if ($ciclosDisponibles->isEmpty())
+                                <p class="mt-1 text-xs text-danger">Ningún período de matrícula tiene la inscripción abierta hoy.</p>
+                            @endif
+                            <x-input-error :messages="$errors->get('cicloId')" class="mt-1" />
+                        </div>
+                    @endif
                     <div>
-                        <x-input-label value="Año" />
-                        @if ($cicloAnualVigente)
-                            <p class="mt-1 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-ink">{{ $cicloAnualVigente->anio }}</p>
-                        @else
-                            <p class="mt-1 text-xs text-danger">No hay ningún periodo académico anual registrado todavía. Créalo primero en Ciclos.</p>
-                        @endif
-                        <x-input-error :messages="$errors->get('cicloId')" class="mt-1" />
+                        <x-input-label for="gradoId" value="Programa de estudio y semestre" />
+                        <x-select-input
+                            wire:model.live="gradoId"
+                            id="gradoId"
+                            class="mt-1 block w-full"
+                            :options="collect($gradosCompatibles)->mapWithKeys(fn ($grado) => [$grado->id => $grado->programaEstudio->nombre.' — '.$grado->nombre])"
+                        />
+                        <x-input-error :messages="$errors->get('gradoId')" class="mt-1" />
                     </div>
                 @else
-                    <div>
-                        <x-input-label for="cicloId" value="Período de matrícula" />
+                    <div class="sm:col-span-2">
+                        <x-input-label for="cursoCortoId" value="Curso" />
                         <x-select-input
-                            wire:model.live="cicloId"
-                            id="cicloId"
+                            wire:model="cursoCortoId"
+                            id="cursoCortoId"
+                            placeholder="Selecciona un curso…"
                             class="mt-1 block w-full"
-                            :options="collect($ciclosDisponibles)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])"
+                            :options="collect($cursosCortosDisponibles)->mapWithKeys(fn ($curso) => [$curso->id => $curso->nombre])"
                         />
-                        @if ($ciclosDisponibles->isEmpty())
-                            <p class="mt-1 text-xs text-danger">Ningún período de matrícula tiene la inscripción abierta hoy.</p>
-                        @endif
-                        <x-input-error :messages="$errors->get('cicloId')" class="mt-1" />
+                        <x-input-error :messages="$errors->get('cursoCortoId')" class="mt-1" />
                     </div>
                 @endif
                 <div>
-                    <x-input-label for="gradoId" value="Programa de estudio y semestre" />
-                    <x-select-input
-                        wire:model.live="gradoId"
-                        id="gradoId"
-                        class="mt-1 block w-full"
-                        :options="collect($gradosCompatibles)->mapWithKeys(fn ($grado) => [$grado->id => $grado->programaEstudio->nombre.' — '.$grado->nombre])"
-                    />
-                    <x-input-error :messages="$errors->get('gradoId')" class="mt-1" />
-                </div>
-                <div>
-                    <x-input-label for="fechaMatricula" value="Fecha de matrícula" />
+                    <x-input-label for="fechaMatricula" :value="$tipoMatricula === 'instituto' ? 'Fecha de matrícula' : 'Fecha de inicio'" />
                     <x-date-input wire:model="fechaMatricula" id="fechaMatricula" class="mt-1 block w-full" />
                     <x-input-error :messages="$errors->get('fechaMatricula')" class="mt-1" />
                 </div>
@@ -985,6 +1035,7 @@ new class extends Component
 
         {{-- Paso 6: Cronograma de pagos --}}
         @if ($paso === 6)
+            @if ($tipoMatricula !== 'curso_corto')
             <h2 class="font-display text-lg text-ink">Cronograma de pagos</h2>
             <label class="mt-4 flex items-center gap-2 text-sm text-ink-dim">
                 <input type="checkbox" wire:model.live="configurarCronograma" class="rounded border-border text-accent focus:ring-accent">
@@ -1046,6 +1097,7 @@ new class extends Component
                     <x-input-error :messages="$errors->get('cuotaMontos.*')" class="mt-1" />
                     <x-input-error :messages="$errors->get('cuotaFechas.*')" class="mt-1" />
                 @endif
+            @endif
             @endif
 
             <div class="mt-8 border-t border-border pt-6">
