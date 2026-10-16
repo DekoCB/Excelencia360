@@ -951,7 +951,7 @@ new class extends Component
             @endunless
             <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 @if ($tipoMatricula === 'instituto')
-                    <div class="sm:col-span-2">
+                    <div class="sm:col-span-2" wire:key="tipo-instituto-modalidad">
                         <x-input-label for="modalidadCiclo" value="Modalidad" />
                         <x-select-input
                             wire:model.live="modalidadCiclo"
@@ -961,7 +961,7 @@ new class extends Component
                         />
                         <x-input-error :messages="$errors->get('modalidadCiclo')" class="mt-1" />
                     </div>
-                    <div class="sm:col-span-2">
+                    <div class="sm:col-span-2" wire:key="tipo-instituto-siagie">
                         <x-input-label for="siagieId" value="Periodo académico (opcional)" />
                         <x-select-input
                             wire:model="siagieId"
@@ -974,7 +974,7 @@ new class extends Component
                         <x-input-error :messages="$errors->get('siagieId')" class="mt-1" />
                     </div>
                     @if ($modalidadCiclo === 'anual')
-                        <div>
+                        <div wire:key="tipo-instituto-anio">
                             <x-input-label value="Año" />
                             @if ($cicloAnualVigente)
                                 <p class="mt-1 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-ink">{{ $cicloAnualVigente->anio }}</p>
@@ -984,7 +984,7 @@ new class extends Component
                             <x-input-error :messages="$errors->get('cicloId')" class="mt-1" />
                         </div>
                     @else
-                        <div>
+                        <div wire:key="tipo-instituto-ciclo">
                             <x-input-label for="cicloId" value="Período de matrícula" />
                             <x-select-input
                                 wire:model.live="cicloId"
@@ -998,7 +998,7 @@ new class extends Component
                             <x-input-error :messages="$errors->get('cicloId')" class="mt-1" />
                         </div>
                     @endif
-                    <div>
+                    <div wire:key="tipo-instituto-grado">
                         <x-input-label for="gradoId" value="Programa de estudio y semestre" />
                         <x-select-input
                             wire:model.live="gradoId"
@@ -1009,7 +1009,7 @@ new class extends Component
                         <x-input-error :messages="$errors->get('gradoId')" class="mt-1" />
                     </div>
                 @else
-                    <div class="sm:col-span-2">
+                    <div class="sm:col-span-2" wire:key="tipo-curso-corto-curso">
                         <x-input-label for="cursoCortoId" value="Curso" />
                         <x-select-input
                             wire:model="cursoCortoId"
