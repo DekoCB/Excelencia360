@@ -593,101 +593,128 @@ new #[Layout('layouts.app')] class extends Component
 
     {{-- Emitir documento directo --}}
     @if ($tab === 'emitir' && $puedeEmitir)
-        <div class="max-w-xl space-y-4 rounded-2xl border border-border bg-surface shadow-sm p-6">
-            <div>
-                <x-input-label value="Estudiante" />
-                @if ($estudianteSeleccionadoId)
-                    <div class="mt-1 flex items-center justify-between rounded-md bg-accent-soft px-3 py-2 text-sm text-accent">
-                        {{ $estudianteSeleccionadoNombre }}
-                        <button type="button" wire:click="$set('estudianteSeleccionadoId', null)" class="text-xs underline">Cambiar</button>
-                    </div>
-                @else
-                    <x-text-input wire:model.live.debounce.300ms="terminoBusqueda" class="mt-1 block w-full" placeholder="Buscar por nombre, apellido o DNI…" />
-                    @if ($resultadosBusqueda->isNotEmpty())
-                        <div class="mt-1 divide-y divide-border rounded-md border border-border bg-surface">
-                            @foreach ($resultadosBusqueda as $estudiante)
-                                <button
-                                    type="button"
-                                    wire:click="seleccionarEstudiante({{ $estudiante->id }}, '{{ addslashes($estudiante->nombreCompleto()) }}')"
-                                    class="block w-full px-3 py-2 text-left text-sm hover:bg-surface-2"
-                                >
-                                    {{ $estudiante->nombreCompleto() }} <span class="text-ink-faint">· {{ $estudiante->dni }}</span>
-                                </button>
-                            @endforeach
+        <div class="max-w-xl overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+            <div class="flex items-center gap-3 border-b border-border bg-surface-2/60 px-6 py-4">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+                    <x-heroicon-o-document-check class="h-5 w-5" />
+                </span>
+                <div>
+                    <h3 class="font-display text-sm font-semibold text-ink">Emitir certificado individual</h3>
+                    <p class="text-xs text-ink-faint">Busca al estudiante y completa los datos del documento.</p>
+                </div>
+            </div>
+
+            <div class="space-y-5 p-6">
+                <div>
+                    <x-input-label value="Estudiante" />
+                    @if ($estudianteSeleccionadoId)
+                        <div class="mt-1 flex items-center gap-3 rounded-lg border border-accent/30 bg-accent-soft px-3 py-2.5 text-sm text-accent">
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface text-accent">
+                                <x-heroicon-o-user class="h-4 w-4" />
+                            </span>
+                            <span class="flex-1 font-medium">{{ $estudianteSeleccionadoNombre }}</span>
+                            <button type="button" wire:click="$set('estudianteSeleccionadoId', null)" class="shrink-0 text-xs font-medium underline decoration-accent/40 underline-offset-2 hover:decoration-accent">Cambiar</button>
                         </div>
+                    @else
+                        <div class="relative mt-1">
+                            <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+                            <x-text-input wire:model.live.debounce.300ms="terminoBusqueda" class="block w-full pl-9" placeholder="Buscar por nombre, apellido o DNI…" />
+                        </div>
+                        @if ($resultadosBusqueda->isNotEmpty())
+                            <div class="mt-1.5 divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
+                                @foreach ($resultadosBusqueda as $estudiante)
+                                    <button
+                                        type="button"
+                                        wire:click="seleccionarEstudiante({{ $estudiante->id }}, '{{ addslashes($estudiante->nombreCompleto()) }}')"
+                                        class="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition hover:bg-surface-2"
+                                    >
+                                        <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-2 text-ink-faint">
+                                            <x-heroicon-o-user class="h-3.5 w-3.5" />
+                                        </span>
+                                        <span>{{ $estudiante->nombreCompleto() }} <span class="text-ink-faint">· {{ $estudiante->dni }}</span></span>
+                                    </button>
+                                @endforeach
+                            </div>
+                        @endif
                     @endif
+                    <x-input-error :messages="$errors->get('estudianteSeleccionadoId')" class="mt-1" />
+                </div>
+
+                <div>
+                    <x-input-label for="tipoDocumentoEmitir" value="Documento" />
+                    <x-select-input
+                        wire:model.live="tipoDocumentoEmitir"
+                        id="tipoDocumentoEmitir"
+                        class="mt-1 block w-full"
+                        :options="collect($tiposDocumentoConPlantilla)->mapWithKeys(fn ($tipo) => [$tipo->value => $tipo->label()])"
+                    />
+                    <x-input-error :messages="$errors->get('tipoDocumentoEmitir')" class="mt-1" />
+                </div>
+
+                {{--
+                    wire:key en cada rama es obligatorio acá: al cambiar
+                    tipoDocumentoEmitir, este bloque pasa de mostrar el select de
+                    Matrícula al de Curso de capacitación (o viceversa) en la
+                    misma posición del DOM. Sin una key propia por rama, Livewire
+                    reutiliza el nodo existente en vez de reemplazarlo, y el
+                    x-data del <x-select-input> anterior (su array de opciones)
+                    queda pegado al nuevo -- el desplegable de curso terminaba
+                    mostrando las opciones de matrícula. Bug real, encontrado
+                    verificando en vivo con Playwright.
+                --}}
+                @if ($tipoDocumentoEmitir === \App\Modules\Certificados\Enums\TipoDocumentoEnum::CERTIFICADO_CAPACITACION->value)
+                    <div wire:key="campos-capacitacion" class="space-y-4 rounded-xl border border-border bg-surface-2/50 p-4">
+                        <div>
+                            <x-input-label for="cursoId" value="Curso de capacitación" />
+                            <x-select-input
+                                wire:model="cursoId"
+                                id="cursoId"
+                                class="mt-1 block w-full"
+                                placeholder="Selecciona…"
+                                :options="collect($cursosCapacitacion)->mapWithKeys(fn ($curso) => [(string) $curso->id => $curso->nombre.' ('.$curso->horas.' h)'])"
+                            />
+                            <p class="mt-1 text-xs text-ink-faint">Se gestionan desde Académico → Cursos.</p>
+                            <x-input-error :messages="$errors->get('cursoId')" class="mt-1" />
+                        </div>
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <x-input-label for="numeroRegistro" value="N.° de registro del documento" />
+                                <x-text-input wire:model="numeroRegistro" id="numeroRegistro" class="mt-1 block w-full" placeholder="Ej. 3002324002" />
+                                <x-input-error :messages="$errors->get('numeroRegistro')" class="mt-1" />
+                            </div>
+                            <div>
+                                <x-input-label for="nota" value="Nota (opcional)" />
+                                <x-text-input wire:model="nota" id="nota" type="number" min="0" max="20" step="0.01" class="mt-1 block w-full" placeholder="Ej. 17" />
+                                <x-input-error :messages="$errors->get('nota')" class="mt-1" />
+                            </div>
+                        </div>
+                        <p class="text-xs text-ink-faint">El número de registro es el código que la persona usará para validar este certificado; la nota es el promedio ponderado final del curso, si corresponde (escala 0-20).</p>
+                    </div>
+                @elseif ($estudianteSeleccionadoId)
+                    <div wire:key="campo-matricula">
+                        <x-input-label for="matriculaId" value="Matrícula (opcional)" />
+                        <x-select-input
+                            wire:model="matriculaId"
+                            id="matriculaId"
+                            class="mt-1 block w-full"
+                            :options="collect($matriculasDelEstudiante)->mapWithKeys(fn ($matricula) => [$matricula->id => $matricula->grado->nombre.' · '.$matricula->ciclo->nombre])->prepend('Sin vincular a una matrícula específica', '')"
+                        />
+                        <x-input-error :messages="$errors->get('matriculaId')" class="mt-1" />
+                    </div>
                 @endif
-                <x-input-error :messages="$errors->get('estudianteSeleccionadoId')" class="mt-1" />
+
+                <div>
+                    <x-input-label for="observaciones" value="Observaciones (opcional)" />
+                    <textarea wire:model="observaciones" id="observaciones" rows="2" class="mt-1 block w-full rounded-md border-border bg-surface text-sm text-ink focus:border-accent focus:ring-accent"></textarea>
+                    <x-input-error :messages="$errors->get('observaciones')" class="mt-1" />
+                </div>
             </div>
 
-            <div>
-                <x-input-label for="tipoDocumentoEmitir" value="Documento" />
-                <x-select-input
-                    wire:model.live="tipoDocumentoEmitir"
-                    id="tipoDocumentoEmitir"
-                    class="mt-1 block w-full"
-                    :options="collect($tiposDocumentoConPlantilla)->mapWithKeys(fn ($tipo) => [$tipo->value => $tipo->label()])"
-                />
-                <x-input-error :messages="$errors->get('tipoDocumentoEmitir')" class="mt-1" />
-            </div>
-
-            {{--
-                wire:key en cada rama es obligatorio acá: al cambiar
-                tipoDocumentoEmitir, este bloque pasa de mostrar el select de
-                Matrícula al de Curso de capacitación (o viceversa) en la
-                misma posición del DOM. Sin una key propia por rama, Livewire
-                reutiliza el nodo existente en vez de reemplazarlo, y el
-                x-data del <x-select-input> anterior (su array de opciones)
-                queda pegado al nuevo -- el desplegable de curso terminaba
-                mostrando las opciones de matrícula. Bug real, encontrado
-                verificando en vivo con Playwright.
-            --}}
-            @if ($tipoDocumentoEmitir === \App\Modules\Certificados\Enums\TipoDocumentoEnum::CERTIFICADO_CAPACITACION->value)
-                <div wire:key="campos-capacitacion">
-                    <x-input-label for="cursoId" value="Curso de capacitación" />
-                    <x-select-input
-                        wire:model="cursoId"
-                        id="cursoId"
-                        class="mt-1 block w-full"
-                        placeholder="Selecciona…"
-                        :options="collect($cursosCapacitacion)->mapWithKeys(fn ($curso) => [(string) $curso->id => $curso->nombre.' ('.$curso->horas.' h)'])"
-                    />
-                    <p class="mt-1 text-xs text-ink-faint">Se gestionan desde Académico → Cursos.</p>
-                    <x-input-error :messages="$errors->get('cursoId')" class="mt-1" />
-                </div>
-                <div wire:key="campo-numero-registro">
-                    <x-input-label for="numeroRegistro" value="Número de registro del documento" />
-                    <x-text-input wire:model="numeroRegistro" id="numeroRegistro" class="mt-1 block w-full" placeholder="Ej. 3002324002" />
-                    <p class="mt-1 text-xs text-ink-faint">El número de tu propio registro externo de capacitaciones -- es el código que la persona usará para validar este certificado.</p>
-                    <x-input-error :messages="$errors->get('numeroRegistro')" class="mt-1" />
-                </div>
-                <div wire:key="campo-nota">
-                    <x-input-label for="nota" value="Nota (opcional)" />
-                    <x-text-input wire:model="nota" id="nota" type="number" min="0" max="20" step="0.01" class="mt-1 block w-full" placeholder="Ej. 17" />
-                    <p class="mt-1 text-xs text-ink-faint">Promedio ponderado final del curso, si corresponde (escala 0-20).</p>
-                    <x-input-error :messages="$errors->get('nota')" class="mt-1" />
-                </div>
-            @elseif ($estudianteSeleccionadoId)
-                <div wire:key="campo-matricula">
-                    <x-input-label for="matriculaId" value="Matrícula (opcional)" />
-                    <x-select-input
-                        wire:model="matriculaId"
-                        id="matriculaId"
-                        class="mt-1 block w-full"
-                        :options="collect($matriculasDelEstudiante)->mapWithKeys(fn ($matricula) => [$matricula->id => $matricula->grado->nombre.' · '.$matricula->ciclo->nombre])->prepend('Sin vincular a una matrícula específica', '')"
-                    />
-                    <x-input-error :messages="$errors->get('matriculaId')" class="mt-1" />
-                </div>
-            @endif
-
-            <div>
-                <x-input-label for="observaciones" value="Observaciones (opcional)" />
-                <textarea wire:model="observaciones" id="observaciones" rows="2" class="mt-1 block w-full rounded-md border-border bg-surface text-sm text-ink focus:border-accent focus:ring-accent"></textarea>
-                <x-input-error :messages="$errors->get('observaciones')" class="mt-1" />
-            </div>
-
-            <div class="flex justify-end">
-                <x-primary-button type="button" wire:click="emitir">Emitir documento</x-primary-button>
+            <div class="flex justify-end border-t border-border bg-surface-2/40 px-6 py-4">
+                <x-primary-button type="button" wire:click="emitir" class="gap-2">
+                    <x-heroicon-o-document-check class="h-4 w-4" />
+                    Emitir documento
+                </x-primary-button>
             </div>
         </div>
 
