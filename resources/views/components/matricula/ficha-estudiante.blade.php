@@ -29,6 +29,9 @@
     'editEstado' => '',
     'estadosCiviles' => [],
     'estadosEstudiante' => [],
+    'mostrandoFormDocumento' => false,
+    'documentoTipoNuevo' => '',
+    'tiposDocumento' => [],
 ])
 
 {{--
@@ -214,7 +217,50 @@
     @endif
 
     <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
-        <h2 class="text-sm font-semibold text-ink">Documentos</h2>
+        <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-ink">Documentos</h2>
+            @can('matricula.editar')
+                @if (! $mostrandoFormDocumento)
+                    <button type="button" wire:click="mostrarFormDocumento" class="text-xs font-medium text-accent hover:underline">+ Agregar documento</button>
+                @endif
+            @endcan
+        </div>
+
+        @can('matricula.editar')
+            @if ($mostrandoFormDocumento)
+                <form wire:submit="guardarDocumento" class="mt-4 space-y-3 rounded-xl border border-border bg-surface-2 p-4">
+                    <div>
+                        <x-input-label for="documentoTipoNuevo" value="Tipo de documento" />
+                        <x-select-input
+                            wire:model.live="documentoTipoNuevo"
+                            id="documentoTipoNuevo"
+                            class="mt-1 block w-full"
+                            placeholder="Selecciona…"
+                            :options="collect($tiposDocumento)->mapWithKeys(fn ($tipo) => [$tipo->value => $tipo->label()])"
+                        />
+                        <x-input-error :messages="$errors->get('documentoTipoNuevo')" class="mt-1" />
+                    </div>
+                    <div>
+                        <x-input-label for="documentoArchivoNuevo" value="Archivo" />
+                        <input wire:model="documentoArchivoNuevo" id="documentoArchivoNuevo" type="file" accept=".pdf,image/*" class="mt-1 block w-full text-sm text-ink-dim file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2 file:text-sm file:text-ink">
+                        <x-input-error :messages="$errors->get('documentoArchivoNuevo')" class="mt-1" />
+                    </div>
+                    @if (in_array($documentoTipoNuevo, ['dni_estudiante', 'dni_apoderado'], true))
+                        <div>
+                            <x-input-label for="documentoReversoNuevo" value="Sello/reverso (opcional)" />
+                            <input wire:model="documentoReversoNuevo" id="documentoReversoNuevo" type="file" accept=".pdf,image/*" class="mt-1 block w-full text-sm text-ink-dim file:mr-3 file:rounded-md file:border-0 file:bg-surface file:px-3 file:py-2 file:text-sm file:text-ink">
+                            <x-input-error :messages="$errors->get('documentoReversoNuevo')" class="mt-1" />
+                        </div>
+                    @endif
+                    <p class="text-xs text-ink-faint">Si ya existe un documento de este tipo, el archivo nuevo reemplaza al anterior.</p>
+                    <div class="flex justify-end gap-2">
+                        <x-secondary-button type="button" wire:click="cancelarFormDocumento">Cancelar</x-secondary-button>
+                        <x-primary-button type="submit">Guardar</x-primary-button>
+                    </div>
+                </form>
+            @endif
+        @endcan
+
         <div class="mt-4 divide-y divide-border">
             @forelse ($documentos as $documento)
                 <div class="flex items-center justify-between py-3 text-sm">
@@ -234,6 +280,9 @@
                         @can('matricula.editar')
                             @unless ($documento->verificado)
                                 <button wire:click="verificarDocumento({{ $documento->id }})" class="text-xs font-medium text-accent hover:underline">Verificar</button>
+                            @endunless
+                            @unless ($mostrandoFormDocumento)
+                                <button type="button" wire:click="mostrarFormDocumento('{{ $documento->tipo->value }}')" class="text-xs font-medium text-accent hover:underline">Reemplazar</button>
                             @endunless
                         @endcan
                     </div>

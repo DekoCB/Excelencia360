@@ -4,6 +4,7 @@ use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Matricula\Enums\EstadoCivilEnum;
 use App\Modules\Matricula\Enums\EstadoEstudianteEnum;
+use App\Modules\Matricula\Enums\TipoDocumentoEnum;
 use App\Modules\Matricula\Models\DocumentoEstudiante;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
@@ -19,9 +20,12 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
 
 new #[Layout('layouts.app')] class extends Component
 {
+    use WithFileUploads;
+
     public Estudiante $estudiante;
 
     public string $observacionesTexto = '';
@@ -67,6 +71,14 @@ new #[Layout('layouts.app')] class extends Component
     public string $editEmail = '';
 
     public string $editEstado = '';
+
+    public bool $mostrandoFormDocumento = false;
+
+    public string $documentoTipoNuevo = '';
+
+    public $documentoArchivoNuevo = null;
+
+    public $documentoReversoNuevo = null;
 
     public function mount(Estudiante $estudiante): void
     {
@@ -135,6 +147,54 @@ new #[Layout('layouts.app')] class extends Component
         $service->verificar($documento);
 
         session()->flash('status', 'Documento marcado como verificado.');
+    }
+
+    /**
+     * $tipo precargado sirve tanto para "agregar" (vacío, elige el staff) como
+     * para "reemplazar archivo" de un documento ya subido -- subir() en el
+     * servicio ya hace updateOrCreate por tipo, así que es la misma acción.
+     */
+    public function mostrarFormDocumento(?string $tipo = null): void
+    {
+        Gate::authorize('matricula.editar');
+
+        $this->resetValidation();
+        $this->documentoTipoNuevo = $tipo ?? '';
+        $this->documentoArchivoNuevo = null;
+        $this->documentoReversoNuevo = null;
+        $this->mostrandoFormDocumento = true;
+    }
+
+    public function cancelarFormDocumento(): void
+    {
+        $this->mostrandoFormDocumento = false;
+        $this->documentoTipoNuevo = '';
+        $this->documentoArchivoNuevo = null;
+        $this->documentoReversoNuevo = null;
+    }
+
+    public function guardarDocumento(DocumentoEstudianteService $service): void
+    {
+        Gate::authorize('matricula.editar');
+
+        $esDni = in_array($this->documentoTipoNuevo, [TipoDocumentoEnum::DNI_ESTUDIANTE->value, TipoDocumentoEnum::DNI_APODERADO->value], true);
+
+        $this->validate([
+            'documentoTipoNuevo' => 'required|string|in:'.implode(',', array_column(TipoDocumentoEnum::cases(), 'value')),
+            'documentoArchivoNuevo' => 'required|file|mimes:pdf,jpg,jpeg,png|max:4096',
+            'documentoReversoNuevo' => $esDni ? 'nullable|file|mimes:pdf,jpg,jpeg,png|max:4096' : 'prohibited',
+        ]);
+
+        $service->subir(
+            $this->estudiante,
+            TipoDocumentoEnum::from($this->documentoTipoNuevo),
+            $this->documentoArchivoNuevo,
+            Auth::id(),
+            $esDni ? $this->documentoReversoNuevo : null,
+        );
+
+        $this->cancelarFormDocumento();
+        session()->flash('status', 'Documento guardado.');
     }
 
     /**
@@ -403,6 +463,7 @@ new #[Layout('layouts.app')] class extends Component
                 : collect(),
             'estadosCiviles' => EstadoCivilEnum::cases(),
             'estadosEstudiante' => EstadoEstudianteEnum::cases(),
+            'tiposDocumento' => TipoDocumentoEnum::cases(),
         ];
     }
 }; ?>
@@ -458,5 +519,8 @@ new #[Layout('layouts.app')] class extends Component
         :edit-estado="$editEstado"
         :estados-civiles="$estadosCiviles"
         :estados-estudiante="$estadosEstudiante"
+        :mostrando-form-documento="$mostrandoFormDocumento"
+        :documento-tipo-nuevo="$documentoTipoNuevo"
+        :tipos-documento="$tiposDocumento"
     />
 </div>

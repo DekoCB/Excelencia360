@@ -4,6 +4,7 @@ use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Matricula\Enums\EstadoCivilEnum;
 use App\Modules\Matricula\Enums\EstadoEstudianteEnum;
+use App\Modules\Matricula\Enums\TipoDocumentoEnum;
 use App\Modules\Matricula\Models\DocumentoEstudiante;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\On;
 use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
 
 /**
  * Modal "Ver" de matricula/index.blade.php, aislado en su propio componente
@@ -28,6 +30,8 @@ use Livewire\Volt\Component;
  */
 new class extends Component
 {
+    use WithFileUploads;
+
     public ?int $estudianteId = null;
 
     public string $observacionesTexto = '';
@@ -74,6 +78,14 @@ new class extends Component
 
     public string $editEstado = '';
 
+    public bool $mostrandoFormDocumento = false;
+
+    public string $documentoTipoNuevo = '';
+
+    public $documentoArchivoNuevo = null;
+
+    public $documentoReversoNuevo = null;
+
     #[On('ver-estudiante')]
     public function abrir(int $estudianteId): void
     {
@@ -94,6 +106,10 @@ new class extends Component
         $this->cargoConceptoNuevo = '';
         $this->cargoMontoNuevo = '';
         $this->editandoDatosPersonales = false;
+        $this->mostrandoFormDocumento = false;
+        $this->documentoTipoNuevo = '';
+        $this->documentoArchivoNuevo = null;
+        $this->documentoReversoNuevo = null;
     }
 
     public function iniciarEdicionDatosPersonales(): void
@@ -155,6 +171,55 @@ new class extends Component
 
         $documento = DocumentoEstudiante::query()->findOrFail($documentoId);
         $service->verificar($documento);
+    }
+
+    /**
+     * $tipo precargado sirve tanto para "agregar" (vacío, elige el staff) como
+     * para "reemplazar archivo" de un documento ya subido -- subir() en el
+     * servicio ya hace updateOrCreate por tipo, así que es la misma acción.
+     */
+    public function mostrarFormDocumento(?string $tipo = null): void
+    {
+        Gate::authorize('matricula.editar');
+
+        $this->resetValidation();
+        $this->documentoTipoNuevo = $tipo ?? '';
+        $this->documentoArchivoNuevo = null;
+        $this->documentoReversoNuevo = null;
+        $this->mostrandoFormDocumento = true;
+    }
+
+    public function cancelarFormDocumento(): void
+    {
+        $this->mostrandoFormDocumento = false;
+        $this->documentoTipoNuevo = '';
+        $this->documentoArchivoNuevo = null;
+        $this->documentoReversoNuevo = null;
+    }
+
+    public function guardarDocumento(DocumentoEstudianteService $service): void
+    {
+        Gate::authorize('matricula.editar');
+
+        $esDni = in_array($this->documentoTipoNuevo, [TipoDocumentoEnum::DNI_ESTUDIANTE->value, TipoDocumentoEnum::DNI_APODERADO->value], true);
+
+        $this->validate([
+            'documentoTipoNuevo' => 'required|string|in:'.implode(',', array_column(TipoDocumentoEnum::cases(), 'value')),
+            'documentoArchivoNuevo' => 'required|file|mimes:pdf,jpg,jpeg,png|max:4096',
+            'documentoReversoNuevo' => $esDni ? 'nullable|file|mimes:pdf,jpg,jpeg,png|max:4096' : 'prohibited',
+        ]);
+
+        $estudiante = Estudiante::query()->findOrFail($this->estudianteId);
+
+        $service->subir(
+            $estudiante,
+            TipoDocumentoEnum::from($this->documentoTipoNuevo),
+            $this->documentoArchivoNuevo,
+            Auth::id(),
+            $esDni ? $this->documentoReversoNuevo : null,
+        );
+
+        $this->cancelarFormDocumento();
     }
 
     /**
@@ -416,6 +481,7 @@ new class extends Component
                 : collect(),
             'estadosCiviles' => EstadoCivilEnum::cases(),
             'estadosEstudiante' => EstadoEstudianteEnum::cases(),
+            'tiposDocumento' => TipoDocumentoEnum::cases(),
         ];
     }
 }; ?>
@@ -467,6 +533,9 @@ new class extends Component
                     :edit-estado="$editEstado"
                     :estados-civiles="$estadosCiviles"
                     :estados-estudiante="$estadosEstudiante"
+                    :mostrando-form-documento="$mostrandoFormDocumento"
+                    :documento-tipo-nuevo="$documentoTipoNuevo"
+                    :tipos-documento="$tiposDocumento"
                 />
             @else
                 <p class="py-8 text-center text-sm text-ink-faint">Cargando…</p>

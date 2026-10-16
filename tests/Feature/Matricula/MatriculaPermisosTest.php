@@ -191,6 +191,100 @@ class MatriculaPermisosTest extends TestCase
         $this->assertNotNull($documento->getFirstMedia('reverso'));
     }
 
+    public function test_agregar_un_documento_nuevo_desde_la_ficha_cuando_no_se_subio_en_matricula(): void
+    {
+        Storage::fake('public');
+
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create();
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.show', ['estudiante' => $estudiante])
+            ->call('mostrarFormDocumento')
+            ->set('documentoTipoNuevo', TipoDocumentoEnum::CERTIFICADO_ESTUDIOS->value)
+            ->set('documentoArchivoNuevo', UploadedFile::fake()->create('certificado.pdf', 100, 'application/pdf'))
+            ->call('guardarDocumento')
+            ->assertHasNoErrors();
+
+        $documento = $estudiante->documentos()->where('tipo', 'certificado_estudios')->first();
+        $this->assertNotNull($documento);
+        $this->assertNotNull($documento->getFirstMedia('archivo'));
+        $this->assertFalse($documento->verificado);
+    }
+
+    public function test_reemplazar_el_archivo_de_un_documento_ya_subido_mantiene_un_solo_archivo(): void
+    {
+        Storage::fake('public');
+
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create();
+        app(DocumentoEstudianteService::class)->subir(
+            $estudiante,
+            TipoDocumentoEnum::DNI_ESTUDIANTE,
+            UploadedFile::fake()->image('dni-viejo.jpg'),
+            $usuario->id,
+        );
+        $documento = $estudiante->documentos()->where('tipo', 'dni_estudiante')->firstOrFail();
+        app(DocumentoEstudianteService::class)->verificar($documento);
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.ficha-modal')
+            ->call('abrir', $estudiante->id)
+            ->call('mostrarFormDocumento', TipoDocumentoEnum::DNI_ESTUDIANTE->value)
+            ->assertSet('documentoTipoNuevo', 'dni_estudiante')
+            ->set('documentoArchivoNuevo', UploadedFile::fake()->image('dni-nuevo.jpg'))
+            ->call('guardarDocumento')
+            ->assertHasNoErrors();
+
+        $this->assertSame(1, $estudiante->documentos()->count());
+        $documento->refresh();
+        $this->assertSame(1, $documento->getMedia('archivo')->count());
+        $this->assertStringContainsString('dni_estudiante', $documento->getFirstMedia('archivo')->file_name);
+        // Reemplazar el archivo vuelve a pedir verificación.
+        $this->assertFalse($documento->verificado);
+    }
+
+    public function test_el_reverso_no_se_acepta_para_un_documento_que_no_es_dni(): void
+    {
+        Storage::fake('public');
+
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create();
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.show', ['estudiante' => $estudiante])
+            ->call('mostrarFormDocumento')
+            ->set('documentoTipoNuevo', TipoDocumentoEnum::CONSTANCIA->value)
+            ->set('documentoArchivoNuevo', UploadedFile::fake()->create('constancia.pdf', 100, 'application/pdf'))
+            ->set('documentoReversoNuevo', UploadedFile::fake()->image('reverso.jpg'))
+            ->call('guardarDocumento')
+            ->assertHasErrors('documentoReversoNuevo');
+    }
+
+    public function test_un_docente_sin_permiso_no_puede_agregar_documentos(): void
+    {
+        Storage::fake('public');
+
+        $docente = User::factory()->create();
+        $docente->assignRole(RolEnum::DOCENTE->value);
+        $docente->givePermissionTo('matricula.ver');
+        $estudiante = Estudiante::factory()->create();
+
+        $this->actingAs($docente);
+
+        Volt::test('matricula.show', ['estudiante' => $estudiante])
+            ->call('mostrarFormDocumento')
+            ->assertForbidden();
+
+        $this->assertSame(0, $estudiante->documentos()->count());
+    }
+
     public function test_elegir_una_fecha_de_matricula_pasada_se_respeta_en_vez_de_usar_hoy(): void
     {
         Storage::fake('public');
