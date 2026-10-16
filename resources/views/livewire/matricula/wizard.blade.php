@@ -893,7 +893,7 @@ new class extends Component
                             wire:model="examenGradoAsignadoId"
                             id="examenGradoAsignadoId"
                             class="mt-1 block w-full"
-                            :options="collect($todosLosGrados)->mapWithKeys(fn ($grado) => [$grado->id => \"{$grado->programaEstudio->nombre} — {$grado->nombre}\"])->prepend('Sin asignar', '')"
+                            :options="collect($todosLosGrados)->mapWithKeys(fn ($grado) => [$grado->id => $grado->programaEstudio->nombre.' — '.$grado->nombre])->prepend('Sin asignar', '')"
                         />
                     </div>
                     <div class="sm:col-span-2">
@@ -967,7 +967,7 @@ new class extends Component
                         wire:model.live="gradoId"
                         id="gradoId"
                         class="mt-1 block w-full"
-                        :options="collect($gradosCompatibles)->mapWithKeys(fn ($grado) => [$grado->id => \"{$grado->programaEstudio->nombre} — {$grado->nombre}\"])"
+                        :options="collect($gradosCompatibles)->mapWithKeys(fn ($grado) => [$grado->id => $grado->programaEstudio->nombre.' — '.$grado->nombre])"
                     />
                     <x-input-error :messages="$errors->get('gradoId')" class="mt-1" />
                 </div>
