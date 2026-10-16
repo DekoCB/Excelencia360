@@ -115,6 +115,14 @@ class Estudiante extends Model implements HasMedia
     }
 
     /**
+     * @return HasMany<MatriculaCursoCorto, $this>
+     */
+    public function cursosCortos(): HasMany
+    {
+        return $this->hasMany(MatriculaCursoCorto::class);
+    }
+
+    /**
      * @return HasMany<DocumentoEstudiante, $this>
      */
     public function documentos(): HasMany

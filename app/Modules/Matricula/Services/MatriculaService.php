@@ -6,7 +6,9 @@ namespace App\Modules\Matricula\Services;
 
 use App\Models\User;
 use App\Modules\Academico\Enums\ModalidadCicloEnum;
+use App\Modules\Academico\Enums\TipoCursoEnum;
 use App\Modules\Academico\Models\Ciclo;
+use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Academico\Models\PeriodoMatricula;
@@ -17,12 +19,14 @@ use App\Modules\Matricula\DTOs\RegistrarEstudianteData;
 use App\Modules\Matricula\DTOs\RegistrarMatriculaData;
 use App\Modules\Matricula\Enums\EstadoCivilEnum;
 use App\Modules\Matricula\Enums\EstadoEstudianteEnum;
+use App\Modules\Matricula\Enums\EstadoMatriculaCursoCortoEnum;
 use App\Modules\Matricula\Enums\EstadoMatriculaEnum;
 use App\Modules\Matricula\Events\EstudianteMatriculado;
 use App\Modules\Matricula\Models\Apoderado;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\InstitucionProcedencia;
 use App\Modules\Matricula\Models\Matricula;
+use App\Modules\Matricula\Models\MatriculaCursoCorto;
 use App\Modules\Matricula\Repositories\Contracts\EstudianteRepositoryInterface;
 use App\Modules\Matricula\Repositories\Contracts\MatriculaRepositoryInterface;
 use App\Shared\Enums\RolEnum;
@@ -302,6 +306,52 @@ class MatriculaService
 
             return $matricula;
         });
+    }
+
+    /**
+     * Matrícula de "curso corto": un estudiante que solo lleva un curso de
+     * capacitación individual, sin semestre ni programa de estudio -- ver
+     * App\Modules\Matricula\Models\MatriculaCursoCorto para el porqué de
+     * que sea un modelo aparte de matricular(). A diferencia de esa, no
+     * calcula una fecha fin automática ni dispara EstudianteMatriculado:
+     * el curso corto no tiene plan de pago (si hace falta cobrar algo, se
+     * usa CargoAdicional, que ya cobra a nivel de Estudiante).
+     *
+     * @param  array{curso_id: int, fecha_inicio: string, observaciones: ?string, registrado_por: ?int}  $datos
+     */
+    public function matricularCursoCorto(Estudiante $estudiante, array $datos): MatriculaCursoCorto
+    {
+        $curso = Curso::query()->findOrFail($datos['curso_id']);
+
+        if ($curso->tipo !== TipoCursoEnum::CAPACITACION) {
+            throw ValidationException::withMessages([
+                'curso_id' => 'El curso elegido no es un curso de capacitación.',
+            ]);
+        }
+
+        return MatriculaCursoCorto::query()->create([
+            'estudiante_id' => $estudiante->id,
+            'curso_id' => $curso->id,
+            'fecha_inicio' => $datos['fecha_inicio'],
+            'estado' => EstadoMatriculaCursoCortoEnum::ACTIVO,
+            'observaciones' => $datos['observaciones'] ?? null,
+            'registrado_por' => $datos['registrado_por'] ?? null,
+        ]);
+    }
+
+    /**
+     * Marca un curso corto como concluido o retirado desde la ficha del
+     * estudiante -- concluido deja fecha_fin en hoy si no se indica una
+     * propia; retirado no, ya que el estudiante no llegó a terminarlo.
+     */
+    public function finalizarCursoCorto(MatriculaCursoCorto $cursoCorto, EstadoMatriculaCursoCortoEnum $estado, ?string $fechaFin = null): MatriculaCursoCorto
+    {
+        $cursoCorto->update([
+            'estado' => $estado,
+            'fecha_fin' => $estado === EstadoMatriculaCursoCortoEnum::CONCLUIDO ? ($fechaFin ?? now()->format('Y-m-d')) : $fechaFin,
+        ]);
+
+        return $cursoCorto;
     }
 
     /**
