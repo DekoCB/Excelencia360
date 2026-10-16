@@ -82,7 +82,7 @@ class DocentesPermisosTest extends TestCase
         $usuario = User::query()->where('dni', '45678912')->first();
 
         $this->assertNotNull($usuario);
-        $this->assertSame('45678912@ceba.test', $usuario->email);
+        $this->assertSame('45678912@excelencia360.com', $usuario->email);
         $this->assertTrue($usuario->hasRole(RolEnum::DOCENTE->value));
         $this->assertDatabaseHas('docentes', ['user_id' => $usuario->id, 'especialidad' => 'Matemática']);
     }

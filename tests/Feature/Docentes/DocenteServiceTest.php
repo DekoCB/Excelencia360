@@ -41,7 +41,7 @@ class DocenteServiceTest extends TestCase
         ]);
 
         $this->assertSame('Ana Torres Quispe', $docente->usuario->name);
-        $this->assertSame('45678912@ceba.test', $docente->usuario->email);
+        $this->assertSame('45678912@excelencia360.com', $docente->usuario->email);
         $this->assertTrue($docente->usuario->hasRole(RolEnum::DOCENTE->value));
         $this->assertSame('Matemática', $docente->especialidad);
     }

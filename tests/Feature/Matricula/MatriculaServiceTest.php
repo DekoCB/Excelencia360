@@ -110,11 +110,11 @@ class MatriculaServiceTest extends TestCase
     {
         $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMayor());
 
-        $this->assertSame('12345678@ceba.test', $estudiante->email);
+        $this->assertSame('12345678@excelencia360.com', $estudiante->email);
         $this->assertNotNull($estudiante->user_id);
 
         $usuario = $estudiante->user;
-        $this->assertSame('12345678@ceba.test', $usuario->email);
+        $this->assertSame('12345678@excelencia360.com', $usuario->email);
         $this->assertSame('12345678', $usuario->dni);
         $this->assertTrue($usuario->hasRole(RolEnum::ESTUDIANTE->value));
         $this->assertTrue(Hash::check('12345678', $usuario->password));
@@ -162,7 +162,7 @@ class MatriculaServiceTest extends TestCase
         $this->assertNotNull($apoderado->user_id);
 
         $usuario = User::query()->findOrFail($apoderado->user_id);
-        $this->assertSame('87654321@ceba.test', $usuario->email);
+        $this->assertSame('87654321@excelencia360.com', $usuario->email);
         $this->assertTrue($usuario->hasRole(RolEnum::APODERADO->value));
         $this->assertTrue(Hash::check('87654321', $usuario->password));
     }

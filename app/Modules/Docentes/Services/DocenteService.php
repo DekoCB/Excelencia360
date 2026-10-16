@@ -50,7 +50,7 @@ class DocenteService
      * Además de la ficha del docente, crea (o reutiliza, si el DNI ya
      * tiene cuenta) su acceso al sistema -- mismo criterio que
      * MatriculaService::registrarEstudiante(): correo institucional
-     * {dni}@ceba.test y contraseña inicial igual al DNI.
+     * {dni}@excelencia360.com y contraseña inicial igual al DNI.
      *
      * @param  array{nombres: string, apellidos: string, dni: Dni, celular: ?Telefono, especialidad: ?string, gradoAcademico: ?string, fechaIngreso: ?string}  $datos
      */

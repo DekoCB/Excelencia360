@@ -743,7 +743,7 @@ new class extends Component
                 <div class="sm:col-span-2">
                     <x-input-label value="Correo" />
                     <div class="mt-1 rounded-md border border-border bg-surface-2 px-3 py-2 font-mono text-sm text-ink-dim">
-                        {{ trim($dni) !== '' ? strtolower(trim($dni)).'@ceba.test' : '—' }}
+                        {{ trim($dni) !== '' ? strtolower(trim($dni)).'@excelencia360.com' : '—' }}
                     </div>
                     <p class="mt-1 text-xs text-ink-faint">Se asigna automáticamente a partir del DNI, junto con su cuenta de acceso al sistema.</p>
                 </div>

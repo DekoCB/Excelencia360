@@ -124,7 +124,7 @@ class MatriculaService
     /**
      * Además de la ficha del estudiante, esto le crea (o reutiliza, si ya
      * existe una con el mismo DNI) su cuenta de acceso al sistema: correo
-     * {dni}@ceba.test y contraseña inicial igual a su DNI -- el estudiante
+     * {dni}@excelencia360.com y contraseña inicial igual a su DNI -- el estudiante
      * puede cambiarla después desde su perfil. No hay ningún paso de
      * formulario para esto: se calcula siempre a partir del DNI.
      */
@@ -171,7 +171,7 @@ class MatriculaService
      * Además de la ficha del apoderado, esto le crea (o reutiliza, si ya
      * existe una cuenta con el mismo DNI) acceso al portal de Apoderados
      * -- mismo criterio que registrarEstudiante()/DocenteService::registrar():
-     * correo {dni}@ceba.test y contraseña inicial igual al DNI. Una misma
+     * correo {dni}@excelencia360.com y contraseña inicial igual al DNI. Una misma
      * persona con más de un hijo matriculado tiene una fila de Apoderado
      * por cada uno (estudiante_id es unique), pero las que compartan DNI
      * quedan vinculadas a la MISMA cuenta vía user_id -- así ve a todos

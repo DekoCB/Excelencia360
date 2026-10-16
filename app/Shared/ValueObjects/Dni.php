@@ -48,13 +48,15 @@ final readonly class Dni implements Stringable
     }
 
     /**
-     * Correo institucional autoasignado: siempre {dni}@ceba.test, en vez de
-     * requerir que se ingrese uno manualmente al crear un usuario o
-     * matricular un estudiante.
+     * Correo institucional autoasignado: siempre {dni}@excelencia360.com, en
+     * vez de requerir que se ingrese uno manualmente al crear un usuario o
+     * matricular un estudiante. Es solo un identificador de acceso (nunca
+     * se envía correo real a esta dirección), así que no depende de que la
+     * institución tenga ese dominio registrado de verdad.
      */
     public function correoInstitucional(): string
     {
-        return strtolower($this->valor).'@ceba.test';
+        return strtolower($this->valor).'@excelencia360.com';
     }
 
     public function __toString(): string
