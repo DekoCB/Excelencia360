@@ -103,6 +103,47 @@ class MatriculaPermisosTest extends TestCase
         $this->assertSame('Pendiente entregar certificado de estudios del colegio anterior.', $estudiante->observaciones);
     }
 
+    public function test_el_paso_de_documentos_se_puede_saltar_sin_subir_ningun_archivo(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+
+        $ciclo = Ciclo::factory()->activo()->create([
+            'fecha_inicio' => now()->subDays(20),
+            'fecha_fin' => now()->addMonths(5),
+        ]);
+        $ciclo->periodosMatricula()->create([
+            'fecha_inicio' => now()->subDays(10),
+            'fecha_fin' => now()->addDays(10),
+        ]);
+        $grado = Grado::factory()->create();
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.wizard')
+            ->set('nombres', 'Diego')
+            ->set('apellidos', 'Salazar Nuñez')
+            ->set('dni', '55667966')
+            ->set('fechaNacimiento', now()->subYears(25)->format('Y-m-d'))
+            ->call('avanzar')
+            ->assertHasNoErrors()
+            ->assertSet('paso', 3)
+            // Ningún documento subido en este paso -- todos son opcionales.
+            ->call('avanzar')
+            ->assertHasNoErrors()
+            ->assertSet('paso', 4)
+            ->call('avanzar')
+            ->assertSet('paso', 5)
+            ->set('cicloId', (string) $ciclo->id)
+            ->set('gradoId', (string) $grado->id)
+            ->call('confirmar')
+            ->assertHasNoErrors()
+            ->assertDispatched('matricula-registrada');
+
+        $estudiante = Estudiante::query()->where('dni', '55667966')->firstOrFail();
+        $this->assertCount(0, $estudiante->documentos);
+    }
+
     public function test_subir_cara_y_reverso_del_dni_guarda_ambas_colecciones_de_media(): void
     {
         Storage::fake('public');
