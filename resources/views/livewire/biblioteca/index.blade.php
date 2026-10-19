@@ -101,6 +101,15 @@ new #[Layout('layouts.app')] class extends Component
         session()->flash('status', 'Libro agregado al catálogo.');
     }
 
+    public function eliminarLibro(int $libroId, BibliotecaService $service): void
+    {
+        abort_unless(Auth::user()->hasPermissionTo('biblioteca.gestionar'), 403);
+
+        $service->eliminarLibro(Libro::query()->findOrFail($libroId));
+
+        session()->flash('status', 'Libro eliminado del catálogo.');
+    }
+
     public function abrirFormEjemplar(int $libroId): void
     {
         abort_unless(Auth::user()->hasPermissionTo('biblioteca.gestionar'), 403);
@@ -361,6 +370,13 @@ new #[Layout('layouts.app')] class extends Component
                                 {{ $libro->enlace_externo ? 'Editar enlace' : '+ Enlace' }}
                             </x-secondary-button>
                             <x-secondary-button type="button" wire:click="abrirFormEjemplar({{ $libro->id }})">+ Ejemplar</x-secondary-button>
+                            <x-danger-button
+                                type="button"
+                                wire:click="eliminarLibro({{ $libro->id }})"
+                                wire:confirm="¿Eliminar '{{ $libro->titulo }}' del catálogo? Esto no se puede deshacer desde aquí."
+                            >
+                                Eliminar
+                            </x-danger-button>
                         @endif
                     </div>
                 </div>

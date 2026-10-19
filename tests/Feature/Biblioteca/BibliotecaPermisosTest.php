@@ -115,6 +115,36 @@ class BibliotecaPermisosTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_coordinador_puede_eliminar_un_libro_del_catalogo(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $this->actingAs($coordinador);
+
+        $libro = Libro::factory()->create();
+
+        Volt::test('biblioteca.index')
+            ->call('eliminarLibro', $libro->id)
+            ->assertHasNoErrors();
+
+        $this->assertSoftDeleted('libros', ['id' => $libro->id]);
+    }
+
+    public function test_un_docente_no_puede_eliminar_un_libro_directamente(): void
+    {
+        $docente = User::factory()->create();
+        $docente->assignRole(RolEnum::DOCENTE->value);
+        $this->actingAs($docente);
+
+        $libro = Libro::factory()->create();
+
+        Volt::test('biblioteca.index')
+            ->call('eliminarLibro', $libro->id)
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('libros', ['id' => $libro->id, 'deleted_at' => null]);
+    }
+
     public function test_un_estudiante_no_puede_devolver_un_prestamo_directamente(): void
     {
         $prestamo = Prestamo::factory()->create();

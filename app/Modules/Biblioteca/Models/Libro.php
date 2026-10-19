@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
@@ -27,7 +28,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 class Libro extends Model implements HasMedia
 {
     /** @use HasFactory<LibroFactory> */
-    use Auditable, HasFactory, InteractsWithMedia;
+    use Auditable, HasFactory, InteractsWithMedia, SoftDeletes;
 
     protected $fillable = [
         'titulo',

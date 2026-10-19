@@ -55,6 +55,42 @@ class BibliotecaServiceTest extends TestCase
         $this->assertSame($libro->id, $ejemplar->libro_id);
     }
 
+    public function test_eliminar_libro_lo_saca_del_catalogo(): void
+    {
+        $libro = Libro::factory()->create();
+
+        $this->service()->eliminarLibro($libro);
+
+        $this->assertSoftDeleted('libros', ['id' => $libro->id]);
+        $this->assertCount(0, $this->service()->catalogo());
+    }
+
+    public function test_eliminar_libro_con_ejemplar_prestado_lo_rechaza(): void
+    {
+        $libro = Libro::factory()->create();
+        $ejemplar = Ejemplar::factory()->create(['libro_id' => $libro->id, 'estado' => EstadoEjemplarEnum::PRESTADO]);
+
+        $this->expectException(ValidationException::class);
+
+        $this->service()->eliminarLibro($libro);
+
+        $this->assertDatabaseHas('libros', ['id' => $libro->id, 'deleted_at' => null]);
+    }
+
+    public function test_eliminar_libro_no_rompe_el_historial_de_prestamos_ya_cerrados(): void
+    {
+        $libro = Libro::factory()->create(['titulo' => 'Libro a eliminar']);
+        $ejemplar = Ejemplar::factory()->create(['libro_id' => $libro->id, 'estado' => EstadoEjemplarEnum::DISPONIBLE]);
+        $prestamo = Prestamo::factory()->create([
+            'ejemplar_id' => $ejemplar->id,
+            'estado' => EstadoPrestamoEnum::DEVUELTO,
+        ]);
+
+        $this->service()->eliminarLibro($libro);
+
+        $this->assertSame('Libro a eliminar', $prestamo->fresh()->ejemplar->libro->titulo);
+    }
+
     public function test_subir_pdf_lo_deja_disponible_en_la_coleccion_pdf(): void
     {
         Storage::fake('public');

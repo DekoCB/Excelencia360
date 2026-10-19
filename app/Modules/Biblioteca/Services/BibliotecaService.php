@@ -57,6 +57,25 @@ class BibliotecaService
         ]);
     }
 
+    /**
+     * @throws ValidationException si algún ejemplar del libro sigue prestado
+     */
+    public function eliminarLibro(Libro $libro): void
+    {
+        $tienePrestamoActivo = Ejemplar::query()
+            ->where('libro_id', $libro->id)
+            ->where('estado', EstadoEjemplarEnum::PRESTADO)
+            ->exists();
+
+        if ($tienePrestamoActivo) {
+            throw ValidationException::withMessages([
+                'libro' => 'Este libro tiene ejemplares prestados. Deben devolverse (o marcarse perdidos) antes de eliminarlo.',
+            ]);
+        }
+
+        $libro->delete();
+    }
+
     public function agregarEjemplar(Libro $libro, string $codigoInventario): Ejemplar
     {
         return $libro->ejemplares()->create([
