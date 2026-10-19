@@ -192,7 +192,7 @@ new #[Layout('layouts.app')] class extends Component
     }
 
     /**
-     * Las 3 franjas institucionales fijas (ver FranjaHorarioEnum): un curso
+     * Las 2 franjas institucionales fijas (ver FranjaHorarioEnum): un curso
      * puede dictarse en cualquiera de ellas, así que filtrar por franja
      * -- no por un horario puntual -- trae todos los cursos que caen ahí,
      * sin importar grado ni docente.

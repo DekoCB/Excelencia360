@@ -108,7 +108,7 @@ class AsistenciaService
 
     /**
      * Últimas fechas en que el horario realmente dicta clase según su
-     * franja (domingo / lun_mie / mar_jue), acotadas al rango del ciclo y
+     * franja (lunes a viernes / sábados y domingos), acotadas al rango del ciclo y
      * sin pasarse de hoy — para ofrecerlas como acceso rápido al tomar
      * asistencia, en vez de fechas ya registradas que podían no coincidir
      * con el día real de clase.

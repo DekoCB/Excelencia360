@@ -242,8 +242,8 @@ class DemoRobustoSeeder extends Seeder
             return;
         }
 
-        // Siempre una franja institucional completa (Lunes-Miércoles,
-        // Martes-Jueves o Domingo), nunca un día suelto: de lo contrario el
+        // Siempre una franja institucional completa (Lunes a Viernes o
+        // Sábados y Domingos), nunca un día suelto: de lo contrario el
         // horario queda huérfano en el listado ("Otros días") sin
         // corresponder a ningún turno real de la institución.
         $franjas = FranjaHorarioEnum::cases();

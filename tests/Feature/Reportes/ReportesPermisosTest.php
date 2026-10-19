@@ -124,31 +124,27 @@ class ReportesPermisosTest extends TestCase
         $this->assertSame('application/pdf', $testable->effects['download']['contentType']);
     }
 
-    public function test_el_filtro_de_horario_muestra_las_3_franjas_institucionales(): void
+    public function test_el_filtro_de_horario_muestra_las_2_franjas_institucionales(): void
     {
         $coordinador = User::factory()->create();
         $coordinador->assignRole(RolEnum::COORDINADOR->value);
 
         $this->actingAs($coordinador);
 
-        // x-select-input embebe sus opciones como JSON con unicode escapado
-        // (Miércoles -> Miércoles), así que se verifica el HTML crudo
-        // en vez de assertSee con texto acentuado.
         $html = Volt::test('reportes.index')
             ->set('tipo', 'academico')
             ->html();
 
-        $this->assertStringContainsString('lun_mie', $html);
-        $this->assertStringContainsString('mar_jue', $html);
-        $this->assertStringContainsString('domingo', $html);
+        $this->assertStringContainsString('lunes_viernes', $html);
+        $this->assertStringContainsString('sabados_domingos', $html);
     }
 
     public function test_filtrar_el_reporte_academico_por_franja_solo_trae_esa_franja(): void
     {
-        $horarioLunes = $this->horarioConFranja(FranjaHorarioEnum::LUN_MIE, [
+        $horarioLunes = $this->horarioConFranja(FranjaHorarioEnum::LUNES_VIERNES, [
             'curso_id' => Curso::factory()->create(['nombre' => 'Curso Lunes']),
         ]);
-        $horarioMartes = $this->horarioConFranja(FranjaHorarioEnum::MAR_JUE, [
+        $horarioMartes = $this->horarioConFranja(FranjaHorarioEnum::SABADOS_DOMINGOS, [
             'curso_id' => Curso::factory()->create(['nombre' => 'Curso Martes']),
         ]);
         Calificacion::factory()->create(['evaluacion_id' => Evaluacion::factory()->create(['horario_id' => $horarioLunes->id])->id]);
@@ -162,7 +158,7 @@ class ReportesPermisosTest extends TestCase
             ->set('tipo', 'academico')
             ->assertSee('Curso Lunes')
             ->assertSee('Curso Martes')
-            ->set('franja', FranjaHorarioEnum::LUN_MIE->value)
+            ->set('franja', FranjaHorarioEnum::LUNES_VIERNES->value)
             ->assertSee('Curso Lunes')
             ->assertDontSee('Curso Martes');
     }
@@ -197,8 +193,8 @@ class ReportesPermisosTest extends TestCase
 
         Volt::test('reportes.index')
             ->set('tipo', 'academico')
-            ->set('franja', FranjaHorarioEnum::LUN_MIE->value)
-            ->assertSet('franja', FranjaHorarioEnum::LUN_MIE->value)
+            ->set('franja', FranjaHorarioEnum::LUNES_VIERNES->value)
+            ->assertSet('franja', FranjaHorarioEnum::LUNES_VIERNES->value)
             ->set('tipo', 'financiero')
             ->assertSet('franja', '');
     }

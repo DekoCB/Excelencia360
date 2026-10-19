@@ -247,11 +247,33 @@ class HorarioTraslapeTest extends TestCase
         $this->assertSame(DiaSemanaEnum::LUNES, $lunes->fresh()->dia_semana);
     }
 
-    public function test_franja_identifica_la_combinacion_lunes_y_miercoles(): void
+    public function test_franja_identifica_la_combinacion_lunes_a_viernes(): void
     {
-        $horario = $this->service()->crear($this->datosBase());
+        $horario = $this->service()->crear([
+            ...$this->datosBase(),
+            'dias' => [
+                ['dia_semana' => DiaSemanaEnum::LUNES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00'],
+                ['dia_semana' => DiaSemanaEnum::MARTES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00'],
+                ['dia_semana' => DiaSemanaEnum::MIERCOLES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00'],
+                ['dia_semana' => DiaSemanaEnum::JUEVES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00'],
+                ['dia_semana' => DiaSemanaEnum::VIERNES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00'],
+            ],
+        ]);
 
-        $this->assertSame(FranjaHorarioEnum::LUN_MIE, $horario->franja());
+        $this->assertSame(FranjaHorarioEnum::LUNES_VIERNES, $horario->franja());
+    }
+
+    public function test_franja_identifica_la_combinacion_sabados_y_domingos(): void
+    {
+        $horario = $this->service()->crear([
+            ...$this->datosBase(),
+            'dias' => [
+                ['dia_semana' => DiaSemanaEnum::SABADO, 'hora_inicio' => '09:00:00', 'hora_fin' => '11:00:00'],
+                ['dia_semana' => DiaSemanaEnum::DOMINGO, 'hora_inicio' => '09:00:00', 'hora_fin' => '11:00:00'],
+            ],
+        ]);
+
+        $this->assertSame(FranjaHorarioEnum::SABADOS_DOMINGOS, $horario->franja());
     }
 
     public function test_franja_es_null_si_los_dias_no_calzan_con_ninguna_franja_institucional(): void

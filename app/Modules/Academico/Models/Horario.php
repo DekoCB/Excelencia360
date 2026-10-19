@@ -85,9 +85,10 @@ class Horario extends Model
     }
 
     /**
-     * A qué franja institucional (Lunes-Miércoles, Martes-Jueves, Domingo)
+     * A qué franja institucional (Lunes a Viernes, Sábados y Domingos)
      * corresponde este horario, o null si sus días no calzan con ninguna
-     * (por ejemplo, un registro antiguo con otra combinación de días).
+     * (por ejemplo, un registro antiguo con otra combinación de días --
+     * incluidas las franjas institucionales anteriores a este cambio).
      */
     public function franja(): ?FranjaHorarioEnum
     {

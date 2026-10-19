@@ -40,7 +40,10 @@ class AulaOcupacionTest extends TestCase
         $horario = Horario::factory()->create(['ciclo_id' => $ciclo->id, 'aula_id' => $aula->id]);
         $horario->dias()->delete();
         $horario->dias()->create(['dia_semana' => DiaSemanaEnum::LUNES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00']);
+        $horario->dias()->create(['dia_semana' => DiaSemanaEnum::MARTES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00']);
         $horario->dias()->create(['dia_semana' => DiaSemanaEnum::MIERCOLES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00']);
+        $horario->dias()->create(['dia_semana' => DiaSemanaEnum::JUEVES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00']);
+        $horario->dias()->create(['dia_semana' => DiaSemanaEnum::VIERNES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00']);
 
         $this->matricular($horario);
         $this->matricular($horario);
@@ -48,7 +51,7 @@ class AulaOcupacionTest extends TestCase
         $ocupacion = $this->service()->ocupacion($ciclo->id);
         $filaAula1 = $ocupacion->firstWhere(fn (array $fila) => $fila['aula']->id === $aula->id);
 
-        $this->assertSame(2, $filaAula1['porFranja']['lun_mie']['totalEstudiantes']);
+        $this->assertSame(2, $filaAula1['porFranja']['lunes_viernes']['totalEstudiantes']);
     }
 
     public function test_un_aula_sin_horarios_en_el_ciclo_aparece_con_ocupacion_vacia(): void
@@ -74,9 +77,9 @@ class AulaOcupacionTest extends TestCase
 
     /**
      * El mismo grado (cohorte) puede tener varios cursos en la misma aula
-     * en franjas distintas (ej. Comunicación lunes/miércoles, Matemática
-     * martes/jueves): al ser el mismo grupo de estudiantes, cuentan en el
-     * total de AMBAS franjas -- no es que "se dividan" entre ellas.
+     * en franjas distintas (ej. Comunicación de lunes a viernes, Matemática
+     * los fines de semana): al ser el mismo grupo de estudiantes, cuentan
+     * en el total de AMBAS franjas -- no es que "se dividan" entre ellas.
      */
     public function test_el_mismo_grado_cuenta_en_cada_franja_donde_tiene_un_curso(): void
     {
@@ -86,7 +89,10 @@ class AulaOcupacionTest extends TestCase
         $horarioA = Horario::factory()->create(['ciclo_id' => $ciclo->id, 'aula_id' => $aula->id]);
         $horarioA->dias()->delete();
         $horarioA->dias()->create(['dia_semana' => DiaSemanaEnum::LUNES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00']);
+        $horarioA->dias()->create(['dia_semana' => DiaSemanaEnum::MARTES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00']);
         $horarioA->dias()->create(['dia_semana' => DiaSemanaEnum::MIERCOLES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00']);
+        $horarioA->dias()->create(['dia_semana' => DiaSemanaEnum::JUEVES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00']);
+        $horarioA->dias()->create(['dia_semana' => DiaSemanaEnum::VIERNES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00']);
         $estudiante = Estudiante::factory()->create();
         Matricula::factory()->create([
             'estudiante_id' => $estudiante->id,
@@ -96,13 +102,13 @@ class AulaOcupacionTest extends TestCase
 
         $horarioB = Horario::factory()->create(['ciclo_id' => $ciclo->id, 'aula_id' => $aula->id, 'grado_id' => $horarioA->grado_id]);
         $horarioB->dias()->delete();
-        $horarioB->dias()->create(['dia_semana' => DiaSemanaEnum::MARTES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00']);
-        $horarioB->dias()->create(['dia_semana' => DiaSemanaEnum::JUEVES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00']);
+        $horarioB->dias()->create(['dia_semana' => DiaSemanaEnum::SABADO, 'hora_inicio' => '09:00:00', 'hora_fin' => '11:00:00']);
+        $horarioB->dias()->create(['dia_semana' => DiaSemanaEnum::DOMINGO, 'hora_inicio' => '09:00:00', 'hora_fin' => '11:00:00']);
 
         $ocupacion = $this->service()->ocupacion($ciclo->id);
         $fila = $ocupacion->firstWhere(fn (array $fila) => $fila['aula']->id === $aula->id);
 
-        $this->assertSame(1, $fila['porFranja']['lun_mie']['totalEstudiantes']);
-        $this->assertSame(1, $fila['porFranja']['mar_jue']['totalEstudiantes']);
+        $this->assertSame(1, $fila['porFranja']['lunes_viernes']['totalEstudiantes']);
+        $this->assertSame(1, $fila['porFranja']['sabados_domingos']['totalEstudiantes']);
     }
 }

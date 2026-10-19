@@ -67,7 +67,7 @@ new #[Layout('layouts.app')] class extends Component
     public array $horaFinMinutoPorDia = [];
 
     /**
-     * Las 3 franjas institucionales, salvo que el curso elegido tenga
+     * Las 2 franjas institucionales, salvo que el curso elegido tenga
      * franjas propias marcadas en su ficha (Curso::franjas_permitidas) --
      * en ese caso solo se ofrecen esas.
      *
@@ -318,7 +318,7 @@ new #[Layout('layouts.app')] class extends Component
 
     /**
      * La vista organizada como la institución realmente trabaja: primero
-     * por franja (Lunes-Miércoles / Martes-Jueves / Domingo), y dentro de
+     * por franja (Lunes a Viernes / Sábados y Domingos), y dentro de
      * cada una por grado -- así se ven de una los grupos A y B de un mismo
      * grado, en vez de una tabla plana ordenada por curso.
      *

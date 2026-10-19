@@ -135,20 +135,20 @@ class ReporteServiceTest extends TestCase
 
     public function test_reporte_de_matricula_filtra_por_franja(): void
     {
-        $horarioA = $this->horarioConFranja(FranjaHorarioEnum::LUN_MIE);
-        $horarioB = $this->horarioConFranja(FranjaHorarioEnum::MAR_JUE);
+        $horarioA = $this->horarioConFranja(FranjaHorarioEnum::LUNES_VIERNES);
+        $horarioB = $this->horarioConFranja(FranjaHorarioEnum::SABADOS_DOMINGOS);
         Matricula::factory()->create(['grado_id' => $horarioA->grado_id, 'ciclo_id' => $horarioA->ciclo_id, 'fecha_matricula' => now()]);
         Matricula::factory()->create(['grado_id' => $horarioB->grado_id, 'ciclo_id' => $horarioB->ciclo_id, 'fecha_matricula' => now()]);
 
-        $reporte = app(ReporteService::class)->matricula(null, null, null, FranjaHorarioEnum::LUN_MIE->value);
+        $reporte = app(ReporteService::class)->matricula(null, null, null, FranjaHorarioEnum::LUNES_VIERNES->value);
 
         $this->assertCount(1, $reporte['filas']);
     }
 
     public function test_reporte_financiero_filtra_por_franja(): void
     {
-        $horarioA = $this->horarioConFranja(FranjaHorarioEnum::LUN_MIE);
-        $horarioB = $this->horarioConFranja(FranjaHorarioEnum::MAR_JUE);
+        $horarioA = $this->horarioConFranja(FranjaHorarioEnum::LUNES_VIERNES);
+        $horarioB = $this->horarioConFranja(FranjaHorarioEnum::SABADOS_DOMINGOS);
         $estudianteA = Estudiante::factory()->create();
         $estudianteB = Estudiante::factory()->create();
         Matricula::factory()->create(['estudiante_id' => $estudianteA->id, 'grado_id' => $horarioA->grado_id, 'ciclo_id' => $horarioA->ciclo_id]);
@@ -156,29 +156,29 @@ class ReporteServiceTest extends TestCase
         Pago::factory()->aprobado()->create(['estudiante_id' => $estudianteA->id, 'fecha_pago' => now()]);
         Pago::factory()->aprobado()->create(['estudiante_id' => $estudianteB->id, 'fecha_pago' => now()]);
 
-        $reporte = app(ReporteService::class)->financiero(null, null, null, FranjaHorarioEnum::LUN_MIE->value);
+        $reporte = app(ReporteService::class)->financiero(null, null, null, FranjaHorarioEnum::LUNES_VIERNES->value);
 
         $this->assertCount(1, $reporte['filas']);
     }
 
     public function test_reporte_de_certificados_filtra_por_franja(): void
     {
-        $horarioA = $this->horarioConFranja(FranjaHorarioEnum::LUN_MIE);
-        $horarioB = $this->horarioConFranja(FranjaHorarioEnum::MAR_JUE);
+        $horarioA = $this->horarioConFranja(FranjaHorarioEnum::LUNES_VIERNES);
+        $horarioB = $this->horarioConFranja(FranjaHorarioEnum::SABADOS_DOMINGOS);
         $matriculaA = Matricula::factory()->create(['grado_id' => $horarioA->grado_id, 'ciclo_id' => $horarioA->ciclo_id]);
         $matriculaB = Matricula::factory()->create(['grado_id' => $horarioB->grado_id, 'ciclo_id' => $horarioB->ciclo_id]);
         Certificado::factory()->create(['matricula_id' => $matriculaA->id, 'fecha_emision' => now()]);
         Certificado::factory()->create(['matricula_id' => $matriculaB->id, 'fecha_emision' => now()]);
 
-        $reporte = app(ReporteService::class)->certificados(null, null, null, FranjaHorarioEnum::LUN_MIE->value);
+        $reporte = app(ReporteService::class)->certificados(null, null, null, FranjaHorarioEnum::LUNES_VIERNES->value);
 
         $this->assertCount(1, $reporte['filas']);
     }
 
     public function test_reporte_de_morosos_filtra_por_franja(): void
     {
-        $horarioA = $this->horarioConFranja(FranjaHorarioEnum::LUN_MIE);
-        $horarioB = $this->horarioConFranja(FranjaHorarioEnum::MAR_JUE);
+        $horarioA = $this->horarioConFranja(FranjaHorarioEnum::LUNES_VIERNES);
+        $horarioB = $this->horarioConFranja(FranjaHorarioEnum::SABADOS_DOMINGOS);
         $matriculaA = Matricula::factory()->create(['grado_id' => $horarioA->grado_id, 'ciclo_id' => $horarioA->ciclo_id]);
         $matriculaB = Matricula::factory()->create(['grado_id' => $horarioB->grado_id, 'ciclo_id' => $horarioB->ciclo_id]);
         $planA = PlanPago::factory()->create(['matricula_id' => $matriculaA->id]);
@@ -186,7 +186,7 @@ class ReporteServiceTest extends TestCase
         Cuota::factory()->vencida()->create(['plan_pago_id' => $planA->id, 'numero' => 1]);
         Cuota::factory()->vencida()->create(['plan_pago_id' => $planB->id, 'numero' => 1]);
 
-        $reporte = app(ReporteService::class)->morosos(null, null, null, FranjaHorarioEnum::LUN_MIE->value);
+        $reporte = app(ReporteService::class)->morosos(null, null, null, FranjaHorarioEnum::LUNES_VIERNES->value);
 
         $this->assertCount(1, $reporte['filas']);
     }
@@ -248,12 +248,12 @@ class ReporteServiceTest extends TestCase
 
     public function test_reporte_academico_filtra_por_franja(): void
     {
-        $horarioA = $this->horarioConFranja(FranjaHorarioEnum::LUN_MIE);
-        $horarioB = $this->horarioConFranja(FranjaHorarioEnum::MAR_JUE);
+        $horarioA = $this->horarioConFranja(FranjaHorarioEnum::LUNES_VIERNES);
+        $horarioB = $this->horarioConFranja(FranjaHorarioEnum::SABADOS_DOMINGOS);
         Calificacion::factory()->create(['evaluacion_id' => Evaluacion::factory()->create(['horario_id' => $horarioA->id])->id]);
         Calificacion::factory()->create(['evaluacion_id' => Evaluacion::factory()->create(['horario_id' => $horarioB->id])->id]);
 
-        $reporte = app(ReporteService::class)->academico(null, null, null, FranjaHorarioEnum::LUN_MIE->value);
+        $reporte = app(ReporteService::class)->academico(null, null, null, FranjaHorarioEnum::LUNES_VIERNES->value);
 
         $this->assertCount(1, $reporte['filas']);
     }
@@ -272,12 +272,12 @@ class ReporteServiceTest extends TestCase
 
     public function test_reporte_operativo_filtra_por_franja(): void
     {
-        $horarioA = $this->horarioConFranja(FranjaHorarioEnum::LUN_MIE);
-        $horarioB = $this->horarioConFranja(FranjaHorarioEnum::MAR_JUE);
+        $horarioA = $this->horarioConFranja(FranjaHorarioEnum::LUNES_VIERNES);
+        $horarioB = $this->horarioConFranja(FranjaHorarioEnum::SABADOS_DOMINGOS);
         Asistencia::factory()->create(['horario_id' => $horarioA->id]);
         Asistencia::factory()->create(['horario_id' => $horarioB->id]);
 
-        $reporte = app(ReporteService::class)->operativo(null, null, null, FranjaHorarioEnum::LUN_MIE->value);
+        $reporte = app(ReporteService::class)->operativo(null, null, null, FranjaHorarioEnum::LUNES_VIERNES->value);
 
         $this->assertCount(1, $reporte['filas']);
     }
@@ -299,18 +299,18 @@ class ReporteServiceTest extends TestCase
     public function test_reporte_propio_solo_incluye_horarios_del_docente_aunque_se_filtre_por_otra_franja(): void
     {
         $docente = User::factory()->create();
-        $horarioPropio = $this->horarioConFranja(FranjaHorarioEnum::LUN_MIE, ['docente_id' => $docente->id]);
-        $horarioAjeno = $this->horarioConFranja(FranjaHorarioEnum::MAR_JUE);
+        $horarioPropio = $this->horarioConFranja(FranjaHorarioEnum::LUNES_VIERNES, ['docente_id' => $docente->id]);
+        $horarioAjeno = $this->horarioConFranja(FranjaHorarioEnum::SABADOS_DOMINGOS);
         Evaluacion::factory()->create(['horario_id' => $horarioPropio->id]);
         Evaluacion::factory()->create(['horario_id' => $horarioAjeno->id]);
 
         $reporteSinFiltro = app(ReporteService::class)->propio($docente, null, null, null);
         $this->assertCount(1, $reporteSinFiltro['filas']);
 
-        $reporteConFranjaAjena = app(ReporteService::class)->propio($docente, null, null, null, FranjaHorarioEnum::MAR_JUE->value);
+        $reporteConFranjaAjena = app(ReporteService::class)->propio($docente, null, null, null, FranjaHorarioEnum::SABADOS_DOMINGOS->value);
         $this->assertCount(0, $reporteConFranjaAjena['filas']);
 
-        $reporteConFranjaPropia = app(ReporteService::class)->propio($docente, null, null, null, FranjaHorarioEnum::LUN_MIE->value);
+        $reporteConFranjaPropia = app(ReporteService::class)->propio($docente, null, null, null, FranjaHorarioEnum::LUNES_VIERNES->value);
         $this->assertCount(1, $reporteConFranjaPropia['filas']);
     }
 }

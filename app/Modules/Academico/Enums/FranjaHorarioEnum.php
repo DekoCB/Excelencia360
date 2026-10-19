@@ -5,21 +5,20 @@ declare(strict_types=1);
 namespace App\Modules\Academico\Enums;
 
 /**
- * Las 3 franjas fijas en las que la institución organiza sus horarios
- * (ver DiaSemanaEnum): nunca un día suelto, salvo el domingo.
+ * Las 2 franjas fijas en las que la institución organiza sus horarios
+ * (ver DiaSemanaEnum): entre semana (lunes a viernes) o fin de semana
+ * (sábados y domingos), nunca un día suelto.
  */
 enum FranjaHorarioEnum: string
 {
-    case LUN_MIE = 'lun_mie';
-    case MAR_JUE = 'mar_jue';
-    case DOMINGO = 'domingo';
+    case LUNES_VIERNES = 'lunes_viernes';
+    case SABADOS_DOMINGOS = 'sabados_domingos';
 
     public function label(): string
     {
         return match ($this) {
-            self::LUN_MIE => 'Lunes y Miércoles',
-            self::MAR_JUE => 'Martes y Jueves',
-            self::DOMINGO => 'Domingo',
+            self::LUNES_VIERNES => 'Lunes a Viernes',
+            self::SABADOS_DOMINGOS => 'Sábados y Domingos',
         };
     }
 
@@ -29,16 +28,17 @@ enum FranjaHorarioEnum: string
     public function dias(): array
     {
         return match ($this) {
-            self::LUN_MIE => [DiaSemanaEnum::LUNES, DiaSemanaEnum::MIERCOLES],
-            self::MAR_JUE => [DiaSemanaEnum::MARTES, DiaSemanaEnum::JUEVES],
-            self::DOMINGO => [DiaSemanaEnum::DOMINGO],
+            self::LUNES_VIERNES => [DiaSemanaEnum::LUNES, DiaSemanaEnum::MARTES, DiaSemanaEnum::MIERCOLES, DiaSemanaEnum::JUEVES, DiaSemanaEnum::VIERNES],
+            self::SABADOS_DOMINGOS => [DiaSemanaEnum::SABADO, DiaSemanaEnum::DOMINGO],
         };
     }
 
     /**
      * A qué franja corresponde un conjunto de días, o null si no calza
-     * exactamente con ninguna de las 3 (por ejemplo, un horario con una
-     * combinación de días distinta a las franjas institucionales).
+     * exactamente con ninguna de las 2 (por ejemplo, un horario con una
+     * combinación de días distinta a las franjas institucionales -- entre
+     * ellos, cualquier horario creado con las franjas institucionales
+     * anteriores a este cambio).
      *
      * @param  iterable<DiaSemanaEnum>  $dias
      */

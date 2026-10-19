@@ -35,7 +35,7 @@ class HorarioFormTest extends TestCase
         return $coordinador;
     }
 
-    public function test_crea_un_horario_con_la_franja_lunes_y_miercoles(): void
+    public function test_crea_un_horario_con_la_franja_sabados_y_domingos(): void
     {
         $this->actingAs($this->actorCoordinador());
 
@@ -53,27 +53,27 @@ class HorarioFormTest extends TestCase
             ->set('cursoId', (string) $curso->id)
             ->set('docenteId', (string) $docente->id)
             ->set('aulaId', (string) $aula->id)
-            ->set('franjasSeleccionadas', ['lun_mie'])
-            ->set('horaInicioHoraPorDia.lunes', '18')
-            ->set('horaInicioMinutoPorDia.lunes', '00')
-            ->set('horaFinHoraPorDia.lunes', '20')
-            ->set('horaFinMinutoPorDia.lunes', '00')
-            ->set('horaInicioHoraPorDia.miercoles', '18')
-            ->set('horaInicioMinutoPorDia.miercoles', '00')
-            ->set('horaFinHoraPorDia.miercoles', '20')
-            ->set('horaFinMinutoPorDia.miercoles', '00')
+            ->set('franjasSeleccionadas', ['sabados_domingos'])
+            ->set('horaInicioHoraPorDia.sabado', '09')
+            ->set('horaInicioMinutoPorDia.sabado', '00')
+            ->set('horaFinHoraPorDia.sabado', '11')
+            ->set('horaFinMinutoPorDia.sabado', '00')
+            ->set('horaInicioHoraPorDia.domingo', '09')
+            ->set('horaInicioMinutoPorDia.domingo', '00')
+            ->set('horaFinHoraPorDia.domingo', '11')
+            ->set('horaFinMinutoPorDia.domingo', '00')
             ->call('guardar')
             ->assertHasNoErrors();
 
         $horario = Horario::query()->where('curso_id', $curso->id)->firstOrFail();
         $this->assertCount(2, $horario->dias);
 
-        $lunes = $horario->dias->firstWhere('dia_semana', DiaSemanaEnum::LUNES);
-        $miercoles = $horario->dias->firstWhere('dia_semana', DiaSemanaEnum::MIERCOLES);
-        $this->assertSame('18:00:00', $lunes->hora_inicio);
-        $this->assertSame('20:00:00', $lunes->hora_fin);
-        $this->assertSame('18:00:00', $miercoles->hora_inicio);
-        $this->assertSame('20:00:00', $miercoles->hora_fin);
+        $sabado = $horario->dias->firstWhere('dia_semana', DiaSemanaEnum::SABADO);
+        $domingo = $horario->dias->firstWhere('dia_semana', DiaSemanaEnum::DOMINGO);
+        $this->assertSame('09:00:00', $sabado->hora_inicio);
+        $this->assertSame('11:00:00', $sabado->hora_fin);
+        $this->assertSame('09:00:00', $domingo->hora_inicio);
+        $this->assertSame('11:00:00', $domingo->hora_fin);
     }
 
     public function test_muestra_el_mensaje_de_choque_de_aula_al_guardar(): void
@@ -88,7 +88,7 @@ class HorarioFormTest extends TestCase
             'ciclo_id' => Ciclo::factory()->create()->id,
             'grado_id' => $gradoExistente->id,
             'dias' => [
-                ['dia_semana' => DiaSemanaEnum::LUNES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00'],
+                ['dia_semana' => DiaSemanaEnum::SABADO, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00'],
             ],
         ]);
 
@@ -99,15 +99,15 @@ class HorarioFormTest extends TestCase
             ->set('cursoId', (string) Curso::factory()->hasAttached($gradoExistente)->create()->id)
             ->set('docenteId', (string) User::factory()->create()->id)
             ->set('aulaId', (string) $existente->aula_id)
-            ->set('franjasSeleccionadas', ['lun_mie'])
-            ->set('horaInicioHoraPorDia.lunes', '19')
-            ->set('horaInicioMinutoPorDia.lunes', '00')
-            ->set('horaFinHoraPorDia.lunes', '21')
-            ->set('horaFinMinutoPorDia.lunes', '00')
-            ->set('horaInicioHoraPorDia.miercoles', '19')
-            ->set('horaInicioMinutoPorDia.miercoles', '00')
-            ->set('horaFinHoraPorDia.miercoles', '21')
-            ->set('horaFinMinutoPorDia.miercoles', '00')
+            ->set('franjasSeleccionadas', ['sabados_domingos'])
+            ->set('horaInicioHoraPorDia.sabado', '19')
+            ->set('horaInicioMinutoPorDia.sabado', '00')
+            ->set('horaFinHoraPorDia.sabado', '21')
+            ->set('horaFinMinutoPorDia.sabado', '00')
+            ->set('horaInicioHoraPorDia.domingo', '19')
+            ->set('horaInicioMinutoPorDia.domingo', '00')
+            ->set('horaFinHoraPorDia.domingo', '21')
+            ->set('horaFinMinutoPorDia.domingo', '00')
             ->call('guardar')
             ->assertSee('ya está ocupada');
 
@@ -130,15 +130,15 @@ class HorarioFormTest extends TestCase
             ->set('cursoId', (string) $curso->id)
             ->set('docenteId', (string) User::factory()->create()->id)
             ->set('aulaId', (string) Aula::factory()->create()->id)
-            ->set('franjasSeleccionadas', ['lun_mie'])
-            ->set('horaInicioHoraPorDia.lunes', '18')
-            ->set('horaInicioMinutoPorDia.lunes', '00')
-            ->set('horaFinHoraPorDia.lunes', '20')
-            ->set('horaFinMinutoPorDia.lunes', '00')
-            ->set('horaInicioHoraPorDia.miercoles', '18')
-            ->set('horaInicioMinutoPorDia.miercoles', '00')
-            ->set('horaFinHoraPorDia.miercoles', '20')
-            ->set('horaFinMinutoPorDia.miercoles', '00')
+            ->set('franjasSeleccionadas', ['sabados_domingos'])
+            ->set('horaInicioHoraPorDia.sabado', '18')
+            ->set('horaInicioMinutoPorDia.sabado', '00')
+            ->set('horaFinHoraPorDia.sabado', '20')
+            ->set('horaFinMinutoPorDia.sabado', '00')
+            ->set('horaInicioHoraPorDia.domingo', '18')
+            ->set('horaInicioMinutoPorDia.domingo', '00')
+            ->set('horaFinHoraPorDia.domingo', '20')
+            ->set('horaFinMinutoPorDia.domingo', '00')
             ->call('guardar')
             ->assertHasErrors('cursoId');
 
@@ -180,33 +180,45 @@ class HorarioFormTest extends TestCase
             ->set('cursoId', (string) $curso->id)
             ->set('docenteId', (string) $docente->id)
             ->set('aulaId', (string) $aula->id)
-            ->set('franjasSeleccionadas', ['lun_mie', 'mar_jue'])
+            ->set('franjasSeleccionadas', ['lunes_viernes', 'sabados_domingos'])
             ->set('horaInicioHoraPorDia.lunes', '18')
             ->set('horaInicioMinutoPorDia.lunes', '00')
             ->set('horaFinHoraPorDia.lunes', '20')
             ->set('horaFinMinutoPorDia.lunes', '00')
+            ->set('horaInicioHoraPorDia.martes', '18')
+            ->set('horaInicioMinutoPorDia.martes', '00')
+            ->set('horaFinHoraPorDia.martes', '20')
+            ->set('horaFinMinutoPorDia.martes', '00')
             ->set('horaInicioHoraPorDia.miercoles', '18')
             ->set('horaInicioMinutoPorDia.miercoles', '00')
             ->set('horaFinHoraPorDia.miercoles', '20')
             ->set('horaFinMinutoPorDia.miercoles', '00')
-            ->set('horaInicioHoraPorDia.martes', '16')
-            ->set('horaInicioMinutoPorDia.martes', '00')
-            ->set('horaFinHoraPorDia.martes', '18')
-            ->set('horaFinMinutoPorDia.martes', '00')
-            ->set('horaInicioHoraPorDia.jueves', '16')
+            ->set('horaInicioHoraPorDia.jueves', '18')
             ->set('horaInicioMinutoPorDia.jueves', '00')
-            ->set('horaFinHoraPorDia.jueves', '18')
+            ->set('horaFinHoraPorDia.jueves', '20')
             ->set('horaFinMinutoPorDia.jueves', '00')
+            ->set('horaInicioHoraPorDia.viernes', '18')
+            ->set('horaInicioMinutoPorDia.viernes', '00')
+            ->set('horaFinHoraPorDia.viernes', '20')
+            ->set('horaFinMinutoPorDia.viernes', '00')
+            ->set('horaInicioHoraPorDia.sabado', '10')
+            ->set('horaInicioMinutoPorDia.sabado', '00')
+            ->set('horaFinHoraPorDia.sabado', '12')
+            ->set('horaFinMinutoPorDia.sabado', '00')
+            ->set('horaInicioHoraPorDia.domingo', '10')
+            ->set('horaInicioMinutoPorDia.domingo', '00')
+            ->set('horaFinHoraPorDia.domingo', '12')
+            ->set('horaFinMinutoPorDia.domingo', '00')
             ->call('guardar')
             ->assertHasNoErrors();
 
         $horario = Horario::query()->where('curso_id', $curso->id)->firstOrFail();
-        $this->assertCount(4, $horario->dias);
+        $this->assertCount(7, $horario->dias);
 
-        $martes = $horario->dias->firstWhere('dia_semana', DiaSemanaEnum::MARTES);
+        $sabado = $horario->dias->firstWhere('dia_semana', DiaSemanaEnum::SABADO);
         $lunes = $horario->dias->firstWhere('dia_semana', DiaSemanaEnum::LUNES);
-        $this->assertSame('16:00:00', $martes->hora_inicio);
-        $this->assertSame('18:00:00', $martes->hora_fin);
+        $this->assertSame('10:00:00', $sabado->hora_inicio);
+        $this->assertSame('12:00:00', $sabado->hora_fin);
         $this->assertSame('18:00:00', $lunes->hora_inicio);
         $this->assertSame('20:00:00', $lunes->hora_fin);
     }
@@ -307,7 +319,10 @@ class HorarioFormTest extends TestCase
             'grado_id' => $gradoA->id,
             'dias' => [
                 ['dia_semana' => DiaSemanaEnum::LUNES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00'],
+                ['dia_semana' => DiaSemanaEnum::MARTES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00'],
                 ['dia_semana' => DiaSemanaEnum::MIERCOLES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00'],
+                ['dia_semana' => DiaSemanaEnum::JUEVES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00'],
+                ['dia_semana' => DiaSemanaEnum::VIERNES, 'hora_inicio' => '18:00:00', 'hora_fin' => '20:00:00'],
             ],
         ]);
 
@@ -318,6 +333,7 @@ class HorarioFormTest extends TestCase
             'ciclo_id' => $ciclo->id,
             'grado_id' => $gradoB->id,
             'dias' => [
+                ['dia_semana' => DiaSemanaEnum::SABADO, 'hora_inicio' => '10:00:00', 'hora_fin' => '12:00:00'],
                 ['dia_semana' => DiaSemanaEnum::DOMINGO, 'hora_inicio' => '10:00:00', 'hora_fin' => '12:00:00'],
             ],
         ]);
@@ -330,13 +346,13 @@ class HorarioFormTest extends TestCase
         // renderiza antes que el formulario "Nuevo horario" (que repite los
         // mismos nombres de grado y franja en sus selects), así que si el
         // orden real fuera otro, alguna de estas comparaciones fallaría.
-        $posicionLunMie = mb_strpos($html, 'Lunes y Miércoles');
+        $posicionLunesViernes = mb_strpos($html, 'Lunes a Viernes');
         $posicionGradoA = mb_strpos($html, 'Grado 1 - Mayores');
-        $posicionDomingo = mb_strpos($html, 'Domingo');
+        $posicionSabadosDomingos = mb_strpos($html, 'Sábados y Domingos');
         $posicionGradoB = mb_strpos($html, 'Grado 2 - Mayores');
 
-        $this->assertLessThan($posicionGradoA, $posicionLunMie);
-        $this->assertLessThan($posicionDomingo, $posicionGradoA);
-        $this->assertLessThan($posicionGradoB, $posicionDomingo);
+        $this->assertLessThan($posicionGradoA, $posicionLunesViernes);
+        $this->assertLessThan($posicionSabadosDomingos, $posicionGradoA);
+        $this->assertLessThan($posicionGradoB, $posicionSabadosDomingos);
     }
 }
