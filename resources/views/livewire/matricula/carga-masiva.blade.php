@@ -54,11 +54,9 @@ new #[Layout('layouts.app')] class extends Component
     {
         return [
             'ciclosDisponibles' => Ciclo::query()
-                ->whereHas('periodosMatricula', function ($query) {
-                    $query->where('estado', 'abierto')
-                        ->where('fecha_inicio', '<=', now())
-                        ->where('fecha_fin', '>=', now());
-                })
+                ->where('estado_matricula', 'abierto')
+                ->where('fecha_inicio_matricula', '<=', now())
+                ->where('fecha_fin_matricula', '>=', now())
                 ->orderByDesc('fecha_inicio')
                 ->get(),
         ];

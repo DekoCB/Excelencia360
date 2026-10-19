@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Evaluaciones\Services;
 
-use App\Modules\Academico\Enums\TipoSiagieEnum;
+use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
 use App\Modules\Evaluaciones\Enums\EstadoEvaluacionEnum;
@@ -291,14 +291,14 @@ class EvaluacionService
     /**
      * Promedio de las calificaciones publicadas del estudiante en un
      * horario, considerando solo los últimos N exámenes mensuales por
-     * fecha -- 6 para un Grupo de 6 meses, 8 para SIAGIE anual (ver
-     * Ciclo::siagie()). Si hay menos de N registrados, promedia los que
-     * existan. La ponderación por tipo de evaluación queda fuera de
-     * alcance: hoy solo existe un tipo (mensual).
+     * fecha -- 6 para un Grupo de 6 meses, 8 para el periodo académico
+     * anual. Si hay menos de N registrados, promedia los que existan. La
+     * ponderación por tipo de evaluación queda fuera de alcance: hoy solo
+     * existe un tipo (mensual).
      */
     public function promedioDelEstudiante(Estudiante $estudiante, Horario $horario): ?float
     {
-        $examenesQueCuentan = $horario->ciclo->siagie?->tipo === TipoSiagieEnum::ANUAL ? 8 : 6;
+        $examenesQueCuentan = $horario->ciclo->modalidad === ModalidadCicloEnum::ANUAL ? 8 : 6;
 
         $notas = $this->misCalificaciones($estudiante, $horario)
             ->sortByDesc(fn (Calificacion $calificacion) => $calificacion->evaluacion->fecha)

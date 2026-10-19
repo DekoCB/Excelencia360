@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Modules\Matricula\Services;
 
 use App\Models\User;
+use App\Modules\Academico\Enums\EstadoPeriodoMatriculaEnum;
 use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Enums\TipoCursoEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
-use App\Modules\Academico\Models\PeriodoMatricula;
 use App\Modules\Identidad\DTOs\CrearUsuarioData;
 use App\Modules\Identidad\Services\UserManagementService;
 use App\Modules\Matricula\DTOs\RegistrarApoderadoData;
@@ -292,7 +292,6 @@ class MatriculaService
                 'estudiante_id' => $estudiante->id,
                 'ciclo_id' => $ciclo->id,
                 'grado_id' => $grado->id,
-                'siagie_id' => $data->siagieId,
                 'fecha_matricula' => $fechaMatricula,
                 'fecha_fin_estudio' => $fechaFinEstudio,
                 'estado' => EstadoMatriculaEnum::APROBADA,
@@ -408,22 +407,22 @@ class MatriculaService
     }
 
     /**
-     * Solo aplica a los 4 Grupos rotativos de 6 meses, cada uno con sus
-     * propias ventanas de admisión que un coordinador abre y cierra a
-     * mano. SIAGIE anual no tiene este concepto -- se identifica solo por
-     * año y su matrícula está disponible mientras el ciclo esté vigente
-     * (ver el llamado condicional en matricular()).
+     * Solo aplica a los 4 Grupos rotativos de 6 meses, cada uno con su
+     * propia ventana de admisión (fecha_inicio_matricula/fecha_fin_matricula
+     * en el propio Ciclo) que un coordinador abre y cierra a mano. El
+     * Periodo Académico anual no tiene este concepto -- se identifica solo
+     * por año y su matrícula está disponible mientras el ciclo esté
+     * vigente (ver el llamado condicional en matricular()).
      */
     private function validarPeriodoDeMatriculaAbierto(Ciclo $ciclo): void
     {
         $hoy = Carbon::today();
 
-        $periodoAbierto = PeriodoMatricula::query()
-            ->where('ciclo_id', $ciclo->id)
-            ->where('estado', 'abierto')
-            ->where('fecha_inicio', '<=', $hoy)
-            ->where('fecha_fin', '>=', $hoy)
-            ->exists();
+        $periodoAbierto = $ciclo->estado_matricula === EstadoPeriodoMatriculaEnum::ABIERTO
+            && $ciclo->fecha_inicio_matricula !== null
+            && $ciclo->fecha_fin_matricula !== null
+            && $ciclo->fecha_inicio_matricula->lessThanOrEqualTo($hoy)
+            && $ciclo->fecha_fin_matricula->greaterThanOrEqualTo($hoy);
 
         if (! $periodoAbierto) {
             throw ValidationException::withMessages([

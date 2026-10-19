@@ -36,9 +36,10 @@ class VacacionesPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(9),
         ]);
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
 
         $matriculas = app(MatriculaService::class);

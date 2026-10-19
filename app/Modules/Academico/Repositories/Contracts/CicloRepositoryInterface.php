@@ -25,8 +25,8 @@ interface CicloRepositoryInterface extends RepositoryInterface
     public function activo(): ?Ciclo;
 
     /**
-     * Los Grupos rotativos (modalidad=seis_meses) únicamente -- el listado
-     * de Grupos ya no incluye el SIAGIE anual (ver SiagieService).
+     * Todos los ciclos (Grupos de 6 meses y Periodo Académico anual
+     * juntos), más recientes primero.
      */
-    public function paginateGrupos(int $perPage = 15): LengthAwarePaginator;
+    public function paginateTodos(int $perPage = 15): LengthAwarePaginator;
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Vacaciones\Services;
 
-use App\Modules\Academico\Enums\TipoSiagieEnum;
+use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Matricula\Enums\EstadoMatriculaEnum;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
@@ -16,8 +16,8 @@ use Illuminate\Validation\ValidationException;
 class VacacionService
 {
     /**
-     * La duración de vacaciones de SIAGIE anual es fija: 2 meses desde la
-     * fecha que el coordinador elija como inicio.
+     * La duración de vacaciones del periodo académico anual es fija: 2
+     * meses desde la fecha que el coordinador elija como inicio.
      */
     private const MESES_DE_VACACIONES = 2;
 
@@ -25,7 +25,7 @@ class VacacionService
     {
         $matricula = $this->matriculaVigente($estudiante);
 
-        if ($matricula === null || $matricula->ciclo->siagie?->tipo !== TipoSiagieEnum::ANUAL) {
+        if ($matricula === null || $matricula->ciclo->modalidad !== ModalidadCicloEnum::ANUAL) {
             throw ValidationException::withMessages([
                 'estudiante' => 'Las vacaciones solo aplican a estudiantes matriculados en periodo académico anual.',
             ]);
@@ -73,7 +73,7 @@ class VacacionService
             ->where('estudiante_id', $estudiante->id)
             ->where('estado', EstadoMatriculaEnum::APROBADA)
             ->latest('fecha_matricula')
-            ->with('ciclo.siagie')
+            ->with('ciclo')
             ->first();
     }
 }

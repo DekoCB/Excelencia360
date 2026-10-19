@@ -8,7 +8,6 @@ use App\Models\User;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
-use App\Modules\Academico\Models\Siagie;
 use App\Modules\Identidad\Support\Auditable;
 use App\Modules\Matricula\Database\Factories\MatriculaFactory;
 use App\Modules\Matricula\Enums\EstadoMatriculaEnum;
@@ -27,14 +26,12 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property int $estudiante_id
  * @property int $ciclo_id
  * @property int $grado_id
- * @property int|null $siagie_id
  * @property Carbon $fecha_matricula
  * @property Carbon|null $fecha_fin_estudio
  * @property EstadoMatriculaEnum $estado
  * @property-read Estudiante|null $estudiante
  * @property-read Ciclo $ciclo
  * @property-read Grado $grado
- * @property-read Siagie|null $siagie
  */
 class Matricula extends Model implements HasMedia
 {
@@ -45,7 +42,6 @@ class Matricula extends Model implements HasMedia
         'estudiante_id',
         'ciclo_id',
         'grado_id',
-        'siagie_id',
         'fecha_matricula',
         'fecha_fin_estudio',
         'estado',
@@ -104,21 +100,6 @@ class Matricula extends Model implements HasMedia
     public function registradoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'registrado_por');
-    }
-
-    public function siagie(): BelongsTo
-    {
-        return $this->belongsTo(Siagie::class);
-    }
-
-    /**
-     * Texto para mostrar el periodo SIAGIE de esta matrícula (p. ej.
-     * "2026-1", "2026-2", "2026 Anual"). Null si todavía no se registró
-     * ningún periodo SIAGIE para esta matrícula.
-     */
-    public function siagieCompleto(): ?string
-    {
-        return $this->siagie?->nombreCompleto();
     }
 
     /**

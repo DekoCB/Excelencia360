@@ -15,8 +15,8 @@ use Tests\TestCase;
  * (ver docs/BITACORA.md, fase 11) para reutilizarlo en la búsqueda
  * avanzada de estudiantes. Los tests preexistentes de
  * tests/Feature/Reportes/ReporteServiceTest.php ya cubren el
- * comportamiento heredado (ciclo/grado/curso/franja/siagie); este
- * archivo solo cubre lo nuevo: el filtro por docente.
+ * comportamiento heredado (ciclo/grado/curso/franja); este archivo solo
+ * cubre lo nuevo: el filtro por docente.
  */
 class FiltroMatriculaAcademicoTest extends TestCase
 {
@@ -91,6 +91,6 @@ class FiltroMatriculaAcademicoTest extends TestCase
     public function test_sin_filtros_no_restringe_nada(): void
     {
         $this->assertTrue(FiltroMatriculaAcademico::sinFiltros(null, null, null, null));
-        $this->assertFalse(FiltroMatriculaAcademico::sinFiltros(null, null, null, null, null, docenteId: 5));
+        $this->assertFalse(FiltroMatriculaAcademico::sinFiltros(null, null, null, null, docenteId: 5));
     }
 }

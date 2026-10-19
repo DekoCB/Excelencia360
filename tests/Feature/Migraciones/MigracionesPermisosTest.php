@@ -35,9 +35,10 @@ class MigracionesPermisosTest extends TestCase
             'fecha_fin' => now()->addMonths(5),
         ]);
 
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
 
         return $ciclo;
@@ -149,7 +150,7 @@ class MigracionesPermisosTest extends TestCase
         $this->assertDatabaseCount('matriculas', 4);
     }
 
-    public function test_migrar_de_forma_masiva_en_siagie_anual_no_pide_grupo_y_usa_el_ciclo_vigente(): void
+    public function test_migrar_de_forma_masiva_en_periodo_academico_anual_no_pide_grupo_y_usa_el_ciclo_vigente(): void
     {
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);

@@ -117,7 +117,7 @@ class DemoRobustoSeeder extends Seeder
         $docentes = $this->crearDocentes(5);
         $this->crearHorarios($ciclo, $aulas, $docentes);
         $this->crearEstudiantesYMatriculas($ciclo, $grados);
-        $this->poblarSiagieAnual($grados);
+        $this->poblarPeriodoAcademicoAnual($grados);
         $this->diversificarEstadosDeEstudiantes();
 
         $horarios = Horario::query()->where('ciclo_id', $ciclo->id)->get();
@@ -419,14 +419,14 @@ class DemoRobustoSeeder extends Seeder
     }
 
     /**
-     * Un ciclo SIAGIE anual de ejemplo (independiente de los 4 grupos
-     * rotativos) con un par de estudiantes matriculados, para poder
-     * verificar la ficha/historial/wizard con un caso real de esa
-     * modalidad.
+     * Un ciclo de Periodo Académico anual de ejemplo (independiente de
+     * los 4 grupos rotativos) con un par de estudiantes matriculados,
+     * para poder verificar la ficha/historial/wizard con un caso real de
+     * esa modalidad.
      *
      * @param  Collection<int, Grado>  $grados
      */
-    private function poblarSiagieAnual(Collection $grados): void
+    private function poblarPeriodoAcademicoAnual(Collection $grados): void
     {
         $anio = (int) now()->year;
 

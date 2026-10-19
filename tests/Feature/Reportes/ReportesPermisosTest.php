@@ -4,12 +4,10 @@ namespace Tests\Feature\Reportes;
 
 use App\Models\User;
 use App\Modules\Academico\Enums\FranjaHorarioEnum;
-use App\Modules\Academico\Enums\TipoSiagieEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
-use App\Modules\Academico\Models\Siagie;
 use App\Modules\Evaluaciones\Models\Calificacion;
 use App\Modules\Evaluaciones\Models\Evaluacion;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
@@ -214,32 +212,11 @@ class ReportesPermisosTest extends TestCase
 
         $html = Volt::test('reportes.index')->html();
 
-        $this->assertStringContainsString('id="siagieId"', $html);
         $this->assertStringContainsString('id="cicloId"', $html);
         $this->assertStringContainsString('id="gradoId"', $html);
         $this->assertStringContainsString('id="cursoId"', $html);
         $this->assertStringNotContainsString('id="desde"', $html);
         $this->assertStringNotContainsString('id="hasta"', $html);
-    }
-
-    public function test_elegir_un_siagie_reinicia_grupo_grado_y_curso(): void
-    {
-        $coordinador = User::factory()->create();
-        $coordinador->assignRole(RolEnum::COORDINADOR->value);
-        $siagie = Siagie::factory()->create(['tipo' => TipoSiagieEnum::PRIMERO, 'anio' => 2026]);
-        $ciclo = Ciclo::factory()->create();
-        $grado = Grado::factory()->create();
-
-        $this->actingAs($coordinador);
-
-        Volt::test('reportes.index')
-            ->set('cicloId', (string) $ciclo->id)
-            ->set('gradoId', (string) $grado->id)
-            ->set('cursoId', '1')
-            ->set('siagieId', (string) $siagie->id)
-            ->assertSet('cicloId', '')
-            ->assertSet('gradoId', '')
-            ->assertSet('cursoId', '');
     }
 
     public function test_elegir_un_grupo_reinicia_grado_y_curso(): void
@@ -291,27 +268,6 @@ class ReportesPermisosTest extends TestCase
             ->assertSee('Ana')
             ->assertSee('Beto')
             ->set('cicloId', (string) $horarioA->ciclo_id)
-            ->assertSee('Ana')
-            ->assertDontSee('Beto');
-    }
-
-    public function test_filtrar_por_siagie_reduce_el_reporte_de_matricula(): void
-    {
-        $siagie = Siagie::factory()->create(['tipo' => TipoSiagieEnum::PRIMERO, 'anio' => 2026]);
-        $estudianteA = Estudiante::factory()->create(['nombres' => 'Ana', 'apellidos' => 'Quispe']);
-        $estudianteB = Estudiante::factory()->create(['nombres' => 'Beto', 'apellidos' => 'Salas']);
-        Matricula::factory()->create(['estudiante_id' => $estudianteA->id, 'siagie_id' => $siagie->id]);
-        Matricula::factory()->create(['estudiante_id' => $estudianteB->id, 'siagie_id' => null]);
-
-        $coordinador = User::factory()->create();
-        $coordinador->assignRole(RolEnum::COORDINADOR->value);
-        $this->actingAs($coordinador);
-
-        Volt::test('reportes.index')
-            ->set('tipo', 'matricula')
-            ->assertSee('Ana')
-            ->assertSee('Beto')
-            ->set('siagieId', (string) $siagie->id)
             ->assertSee('Ana')
             ->assertDontSee('Beto');
     }

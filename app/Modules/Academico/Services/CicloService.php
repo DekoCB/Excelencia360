@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Academico\Services;
 
 use App\Modules\Academico\Enums\EstadoCicloEnum;
+use App\Modules\Academico\Enums\EstadoPeriodoMatriculaEnum;
 use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Enums\TipoCicloEnum;
 use App\Modules\Academico\Models\Ciclo;
-use App\Modules\Academico\Models\PeriodoMatricula;
 use App\Modules\Academico\Repositories\Contracts\CicloRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
@@ -16,11 +16,14 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Dos modalidades de ciclo (ver ModalidadCicloEnum): las 4 ventanas de
- * admisión rotativas del año (Grupo 1 a 4, 6 meses cada una) y SIAGIE
- * anual (un ciclo independiente que corre el año escolar completo, sin
- * Grupo asociado). Aplica la "doble validación" del roadmap: las fechas
- * del propio ciclo deben ser coherentes con su modalidad/tipo, y las
- * fechas de matrícula deben ser coherentes con las del ciclo.
+ * admisión rotativas del año (Grupo 1 a 4, 6 meses cada una) y el Periodo
+ * Académico anual (un ciclo independiente que corre el año escolar
+ * completo, sin Grupo asociado). Aplica la "doble validación" del
+ * roadmap: las fechas del propio ciclo deben ser coherentes con su
+ * modalidad/tipo, y las fechas de matrícula (propias del ciclo, ver
+ * fecha_inicio_matricula/fecha_fin_matricula) deben ser coherentes con
+ * las del ciclo -- solo aplican a los Grupos de 6 meses, el anual no
+ * tiene esta ventana.
  */
 class CicloService
 {
@@ -34,17 +37,16 @@ class CicloService
     ) {}
 
     /**
-     * Los Grupos rotativos (modalidad=seis_meses) únicamente: el SIAGIE
-     * anual ya no vive en este listado, tiene su propio módulo (ver
-     * SiagieService::listar()).
+     * Todos los ciclos (Grupos de 6 meses y Periodo Académico anual
+     * juntos) -- ambos se crean y editan desde la misma pantalla.
      */
     public function listar(int $perPage = 15): LengthAwarePaginator
     {
-        return $this->ciclos->paginateGrupos($perPage);
+        return $this->ciclos->paginateTodos($perPage);
     }
 
     /**
-     * @param  array{nombre: string, tipo?: ?TipoCicloEnum, modalidad?: ModalidadCicloEnum, anio: int, fecha_inicio: string, fecha_fin: string}  $datos
+     * @param  array{nombre: string, tipo?: ?TipoCicloEnum, modalidad?: ModalidadCicloEnum, anio: int, fecha_inicio: string, fecha_fin: string, estado?: EstadoCicloEnum, fecha_inicio_matricula?: ?string, fecha_fin_matricula?: ?string}  $datos
      */
     public function crear(array $datos): Ciclo
     {
@@ -52,11 +54,13 @@ class CicloService
 
         $this->validarSegunModalidad($datos['modalidad'], $datos['tipo'] ?? null, $datos['fecha_inicio'], $datos['fecha_fin']);
 
+        $datos = $this->prepararFechasDeMatricula($datos);
+
         return $this->ciclos->create($datos);
     }
 
     /**
-     * @param  array{nombre: string, tipo?: ?TipoCicloEnum, modalidad?: ModalidadCicloEnum, anio: int, fecha_inicio: string, fecha_fin: string, estado: EstadoCicloEnum}  $datos
+     * @param  array{nombre: string, tipo?: ?TipoCicloEnum, modalidad?: ModalidadCicloEnum, anio: int, fecha_inicio: string, fecha_fin: string, estado: EstadoCicloEnum, fecha_inicio_matricula?: ?string, fecha_fin_matricula?: ?string}  $datos
      */
     public function actualizar(Ciclo $ciclo, array $datos): Ciclo
     {
@@ -64,7 +68,48 @@ class CicloService
 
         $this->validarSegunModalidad($datos['modalidad'], $datos['tipo'] ?? null, $datos['fecha_inicio'], $datos['fecha_fin'], $ciclo->id);
 
+        $datos = $this->prepararFechasDeMatricula($datos);
+
         return $this->ciclos->update($ciclo, $datos);
+    }
+
+    /**
+     * El periodo de matrícula solo aplica a los Grupos rotativos de 6
+     * meses (ver clase doc): el anual no tiene esta ventana, su matrícula
+     * está disponible mientras el ciclo esté vigente (ver
+     * MatriculaService::matricular()). Si se pasan ambas fechas, se
+     * valida la "doble validación" del roadmap contra las fechas del
+     * propio ciclo (en $datos, no hace falta que el Ciclo ya exista).
+     *
+     * @param  array{modalidad: ModalidadCicloEnum, fecha_inicio: string, fecha_fin: string, fecha_inicio_matricula?: ?string, fecha_fin_matricula?: ?string, estado_matricula?: ?EstadoPeriodoMatriculaEnum}  $datos
+     * @return array<string, mixed>
+     */
+    private function prepararFechasDeMatricula(array $datos): array
+    {
+        if ($datos['modalidad'] !== ModalidadCicloEnum::SEIS_MESES) {
+            $datos['fecha_inicio_matricula'] = null;
+            $datos['fecha_fin_matricula'] = null;
+            $datos['estado_matricula'] = null;
+
+            return $datos;
+        }
+
+        $inicioMatricula = $datos['fecha_inicio_matricula'] ?? null;
+        $finMatricula = $datos['fecha_fin_matricula'] ?? null;
+
+        if ($inicioMatricula === null || $finMatricula === null) {
+            $datos['fecha_inicio_matricula'] = null;
+            $datos['fecha_fin_matricula'] = null;
+            $datos['estado_matricula'] = null;
+
+            return $datos;
+        }
+
+        $this->validarFechasMatriculaContraCiclo($datos['fecha_inicio'], $datos['fecha_fin'], $inicioMatricula, $finMatricula);
+
+        $datos['estado_matricula'] ??= EstadoPeriodoMatriculaEnum::ABIERTO;
+
+        return $datos;
     }
 
     private function validarSegunModalidad(ModalidadCicloEnum $modalidad, ?TipoCicloEnum $tipo, string $fechaInicio, string $fechaFin, ?int $exceptoId = null): void
@@ -180,40 +225,34 @@ class CicloService
      * Segunda validación (la "doble validación" del roadmap): el periodo de
      * matrícula debe caer dentro de una ventana razonable respecto al
      * ciclo — puede abrir hasta 30 días antes de que el ciclo inicie, pero
-     * debe cerrar a más tardar cuando el ciclo termina.
+     * debe cerrar a más tardar cuando el ciclo termina. Trabaja sobre las
+     * fechas tal cual vienen del formulario (strings), no sobre un Ciclo ya
+     * persistido, para poder validar en la misma llamada que lo crea.
      */
-    public function crearPeriodoMatricula(Ciclo $ciclo, string $fechaInicio, string $fechaFin): PeriodoMatricula
+    private function validarFechasMatriculaContraCiclo(string $fechaInicioCiclo, string $fechaFinCiclo, string $fechaInicioMatricula, string $fechaFinMatricula): void
     {
-        $this->validarPeriodoMatriculaContraCiclo($ciclo, $fechaInicio, $fechaFin);
-
-        return $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => $fechaInicio,
-            'fecha_fin' => $fechaFin,
-        ]);
-    }
-
-    public function validarPeriodoMatriculaContraCiclo(Ciclo $ciclo, string $fechaInicio, string $fechaFin): void
-    {
-        $inicio = Carbon::parse($fechaInicio);
-        $fin = Carbon::parse($fechaFin);
+        $inicioCiclo = Carbon::parse($fechaInicioCiclo);
+        $finCiclo = Carbon::parse($fechaFinCiclo);
+        $inicio = Carbon::parse($fechaInicioMatricula);
+        $fin = Carbon::parse($fechaFinMatricula);
 
         if ($fin->lessThan($inicio)) {
             throw ValidationException::withMessages([
-                'fecha_fin' => 'La fecha de fin de matrícula debe ser posterior o igual a la de inicio.',
+                'fecha_fin_matricula' => 'La fecha de fin de matrícula debe ser posterior o igual a la de inicio.',
             ]);
         }
 
-        $ventanaInicio = $ciclo->fecha_inicio->copy()->subDays(self::DIAS_MATRICULA_ANTICIPADA);
+        $ventanaInicio = $inicioCiclo->copy()->subDays(self::DIAS_MATRICULA_ANTICIPADA);
 
         if ($inicio->lessThan($ventanaInicio)) {
             throw ValidationException::withMessages([
-                'fecha_inicio' => 'La matrícula no puede abrir con más de '.self::DIAS_MATRICULA_ANTICIPADA." días de anticipación al inicio del ciclo ({$ciclo->fecha_inicio->format('d/m/Y')}).",
+                'fecha_inicio_matricula' => 'La matrícula no puede abrir con más de '.self::DIAS_MATRICULA_ANTICIPADA." días de anticipación al inicio del ciclo ({$inicioCiclo->format('d/m/Y')}).",
             ]);
         }
 
-        if ($fin->greaterThan($ciclo->fecha_fin)) {
+        if ($fin->greaterThan($finCiclo)) {
             throw ValidationException::withMessages([
-                'fecha_fin' => "La matrícula debe cerrar a más tardar el {$ciclo->fecha_fin->format('d/m/Y')}, fecha en que termina el ciclo.",
+                'fecha_fin_matricula' => "La matrícula debe cerrar a más tardar el {$finCiclo->format('d/m/Y')}, fecha en que termina el ciclo.",
             ]);
         }
     }

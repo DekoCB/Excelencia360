@@ -6,12 +6,12 @@ namespace App\Modules\Academico\Models;
 
 use App\Modules\Academico\Database\Factories\CicloFactory;
 use App\Modules\Academico\Enums\EstadoCicloEnum;
+use App\Modules\Academico\Enums\EstadoPeriodoMatriculaEnum;
 use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Enums\TipoCicloEnum;
 use App\Modules\Identidad\Support\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
@@ -24,8 +24,9 @@ use Illuminate\Support\Carbon;
  * @property ?TipoCicloEnum $tipo
  * @property ModalidadCicloEnum $modalidad
  * @property EstadoCicloEnum $estado
- * @property int|null $siagie_id
- * @property-read Siagie|null $siagie
+ * @property Carbon|null $fecha_inicio_matricula
+ * @property Carbon|null $fecha_fin_matricula
+ * @property EstadoPeriodoMatriculaEnum|null $estado_matricula
  */
 class Ciclo extends Model
 {
@@ -51,7 +52,9 @@ class Ciclo extends Model
         'fecha_inicio',
         'fecha_fin',
         'estado',
-        'siagie_id',
+        'fecha_inicio_matricula',
+        'fecha_fin_matricula',
+        'estado_matricula',
     ];
 
     protected function casts(): array
@@ -62,6 +65,9 @@ class Ciclo extends Model
             'estado' => EstadoCicloEnum::class,
             'fecha_inicio' => 'date',
             'fecha_fin' => 'date',
+            'fecha_inicio_matricula' => 'date',
+            'fecha_fin_matricula' => 'date',
+            'estado_matricula' => EstadoPeriodoMatriculaEnum::class,
         ];
     }
 
@@ -71,29 +77,10 @@ class Ciclo extends Model
     }
 
     /**
-     * @return HasMany<PeriodoMatricula, $this>
-     */
-    public function periodosMatricula(): HasMany
-    {
-        return $this->hasMany(PeriodoMatricula::class);
-    }
-
-    /**
      * @return HasMany<Horario, $this>
      */
     public function horarios(): HasMany
     {
         return $this->hasMany(Horario::class);
-    }
-
-    /**
-     * Solo tiene valor en el (a lo sumo un) Ciclo modalidad=anual de cada
-     * año: lo clasifica dentro de SIAGIE. Vacaciones/Evaluaciones lo usan
-     * en vez de comparar modalidad directamente (ver VacacionService,
-     * EvaluacionService, LibretaService).
-     */
-    public function siagie(): BelongsTo
-    {
-        return $this->belongsTo(Siagie::class);
     }
 }

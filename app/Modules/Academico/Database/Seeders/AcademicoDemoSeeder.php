@@ -94,9 +94,10 @@ class AcademicoDemoSeeder extends Seeder
 
         // Centrado en "hoy" (no en el inicio del ciclo) para que el periodo
         // quede abierto sin importar en qué punto del ciclo se corra el seeder.
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(20),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(20),
+            'estado_matricula' => 'abierto',
         ]);
 
         $docente = User::query()->where('email', 'docente@ceba.test')->first();

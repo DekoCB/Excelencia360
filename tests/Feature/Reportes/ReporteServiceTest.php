@@ -4,10 +4,8 @@ namespace Tests\Feature\Reportes;
 
 use App\Models\User;
 use App\Modules\Academico\Enums\FranjaHorarioEnum;
-use App\Modules\Academico\Enums\TipoSiagieEnum;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Horario;
-use App\Modules\Academico\Models\Siagie;
 use App\Modules\Asistencia\Models\Asistencia;
 use App\Modules\Certificados\Models\Certificado;
 use App\Modules\Evaluaciones\Models\Calificacion;
@@ -112,34 +110,6 @@ class ReporteServiceTest extends TestCase
         $this->assertCount(1, $reporte['filas']);
         $this->assertSame('—', $reporte['filas'][0][0]);
         $this->assertSame('—', $reporte['filas'][0][1]);
-    }
-
-    public function test_reporte_de_matricula_filtra_por_siagie(): void
-    {
-        $siagieA = Siagie::factory()->create(['tipo' => TipoSiagieEnum::PRIMERO, 'anio' => 2026]);
-        $siagieB = Siagie::factory()->create(['tipo' => TipoSiagieEnum::SEGUNDO, 'anio' => 2026]);
-        Matricula::factory()->create(['siagie_id' => $siagieA->id, 'fecha_matricula' => now()]);
-        Matricula::factory()->create(['siagie_id' => $siagieB->id, 'fecha_matricula' => now()]);
-        Matricula::factory()->create(['siagie_id' => null, 'fecha_matricula' => now()]);
-
-        $reporte = app(ReporteService::class)->matricula(null, null, null, null, $siagieA->id);
-
-        $this->assertCount(1, $reporte['filas']);
-    }
-
-    public function test_reporte_academico_filtra_por_siagie(): void
-    {
-        $siagie = Siagie::factory()->create(['tipo' => TipoSiagieEnum::PRIMERO, 'anio' => 2026]);
-        $estudianteConSiagie = Estudiante::factory()->create();
-        $estudianteSinSiagie = Estudiante::factory()->create();
-        Matricula::factory()->create(['estudiante_id' => $estudianteConSiagie->id, 'siagie_id' => $siagie->id]);
-        Matricula::factory()->create(['estudiante_id' => $estudianteSinSiagie->id, 'siagie_id' => null]);
-        Calificacion::factory()->create(['estudiante_id' => $estudianteConSiagie->id]);
-        Calificacion::factory()->create(['estudiante_id' => $estudianteSinSiagie->id]);
-
-        $reporte = app(ReporteService::class)->academico(null, null, null, null, $siagie->id);
-
-        $this->assertCount(1, $reporte['filas']);
     }
 
     public function test_reporte_academico_marca_aprobado_desde_once(): void

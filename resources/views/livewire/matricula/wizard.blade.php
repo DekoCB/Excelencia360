@@ -3,7 +3,6 @@
 use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Grado;
-use App\Modules\Academico\Models\Siagie;
 use App\Modules\Academico\Services\CicloService;
 use App\Modules\Academico\Services\CursoService;
 use App\Modules\Matricula\DTOs\RegistrarApoderadoData;
@@ -123,8 +122,6 @@ new class extends Component
     public string $cicloId = '';
 
     public string $gradoId = '';
-
-    public string $siagieId = '';
 
     public string $fechaMatricula = '';
 
@@ -333,7 +330,6 @@ new class extends Component
                     'modalidadCiclo' => 'required|string|in:seis_meses,anual',
                     'cicloId' => 'required|integer|exists:ciclos,id',
                     'gradoId' => 'required|integer|exists:grados,id',
-                    'siagieId' => 'nullable|integer|exists:siagies,id',
                     'fechaMatricula' => 'required|date',
                 ]);
             }
@@ -474,7 +470,6 @@ new class extends Component
                     gradoId: (int) $this->gradoId,
                     observaciones: $this->observacionesMatricula ?: null,
                     registradoPor: auth()->id(),
-                    siagieId: $this->siagieId !== '' ? (int) $this->siagieId : null,
                     fechaMatricula: $this->fechaMatricula !== '' ? $this->fechaMatricula : null,
                 ));
 
@@ -578,7 +573,6 @@ new class extends Component
                     gradoId: (int) $this->gradoId,
                     observaciones: $this->observacionesMatricula ?: null,
                     registradoPor: auth()->id(),
-                    siagieId: $this->siagieId !== '' ? (int) $this->siagieId : null,
                     fechaMatricula: $this->fechaMatricula !== '' ? $this->fechaMatricula : null,
                 ));
 
@@ -638,11 +632,9 @@ new class extends Component
 
         $ciclosConMatriculaAbierta = Ciclo::query()
             ->where('modalidad', ModalidadCicloEnum::SEIS_MESES)
-            ->whereHas('periodosMatricula', function ($query) {
-                $query->where('estado', 'abierto')
-                    ->where('fecha_inicio', '<=', now())
-                    ->where('fecha_fin', '>=', now());
-            })
+            ->where('estado_matricula', 'abierto')
+            ->where('fecha_inicio_matricula', '<=', now())
+            ->where('fecha_fin_matricula', '>=', now())
             ->orderByDesc('fecha_inicio')
             ->get();
 
@@ -651,7 +643,6 @@ new class extends Component
             'gradosCompatibles' => $grados,
             'todosLosGrados' => $grados,
             'modalidadesCiclo' => ModalidadCicloEnum::cases(),
-            'siagiesDisponibles' => Siagie::query()->orderByDesc('anio')->orderBy('tipo')->get(),
             'ciclosDisponibles' => $ciclosConMatriculaAbierta,
             'cicloAnualVigente' => $ciclos->cicloAnualVigente(),
             'numerosCuotas' => NumeroCuotasEnum::cases(),
@@ -982,25 +973,13 @@ new class extends Component
                         />
                         <x-input-error :messages="$errors->get('modalidadCiclo')" class="mt-1" />
                     </div>
-                    <div class="sm:col-span-2" wire:key="tipo-instituto-siagie">
-                        <x-input-label for="siagieId" value="Periodo académico (opcional)" />
-                        <x-select-input
-                            wire:model="siagieId"
-                            id="siagieId"
-                            placeholder="Sin registrar…"
-                            class="mt-1 block w-full"
-                            :options="collect($siagiesDisponibles)->mapWithKeys(fn ($siagie) => [$siagie->id => $siagie->nombreCompleto()])"
-                        />
-                        <p class="mt-1 text-xs text-ink-faint">Independiente del Período de Matrícula: es la clasificación propia del periodo académico.</p>
-                        <x-input-error :messages="$errors->get('siagieId')" class="mt-1" />
-                    </div>
                     @if ($modalidadCiclo === 'anual')
                         <div wire:key="tipo-instituto-anio">
                             <x-input-label value="Año" />
                             @if ($cicloAnualVigente)
                                 <p class="mt-1 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-ink">{{ $cicloAnualVigente->anio }}</p>
                             @else
-                                <p class="mt-1 text-xs text-danger">No hay ningún periodo académico anual registrado todavía. Créalo primero en Ciclos.</p>
+                                <p class="mt-1 text-xs text-danger">No hay ningún periodo académico anual registrado todavía. Créalo primero en Periodo Académico.</p>
                             @endif
                             <x-input-error :messages="$errors->get('cicloId')" class="mt-1" />
                         </div>

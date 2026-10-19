@@ -34,9 +34,10 @@ class MatriculaMasivaServiceTest extends TestCase
             'fecha_fin' => now()->addMonths(5),
         ]);
 
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
 
         return $ciclo;

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\Academico\Repositories\Eloquent;
 
 use App\Modules\Academico\Enums\EstadoCicloEnum;
-use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Repositories\Contracts\CicloRepositoryInterface;
 use App\Shared\Repositories\BaseRepository;
@@ -37,8 +36,8 @@ class EloquentCicloRepository extends BaseRepository implements CicloRepositoryI
         return Ciclo::query()->where('estado', EstadoCicloEnum::ACTIVO)->first();
     }
 
-    public function paginateGrupos(int $perPage = 15): LengthAwarePaginator
+    public function paginateTodos(int $perPage = 15): LengthAwarePaginator
     {
-        return Ciclo::query()->where('modalidad', ModalidadCicloEnum::SEIS_MESES)->paginate($perPage);
+        return Ciclo::query()->orderByDesc('fecha_inicio')->paginate($perPage);
     }
 }

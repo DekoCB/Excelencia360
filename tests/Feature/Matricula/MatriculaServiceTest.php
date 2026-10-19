@@ -3,12 +3,10 @@
 namespace Tests\Feature\Matricula;
 
 use App\Models\User;
-use App\Modules\Academico\Enums\TipoSiagieEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
-use App\Modules\Academico\Models\Siagie;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\DTOs\RegistrarApoderadoData;
 use App\Modules\Matricula\DTOs\RegistrarEstudianteData;
@@ -78,9 +76,10 @@ class MatriculaServiceTest extends TestCase
             'fecha_fin' => now()->addMonths(5),
         ]);
 
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
 
         return $ciclo;
@@ -320,37 +319,6 @@ class MatriculaServiceTest extends TestCase
         Event::assertDispatched(EstudianteMatriculado::class);
     }
 
-    public function test_matricular_guarda_el_siagie_elegido_a_mano(): void
-    {
-        $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMayor());
-        $ciclo = $this->cicloConPeriodoAbierto();
-        $grado = Grado::factory()->create();
-        $siagie = Siagie::factory()->create(['tipo' => TipoSiagieEnum::SEGUNDO, 'anio' => $ciclo->anio]);
-
-        $matricula = $this->service()->matricular($estudiante, new RegistrarMatriculaData(
-            cicloId: $ciclo->id,
-            gradoId: $grado->id,
-            observaciones: null,
-            registradoPor: null,
-            siagieId: $siagie->id,
-        ));
-
-        $this->assertSame($siagie->id, $matricula->fresh()->siagie_id);
-        $this->assertSame("{$ciclo->anio}-2", $matricula->siagieCompleto());
-    }
-
-    public function test_matricular_sin_elegir_siagie_lo_deja_nulo(): void
-    {
-        $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMayor());
-        $ciclo = $this->cicloConPeriodoAbierto();
-        $grado = Grado::factory()->create();
-
-        $matricula = $this->service()->matricular($estudiante, new RegistrarMatriculaData($ciclo->id, $grado->id, null, null));
-
-        $this->assertNull($matricula->siagie_id);
-        $this->assertNull($matricula->siagieCompleto());
-    }
-
     public function test_matricular_actualiza_el_grado_actual_del_estudiante(): void
     {
         $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMayor());
@@ -397,9 +365,9 @@ class MatriculaServiceTest extends TestCase
 
     public function test_matricular_en_un_ciclo_anual_no_exige_periodo_de_matricula_abierto(): void
     {
-        // A diferencia de los Grupos de 6 meses, SIAGIE anual no depende de
-        // un PeriodoMatricula: este ciclo no tiene ninguno y aun así debe
-        // poder matricularse.
+        // A diferencia de los Grupos de 6 meses, el periodo académico
+        // anual no depende de una ventana de matrícula propia: este ciclo
+        // no tiene ninguna y aun así debe poder matricularse.
         $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMayor());
         $ciclo = Ciclo::factory()->anual()->activo()->create();
         $grado = Grado::factory()->create();

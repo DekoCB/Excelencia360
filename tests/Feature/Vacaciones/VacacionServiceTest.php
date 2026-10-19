@@ -40,9 +40,10 @@ class VacacionServiceTest extends TestCase
             'fecha_fin' => now()->addMonths(5),
         ], $atributos));
 
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
 
         return $ciclo;
@@ -69,7 +70,7 @@ class VacacionServiceTest extends TestCase
         return $estudiante;
     }
 
-    public function test_activar_rechaza_un_estudiante_que_no_esta_en_siagie_anual(): void
+    public function test_activar_rechaza_un_estudiante_que_no_esta_en_periodo_academico_anual(): void
     {
         $ciclo = $this->cicloConPeriodoAbierto(['tipo' => TipoCicloEnum::GRUPO_1]);
         $estudiante = $this->estudianteMatriculado($ciclo);

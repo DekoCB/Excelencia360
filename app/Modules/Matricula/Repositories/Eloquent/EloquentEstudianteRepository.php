@@ -39,7 +39,7 @@ class EloquentEstudianteRepository extends BaseRepository implements EstudianteR
         ?int $cursoId = null,
         ?int $docenteId = null,
     ): LengthAwarePaginator {
-        $sinFiltrosAcademicos = FiltroMatriculaAcademico::sinFiltros($cicloId, $gradoId, $cursoId, null, null, $docenteId);
+        $sinFiltrosAcademicos = FiltroMatriculaAcademico::sinFiltros($cicloId, $gradoId, $cursoId, null, $docenteId);
 
         return $this->query()
             ->when($termino, fn ($query) => $query->where(function ($query) use ($termino) {
@@ -50,7 +50,7 @@ class EloquentEstudianteRepository extends BaseRepository implements EstudianteR
             ->when($estado, fn ($query) => $query->where('estado', $estado))
             ->when(! $sinFiltrosAcademicos, fn ($query) => $query->whereHas(
                 'matriculas',
-                fn ($sub) => FiltroMatriculaAcademico::filtrarMatriculas($sub, $cicloId, $gradoId, $cursoId, null, null, $docenteId),
+                fn ($sub) => FiltroMatriculaAcademico::filtrarMatriculas($sub, $cicloId, $gradoId, $cursoId, null, $docenteId),
             ))
             ->latest('id')
             ->paginate($perPage)

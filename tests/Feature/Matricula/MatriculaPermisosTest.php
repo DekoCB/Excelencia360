@@ -3,13 +3,11 @@
 namespace Tests\Feature\Matricula;
 
 use App\Models\User;
-use App\Modules\Academico\Enums\TipoSiagieEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Academico\Models\ProgramaEstudio;
-use App\Modules\Academico\Models\Siagie;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Enums\TipoDocumentoEnum;
 use App\Modules\Matricula\Models\Estudiante;
@@ -69,9 +67,10 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
         $grado = Grado::factory()->create();
 
@@ -113,9 +112,10 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
         $grado = Grado::factory()->create();
 
@@ -156,9 +156,10 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
         $grado = Grado::factory()->create();
 
@@ -297,9 +298,10 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
         $grado = Grado::factory()->create();
         $fechaElegida = now()->subDays(5)->format('Y-m-d');
@@ -343,9 +345,10 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
         $grado = Grado::factory()->create();
 
@@ -424,50 +427,6 @@ class MatriculaPermisosTest extends TestCase
         $this->assertSame('application/pdf', $testable->effects['download']['contentType']);
     }
 
-    public function test_registrar_matricula_desde_el_wizard_guarda_el_siagie_elegido(): void
-    {
-        Storage::fake('public');
-
-        $usuario = User::factory()->create();
-        $usuario->assignRole(RolEnum::COORDINADOR->value);
-
-        $ciclo = Ciclo::factory()->activo()->create([
-            'fecha_inicio' => now()->subDays(20),
-            'fecha_fin' => now()->addMonths(5),
-        ]);
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
-        ]);
-        $grado = Grado::factory()->create();
-        $siagie = Siagie::factory()->create(['tipo' => TipoSiagieEnum::SEGUNDO]);
-
-        $this->actingAs($usuario);
-
-        Volt::test('matricula.wizard')
-            ->set('nombres', 'Rosa')
-            ->set('apellidos', 'Delgado Vera')
-            ->set('dni', '55667711')
-            ->set('fechaNacimiento', now()->subYears(30)->format('Y-m-d'))
-            ->call('avanzar')
-            ->assertHasNoErrors()
-            ->assertSet('paso', 3)
-            ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
-            ->call('avanzar')
-            ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
-            ->set('cicloId', (string) $ciclo->id)
-            ->set('gradoId', (string) $grado->id)
-            ->set('siagieId', (string) $siagie->id)
-            ->call('confirmar')
-            ->assertHasNoErrors()
-            ->assertDispatched('matricula-registrada');
-
-        $estudiante = Estudiante::query()->where('dni', '55667711')->firstOrFail();
-        $this->assertDatabaseHas('matriculas', ['estudiante_id' => $estudiante->id, 'siagie_id' => $siagie->id]);
-    }
-
     public function test_elegir_modalidad_anual_en_el_wizard_autoselecciona_el_ciclo_vigente(): void
     {
         Storage::fake('public');
@@ -514,9 +473,10 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
         $grado = Grado::factory()->create();
 
@@ -733,9 +693,10 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
         $grado = Grado::factory()->create();
 
@@ -796,9 +757,10 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
         $grado = Grado::factory()->create();
 
@@ -846,9 +808,10 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
         $grado = Grado::factory()->create();
 
@@ -900,9 +863,10 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
         $grado = Grado::factory()->create();
 
@@ -945,9 +909,10 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
         $grado = Grado::factory()->create();
 
@@ -1023,9 +988,10 @@ class MatriculaPermisosTest extends TestCase
         // mismo componente sin volver al paso 1: antes de la corrección de
         // este bug, esto duplicaba al estudiante (mismo DNI) y rompía con
         // un error sin manejar.
-        $ciclo->periodosMatricula()->create([
-            'fecha_inicio' => now()->subDays(10),
-            'fecha_fin' => now()->addDays(10),
+        $ciclo->update([
+            'fecha_inicio_matricula' => now()->subDays(10),
+            'fecha_fin_matricula' => now()->addDays(10),
+            'estado_matricula' => 'abierto',
         ]);
 
         $component

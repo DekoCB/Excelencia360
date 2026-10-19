@@ -44,9 +44,6 @@
                         @if ($matricula->fecha_fin_estudio)
                             · Fin de estudios: {{ $matricula->fecha_fin_estudio->format('d/m/Y') }}
                         @endif
-                        @if ($matricula->siagieCompleto())
-                            · Periodo académico {{ $matricula->siagieCompleto() }}
-                        @endif
                     </p>
                 </div>
                 <span @class([

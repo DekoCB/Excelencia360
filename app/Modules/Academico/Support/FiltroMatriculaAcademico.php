@@ -20,9 +20,9 @@ use Illuminate\Support\Collection;
  */
 final class FiltroMatriculaAcademico
 {
-    public static function sinFiltros(?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja, ?int $siagieId = null, ?int $docenteId = null): bool
+    public static function sinFiltros(?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja, ?int $docenteId = null): bool
     {
-        return $cicloId === null && $gradoId === null && $cursoId === null && $franja === null && $siagieId === null && $docenteId === null;
+        return $cicloId === null && $gradoId === null && $cursoId === null && $franja === null && $docenteId === null;
     }
 
     /**
@@ -36,7 +36,7 @@ final class FiltroMatriculaAcademico
      */
     public static function horariosFiltrados(?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja, ?int $docenteId = null): ?Collection
     {
-        if (self::sinFiltros($cicloId, $gradoId, $cursoId, $franja, null, $docenteId)) {
+        if (self::sinFiltros($cicloId, $gradoId, $cursoId, $franja, $docenteId)) {
             return null;
         }
 
@@ -62,14 +62,14 @@ final class FiltroMatriculaAcademico
     }
 
     /**
-     * Aplica el filtro de SIAGIE/Grupo/Grado/Curso/Docente/franja a una
-     * consulta de Matricula. SIAGIE, ciclo y grado se filtran directo por
-     * columna (Matricula ya las tiene). Curso, docente y franja no
-     * existen ahí -- se resuelven vía Horario: un estudiante matriculado
-     * en ese grado+ciclo lleva automáticamente cualquier curso de su
-     * grado, salvo que ese curso tenga secciones paralelas, donde se
-     * exige la asignación explícita en el pivote matricula_horario a uno
-     * de los horarios filtrados (mismo criterio que
+     * Aplica el filtro de Grupo/Grado/Curso/Docente/franja a una consulta
+     * de Matricula. Ciclo y grado se filtran directo por columna
+     * (Matricula ya las tiene). Curso, docente y franja no existen ahí --
+     * se resuelven vía Horario: un estudiante matriculado en ese
+     * grado+ciclo lleva automáticamente cualquier curso de su grado,
+     * salvo que ese curso tenga secciones paralelas, donde se exige la
+     * asignación explícita en el pivote matricula_horario a uno de los
+     * horarios filtrados (mismo criterio que
      * Matricula::scopeDelHorario()).
      *
      * @template TModel of \Illuminate\Database\Eloquent\Model
@@ -77,12 +77,11 @@ final class FiltroMatriculaAcademico
      * @param  Builder<TModel>  $query
      * @return Builder<TModel>
      */
-    public static function filtrarMatriculas(Builder $query, ?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja, ?int $siagieId = null, ?int $docenteId = null): Builder
+    public static function filtrarMatriculas(Builder $query, ?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja, ?int $docenteId = null): Builder
     {
         $query = $query
             ->when($cicloId !== null, fn ($q) => $q->where('ciclo_id', $cicloId))
-            ->when($gradoId !== null, fn ($q) => $q->where('grado_id', $gradoId))
-            ->when($siagieId !== null, fn ($q) => $q->where('siagie_id', $siagieId));
+            ->when($gradoId !== null, fn ($q) => $q->where('grado_id', $gradoId));
 
         if ($cursoId === null && $franja === null && $docenteId === null) {
             return $query;
