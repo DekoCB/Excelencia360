@@ -60,8 +60,9 @@ class MatriculaService
         ?int $gradoId = null,
         ?int $cursoId = null,
         ?int $docenteId = null,
+        ?string $modalidad = null,
     ): LengthAwarePaginator {
-        return $this->estudiantes->buscar($termino, $estado, $perPage, $cicloId, $gradoId, $cursoId, $docenteId);
+        return $this->estudiantes->buscar($termino, $estado, $perPage, $cicloId, $gradoId, $cursoId, $docenteId, $modalidad);
     }
 
     public function dniDisponible(string $dni, ?int $exceptoId = null): bool

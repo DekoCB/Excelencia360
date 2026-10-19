@@ -11,6 +11,7 @@ use App\Modules\Matricula\Database\Factories\EstudianteFactory;
 use App\Modules\Matricula\Enums\EstadoCivilEnum;
 use App\Modules\Matricula\Enums\EstadoEstudianteEnum;
 use App\Shared\Support\TieneQrToken;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -120,6 +121,23 @@ class Estudiante extends Model implements HasMedia
     public function cursosCortos(): HasMany
     {
         return $this->hasMany(MatriculaCursoCorto::class);
+    }
+
+    /**
+     * Restringe a los estudiantes que tienen al menos una matrícula de la
+     * modalidad indicada ('instituto' -> matriculas, 'curso_corto' ->
+     * cursosCortos) -- usado para acotar a las secretarías de matrícula a
+     * su propia modalidad, ver User::modalidadMatriculaRestringida().
+     *
+     * @param  Builder<Estudiante>  $query
+     * @return Builder<Estudiante>
+     */
+    public function scopeDeModalidad(Builder $query, string $modalidad): Builder
+    {
+        return match ($modalidad) {
+            'curso_corto' => $query->whereHas('cursosCortos'),
+            default => $query->whereHas('matriculas'),
+        };
     }
 
     /**

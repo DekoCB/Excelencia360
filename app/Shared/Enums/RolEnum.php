@@ -13,6 +13,8 @@ enum RolEnum: string
     case DOCENTE = 'docente';
     case ESTUDIANTE = 'estudiante';
     case APODERADO = 'apoderado';
+    case SECRETARIA_INSTITUTO = 'secretaria_instituto';
+    case SECRETARIA_EXCELENCIA = 'secretaria_excelencia';
 
     public function label(): string
     {
@@ -24,6 +26,8 @@ enum RolEnum: string
             self::DOCENTE => 'Docente',
             self::ESTUDIANTE => 'Estudiante',
             self::APODERADO => 'Apoderado',
+            self::SECRETARIA_INSTITUTO => 'Secretaria Instituto',
+            self::SECRETARIA_EXCELENCIA => 'Secretaria Excelencia',
         };
     }
 }

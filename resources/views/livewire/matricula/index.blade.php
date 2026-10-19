@@ -150,6 +150,7 @@ new #[Layout('layouts.app')] class extends Component
             gradoId: $this->gradoFiltro !== '' ? (int) $this->gradoFiltro : null,
             cursoId: $this->cursoFiltro !== '' ? (int) $this->cursoFiltro : null,
             docenteId: $this->docenteFiltro !== '' ? (int) $this->docenteFiltro : null,
+            modalidad: auth()->user()->modalidadMatriculaRestringida(),
         );
 
         $this->idsPaginaActual = $estudiantes->pluck('id')->all();

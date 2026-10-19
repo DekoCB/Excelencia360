@@ -152,11 +152,22 @@ new class extends Component
     /** @var array<int, array{concepto: string, monto: string}> */
     public array $cargosAdicionales = [];
 
+    // Fijo por Auth::user()->modalidadMatriculaRestringida() cuando quien
+    // matricula es una secretaría acotada a una sola modalidad -- en ese
+    // caso el selector de tipo no se muestra, ver más abajo.
+    public ?string $modalidadRestringida = null;
+
     public function mount(): void
     {
         Gate::authorize('matricula.crear');
 
         $this->fechaMatricula = now()->format('Y-m-d');
+
+        $this->modalidadRestringida = auth()->user()->modalidadMatriculaRestringida();
+
+        if ($this->modalidadRestringida !== null) {
+            $this->tipoMatricula = $this->modalidadRestringida;
+        }
     }
 
     #[Computed]
@@ -319,6 +330,10 @@ new class extends Component
         }
 
         if ($this->paso === 5) {
+            if ($this->modalidadRestringida !== null) {
+                $this->tipoMatricula = $this->modalidadRestringida;
+            }
+
             if ($this->tipoMatricula === 'curso_corto') {
                 $this->validate([
                     'cursosCortoIds' => 'required|array|min:1',
@@ -426,6 +441,13 @@ new class extends Component
         PlanPagoService $planPagoService,
     ): void {
         Gate::authorize('matricula.crear');
+
+        // Defensa en profundidad: una secretaría acotada a una modalidad no
+        // debería poder llegar aquí con la otra (el selector ni se muestra),
+        // pero por si se manipula wire:model directamente, se reafirma acá.
+        if ($this->modalidadRestringida !== null) {
+            $this->tipoMatricula = $this->modalidadRestringida;
+        }
 
         if ($this->configurarCronograma) {
             $this->validate([
@@ -949,7 +971,7 @@ new class extends Component
                     (DNI {{ $this->estudianteEncontrado->dni }}).
                 </p>
             @endif
-            @unless ($esRematricula)
+            @unless ($esRematricula || $modalidadRestringida !== null)
                 <div class="mt-4">
                     <x-input-label for="tipoMatricula" value="Tipo de matrícula" />
                     <x-select-input

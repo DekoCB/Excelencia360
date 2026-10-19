@@ -43,7 +43,7 @@ class BusquedaGlobalService
         }
 
         return collect()
-            ->merge($usuario->hasPermissionTo('matricula.ver') ? $this->buscarEstudiantes($termino) : [])
+            ->merge($usuario->hasPermissionTo('matricula.ver') ? $this->buscarEstudiantes($termino, $usuario->modalidadMatriculaRestringida()) : [])
             ->merge($usuario->hasPermissionTo('matricula.ver') ? $this->buscarApoderados($termino) : [])
             ->merge($usuario->hasPermissionTo('docentes.ver') ? $this->buscarDocentes($termino) : [])
             ->merge($usuario->hasPermissionTo('personal.ver') ? $this->buscarPersonal($termino) : [])
@@ -53,7 +53,7 @@ class BusquedaGlobalService
     /**
      * @return Collection<int, ResultadoBusquedaData>
      */
-    private function buscarEstudiantes(string $termino): Collection
+    private function buscarEstudiantes(string $termino, ?string $modalidad): Collection
     {
         return Estudiante::query()
             ->where(function ($query) use ($termino) {
@@ -61,6 +61,7 @@ class BusquedaGlobalService
                     ->orWhere('apellidos', 'like', "%{$termino}%")
                     ->orWhere('dni', 'like', "%{$termino}%");
             })
+            ->when($modalidad, fn ($query) => $query->deModalidad($modalidad))
             ->limit(self::LIMITE_POR_TIPO)
             ->get()
             ->map(fn (Estudiante $estudiante) => new ResultadoBusquedaData(

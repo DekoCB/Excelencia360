@@ -104,6 +104,12 @@ new #[Layout('layouts.app')] class extends Component
     {
         Gate::authorize('matricula.ver');
 
+        $modalidad = auth()->user()->modalidadMatriculaRestringida();
+
+        if ($modalidad !== null && ! Estudiante::query()->whereKey($estudiante->id)->deModalidad($modalidad)->exists()) {
+            abort(403);
+        }
+
         $this->estudiante = $estudiante->load(['media', 'user.media', 'telefonos']);
         $this->observacionesTexto = $estudiante->observaciones ?? '';
     }

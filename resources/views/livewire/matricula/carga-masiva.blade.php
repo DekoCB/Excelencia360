@@ -25,6 +25,13 @@ new #[Layout('layouts.app')] class extends Component
     public function mount(): void
     {
         Gate::authorize('matricula.crear');
+
+        // Carga masiva vía Ciclo/Grado: solo tiene sentido para Instituto,
+        // Curso Corto no tiene este flujo (ver plan de "Modalidad Curso
+        // corto"), así que Secretaria Excelencia no entra aquí.
+        if (Auth::user()->modalidadMatriculaRestringida() === 'curso_corto') {
+            abort(403);
+        }
     }
 
     public function descargarPlantilla()

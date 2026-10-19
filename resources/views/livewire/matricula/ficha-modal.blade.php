@@ -111,6 +111,12 @@ new class extends Component
     {
         Gate::authorize('matricula.ver');
 
+        $modalidad = auth()->user()->modalidadMatriculaRestringida();
+
+        if ($modalidad !== null && ! Estudiante::query()->whereKey($estudianteId)->deModalidad($modalidad)->exists()) {
+            abort(403);
+        }
+
         $this->estudianteId = $estudianteId;
         $this->observacionesTexto = Estudiante::query()->find($estudianteId)?->observaciones ?? '';
         $this->editandoFechaFinMatriculaId = null;

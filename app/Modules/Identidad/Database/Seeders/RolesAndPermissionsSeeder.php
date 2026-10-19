@@ -111,6 +111,24 @@ class RolesAndPermissionsSeeder extends Seeder
             'tramites.crear', 'tramites.ver_propio',
             'calendario.ver',
         ],
+
+        // Las dos secretarías comparten los mismos permisos de matrícula que
+        // Coordinador (menos matricula.eliminar, reservado a roles con
+        // visión completa) -- lo que las distingue no es el permiso sino el
+        // alcance: cada una queda restringida a su propia modalidad
+        // (Instituto o Curso Corto) vía User::modalidadMatriculaRestringida(),
+        // que filtra qué estudiantes/matrículas puede ver o tocar cada una.
+        RolEnum::SECRETARIA_INSTITUTO->value => [
+            'matricula.crear', 'matricula.ver', 'matricula.editar', 'matricula.anular',
+            'tramites.crear', 'tramites.ver_propio',
+            'calendario.ver',
+        ],
+
+        RolEnum::SECRETARIA_EXCELENCIA->value => [
+            'matricula.crear', 'matricula.ver', 'matricula.editar', 'matricula.anular',
+            'tramites.crear', 'tramites.ver_propio',
+            'calendario.ver',
+        ],
     ];
 
     /**

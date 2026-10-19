@@ -8,6 +8,7 @@ use App\Modules\Identidad\Support\Auditable;
 use App\Modules\Matricula\Models\Apoderado;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Shared\Enums\EstadoUsuarioEnum;
+use App\Shared\Enums\RolEnum;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -117,5 +118,23 @@ class User extends Authenticatable implements HasMedia
     public function docente(): HasOne
     {
         return $this->hasOne(Docente::class);
+    }
+
+    /**
+     * 'instituto' o 'curso_corto' si este usuario es una de las dos
+     * secretarías de matrícula (acotadas a su propia modalidad), o null
+     * para cualquier otro rol (sin restricción de modalidad).
+     */
+    public function modalidadMatriculaRestringida(): ?string
+    {
+        if ($this->hasRole(RolEnum::SECRETARIA_INSTITUTO->value)) {
+            return 'instituto';
+        }
+
+        if ($this->hasRole(RolEnum::SECRETARIA_EXCELENCIA->value)) {
+            return 'curso_corto';
+        }
+
+        return null;
     }
 }
