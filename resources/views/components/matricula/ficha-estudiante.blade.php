@@ -8,6 +8,10 @@
     'mostrandoFormCursoCorto' => false,
     'cursoCortoNuevoId' => '',
     'fechaInicioCursoCortoNuevo' => '',
+    'certificadosSubidos' => [],
+    'mostrandoFormCertificado' => false,
+    'certificadoTipoNuevo' => '',
+    'certificadoCursoNuevoId' => '',
     'cursosConHorarios' => [],
     'editandoHorarioMatriculaId' => null,
     'editandoHorarioCursoId' => null,
@@ -372,6 +376,88 @@
             @endforelse
         </div>
     </div>
+
+    @if (count($certificadosSubidos) > 0 || $mostrandoFormCertificado || auth()->user()->can('matricula.editar'))
+        <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
+            <div class="flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-ink">Certificados</h2>
+                <p class="mt-1 text-xs text-ink-faint">Documento oficial (escaneado), con validez legal -- distinto del PDF que emite el sistema.</p>
+            </div>
+            <div class="flex items-center justify-end">
+                @can('matricula.editar')
+                    @if (! $mostrandoFormCertificado)
+                        <button type="button" wire:click="mostrarFormCertificado" class="text-xs font-medium text-accent hover:underline">+ Agregar certificado</button>
+                    @endif
+                @endcan
+            </div>
+
+            @can('matricula.editar')
+                @if ($mostrandoFormCertificado)
+                    <form wire:submit="guardarCertificado" class="mt-4 space-y-3 rounded-xl border border-border bg-surface-2 p-4">
+                        <div>
+                            <x-input-label for="certificadoTipoNuevo" value="Tipo" />
+                            <x-select-input
+                                wire:model.live="certificadoTipoNuevo"
+                                id="certificadoTipoNuevo"
+                                class="mt-1 block w-full"
+                                placeholder="Selecciona…"
+                                :options="['estudios' => 'Certificado de estudios', 'capacitacion' => 'Certificado de capacitación']"
+                            />
+                            <x-input-error :messages="$errors->get('certificadoTipoNuevo')" class="mt-1" />
+                        </div>
+                        @if ($certificadoTipoNuevo === 'capacitacion')
+                            <div>
+                                <x-input-label for="certificadoCursoNuevoId" value="Curso" />
+                                <x-select-input
+                                    wire:model="certificadoCursoNuevoId"
+                                    id="certificadoCursoNuevoId"
+                                    class="mt-1 block w-full"
+                                    placeholder="Selecciona un curso…"
+                                    :options="collect($cursosCortosDisponibles)->mapWithKeys(fn ($curso) => [$curso->id => $curso->nombre])"
+                                />
+                                <x-input-error :messages="$errors->get('certificadoCursoNuevoId')" class="mt-1" />
+                            </div>
+                        @endif
+                        <div>
+                            <x-input-label for="certificadoArchivoNuevo" value="Archivo (PDF o imagen)" />
+                            <input wire:model="certificadoArchivoNuevo" id="certificadoArchivoNuevo" type="file" accept=".pdf,.jpg,.jpeg,.png" class="mt-1 block w-full text-sm text-ink-dim file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-2 file:text-sm file:text-ink">
+                            <x-input-error :messages="$errors->get('certificadoArchivoNuevo')" class="mt-1" />
+                        </div>
+                        <div class="flex justify-end gap-2">
+                            <x-secondary-button type="button" wire:click="cancelarFormCertificado">Cancelar</x-secondary-button>
+                            <x-primary-button type="submit">Guardar</x-primary-button>
+                        </div>
+                    </form>
+                @endif
+            @endcan
+
+            @if (count($certificadosSubidos) > 0)
+                <div class="mt-4 divide-y divide-border">
+                    @foreach ($certificadosSubidos as $certificado)
+                        <div class="flex items-center justify-between gap-4 py-2 text-sm">
+                            <div>
+                                <span class="text-ink">{{ $certificado->tipo->label() }}</span>
+                                @if ($certificado->curso)
+                                    <span class="text-ink-faint"> · {{ $certificado->curso->nombre }}</span>
+                                @endif
+                                <span class="text-ink-faint"> · {{ $certificado->created_at->format('d/m/Y') }}</span>
+                            </div>
+                            <div class="flex shrink-0 items-center gap-3">
+                                @if ($certificado->getFirstMedia('archivo'))
+                                    <a href="{{ $certificado->getFirstMediaUrl('archivo') }}" target="_blank" class="text-xs font-medium text-accent hover:underline">Ver</a>
+                                @endif
+                                @can('matricula.editar')
+                                    <button type="button" wire:click="eliminarCertificado({{ $certificado->id }})" wire:confirm="¿Eliminar este certificado?" class="text-xs font-medium text-danger hover:underline">Eliminar</button>
+                                @endcan
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @elseif (! $mostrandoFormCertificado)
+                <p class="mt-4 text-sm text-ink-faint">Sin certificados oficiales subidos todavía.</p>
+            @endif
+        </div>
+    @endif
 
     @if ($examenes->isNotEmpty())
         <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">

@@ -95,6 +95,7 @@ new #[Layout('layouts.app')] class extends Component
                 ->latest('fecha_matricula')
                 ->get(),
             'tieneDeudaCicloActual' => $bloqueos->tieneCuotasVencidasEnCicloActual($estudiante),
+            'certificadosSubidos' => $estudiante->certificadosSubidos()->with(['curso', 'media'])->latest()->get(),
         ];
     }
 }; ?>
@@ -165,6 +166,31 @@ new #[Layout('layouts.app')] class extends Component
     </div>
 
     <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
+        <h2 class="text-sm font-semibold text-ink">Mis certificados oficiales</h2>
+        <p class="mt-1 text-xs text-ink-faint">Documentos oficiales escaneados, subidos por administración.</p>
+        <div class="mt-4 divide-y divide-border">
+            @forelse ($certificadosSubidos as $certificado)
+                <div class="flex items-center justify-between py-3 text-sm">
+                    <div>
+                        <p class="text-ink">
+                            {{ $certificado->tipo->label() }}
+                            @if ($certificado->curso)
+                                · {{ $certificado->curso->nombre }}
+                            @endif
+                        </p>
+                        <p class="text-xs text-ink-faint">subido el {{ $certificado->created_at->format('d/m/Y') }}</p>
+                    </div>
+                    @if ($certificado->getFirstMedia('archivo'))
+                        <a href="{{ $certificado->getFirstMediaUrl('archivo') }}" target="_blank" class="text-xs font-medium text-accent hover:underline">Ver</a>
+                    @endif
+                </div>
+            @empty
+                <p class="py-4 text-sm text-ink-faint">Todavía no tienes certificados oficiales subidos.</p>
+            @endforelse
+        </div>
+    </div>
+
+    <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
         <h2 class="text-sm font-semibold text-ink">Mis certificados</h2>
         <div class="mt-4 divide-y divide-border">
             @forelse ($misCertificados as $certificado)
@@ -190,9 +216,6 @@ new #[Layout('layouts.app')] class extends Component
                             <p class="mt-1 text-xs text-warn">Pendiente de recojo en administración</p>
                         @endif
                     </div>
-                    @if ($certificado->getFirstMedia('pdf'))
-                        <a href="{{ $certificado->getFirstMediaUrl('pdf') }}" target="_blank" class="text-xs font-medium text-accent hover:underline">Ver PDF</a>
-                    @endif
                 </div>
             @empty
                 <p class="py-4 text-sm text-ink-faint">Todavía no tienes certificados emitidos.</p>

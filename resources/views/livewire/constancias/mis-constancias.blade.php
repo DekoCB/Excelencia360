@@ -185,9 +185,6 @@ new #[Layout('layouts.app')] class extends Component
                             <p class="mt-1 text-xs text-warn">Pendiente de recojo en administración</p>
                         @endif
                     </div>
-                    @if ($constancia->getFirstMedia('pdf'))
-                        <a href="{{ $constancia->getFirstMediaUrl('pdf') }}" target="_blank" class="text-xs font-medium text-accent hover:underline">Ver PDF</a>
-                    @endif
                 </div>
             @empty
                 <p class="py-4 text-sm text-ink-faint">Todavía no tienes constancias emitidas.</p>

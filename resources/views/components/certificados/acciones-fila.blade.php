@@ -15,12 +15,6 @@
         <x-heroicon-o-eye class="h-4 w-4" />
     </button>
 
-    @if ($certificado->getFirstMedia('pdf'))
-        <a href="{{ $certificado->getFirstMediaUrl('pdf') }}" target="_blank" title="Ver PDF" class="rounded-md p-1.5 text-accent transition hover:bg-surface-2">
-            <x-heroicon-o-document-text class="h-4 w-4" />
-        </a>
-    @endif
-
     @if ($puedeEmitir && ! $certificado->entregado_en)
         <button type="button" wire:click="iniciarEntrega({{ $argumentoEntrega }})" title="Marcar entregado" class="rounded-md p-1.5 text-ok transition hover:bg-surface-2">
             <x-heroicon-o-check class="h-4 w-4" />

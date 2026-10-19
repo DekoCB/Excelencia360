@@ -6,11 +6,14 @@ use App\Modules\Academico\Services\CursoService;
 use App\Modules\Matricula\Enums\EstadoCivilEnum;
 use App\Modules\Matricula\Enums\EstadoEstudianteEnum;
 use App\Modules\Matricula\Enums\EstadoMatriculaCursoCortoEnum;
+use App\Modules\Matricula\Enums\TipoCertificadoSubidoEnum;
 use App\Modules\Matricula\Enums\TipoDocumentoEnum;
+use App\Modules\Matricula\Models\CertificadoSubido;
 use App\Modules\Matricula\Models\DocumentoEstudiante;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
 use App\Modules\Matricula\Models\MatriculaCursoCorto;
+use App\Modules\Matricula\Services\CertificadoSubidoService;
 use App\Modules\Matricula\Services\DocumentoEstudianteService;
 use App\Modules\Matricula\Services\MatriculaService;
 use App\Modules\Pagos\Enums\EstadoCuotaEnum;
@@ -95,6 +98,14 @@ new class extends Component
 
     public string $fechaInicioCursoCortoNuevo = '';
 
+    public bool $mostrandoFormCertificado = false;
+
+    public string $certificadoTipoNuevo = '';
+
+    public string $certificadoCursoNuevoId = '';
+
+    public $certificadoArchivoNuevo = null;
+
     #[On('ver-estudiante')]
     public function abrir(int $estudianteId): void
     {
@@ -122,6 +133,10 @@ new class extends Component
         $this->mostrandoFormCursoCorto = false;
         $this->cursoCortoNuevoId = '';
         $this->fechaInicioCursoCortoNuevo = '';
+        $this->mostrandoFormCertificado = false;
+        $this->certificadoTipoNuevo = '';
+        $this->certificadoCursoNuevoId = '';
+        $this->certificadoArchivoNuevo = null;
     }
 
     public function iniciarEdicionDatosPersonales(): void
@@ -342,6 +357,60 @@ new class extends Component
         session()->flash('status', 'Curso corto registrado.');
     }
 
+    public function mostrarFormCertificado(): void
+    {
+        Gate::authorize('matricula.editar');
+
+        $this->resetValidation();
+        $this->certificadoTipoNuevo = '';
+        $this->certificadoCursoNuevoId = '';
+        $this->certificadoArchivoNuevo = null;
+        $this->mostrandoFormCertificado = true;
+    }
+
+    public function cancelarFormCertificado(): void
+    {
+        $this->mostrandoFormCertificado = false;
+        $this->certificadoTipoNuevo = '';
+        $this->certificadoCursoNuevoId = '';
+        $this->certificadoArchivoNuevo = null;
+    }
+
+    public function guardarCertificado(CertificadoSubidoService $service): void
+    {
+        Gate::authorize('matricula.editar');
+
+        $esCapacitacion = $this->certificadoTipoNuevo === TipoCertificadoSubidoEnum::CAPACITACION->value;
+
+        $this->validate([
+            'certificadoTipoNuevo' => 'required|string|in:'.implode(',', array_column(TipoCertificadoSubidoEnum::cases(), 'value')),
+            'certificadoCursoNuevoId' => $esCapacitacion ? 'required|integer|exists:cursos,id' : 'nullable',
+            'certificadoArchivoNuevo' => 'required|file|mimes:pdf,jpg,jpeg,png|max:4096',
+        ]);
+
+        $estudiante = Estudiante::query()->findOrFail($this->estudianteId);
+
+        $service->subir(
+            $estudiante,
+            TipoCertificadoSubidoEnum::from($this->certificadoTipoNuevo),
+            $this->certificadoArchivoNuevo,
+            $esCapacitacion ? (int) $this->certificadoCursoNuevoId : null,
+            Auth::id(),
+        );
+
+        $this->cancelarFormCertificado();
+        session()->flash('status', 'Certificado guardado.');
+    }
+
+    public function eliminarCertificado(int $certificadoId, CertificadoSubidoService $service): void
+    {
+        Gate::authorize('matricula.editar');
+
+        $service->eliminar(CertificadoSubido::query()->findOrFail($certificadoId));
+
+        session()->flash('status', 'Certificado eliminado.');
+    }
+
     public function editarHorario(int $matriculaId, int $cursoId): void
     {
         Gate::authorize('matricula.editar');
@@ -534,6 +603,7 @@ new class extends Component
             'matriculas' => $matriculas,
             'cursosCortos' => $estudiante?->cursosCortos()->with('curso')->latest('fecha_inicio')->get() ?? collect(),
             'cursosCortosDisponibles' => $cursos->deCapacitacion(),
+            'certificadosSubidos' => $estudiante?->certificadosSubidos()->with(['curso', 'media'])->latest()->get() ?? collect(),
             'cursosConHorarios' => $matriculas?->mapWithKeys(fn (Matricula $matricula) => [$matricula->id => $this->cursosConHorarios($matricula)]) ?? collect(),
             'planesPorMatricula' => $matriculas !== null && Auth::user()->hasPermissionTo('pagos.ver')
                 ? $matriculas->mapWithKeys(fn (Matricula $matricula) => [$matricula->id => $planes->planDe($matricula)])
@@ -574,6 +644,10 @@ new class extends Component
                     :mostrando-form-curso-corto="$mostrandoFormCursoCorto"
                     :curso-corto-nuevo-id="$cursoCortoNuevoId"
                     :fecha-inicio-curso-corto-nuevo="$fechaInicioCursoCortoNuevo"
+                    :certificados-subidos="$certificadosSubidos"
+                    :mostrando-form-certificado="$mostrandoFormCertificado"
+                    :certificado-tipo-nuevo="$certificadoTipoNuevo"
+                    :certificado-curso-nuevo-id="$certificadoCursoNuevoId"
                     :cursos-con-horarios="$cursosConHorarios"
                     :editando-horario-matricula-id="$editandoHorarioMatriculaId"
                     :editando-horario-curso-id="$editandoHorarioCursoId"

@@ -131,6 +131,14 @@ class Estudiante extends Model implements HasMedia
     }
 
     /**
+     * @return HasMany<CertificadoSubido, $this>
+     */
+    public function certificadosSubidos(): HasMany
+    {
+        return $this->hasMany(CertificadoSubido::class);
+    }
+
+    /**
      * @return HasMany<ExamenUbicacion, $this>
      */
     public function examenesUbicacion(): HasMany
