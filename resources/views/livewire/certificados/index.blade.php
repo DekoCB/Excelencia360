@@ -673,7 +673,7 @@ new #[Layout('layouts.app')] class extends Component
                                 placeholder="Selecciona…"
                                 :options="collect($cursosCapacitacion)->mapWithKeys(fn ($curso) => [(string) $curso->id => $curso->nombre.' ('.$curso->horas.' h)'])"
                             />
-                            <p class="mt-1 text-xs text-ink-faint">Se gestionan desde Académico → Cursos.</p>
+                            <p class="mt-1 text-xs text-ink-faint">Se gestionan desde Académico → Unidades Didácticas.</p>
                             <x-input-error :messages="$errors->get('cursoId')" class="mt-1" />
                         </div>
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
