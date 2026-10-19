@@ -2,6 +2,7 @@
 
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\Academico\Services\CursoService;
 use App\Modules\Matricula\Enums\EstadoCivilEnum;
 use App\Modules\Matricula\Enums\EstadoEstudianteEnum;
 use App\Modules\Matricula\Enums\EstadoMatriculaCursoCortoEnum;
@@ -88,6 +89,12 @@ new class extends Component
 
     public $documentoReversoNuevo = null;
 
+    public bool $mostrandoFormCursoCorto = false;
+
+    public string $cursoCortoNuevoId = '';
+
+    public string $fechaInicioCursoCortoNuevo = '';
+
     #[On('ver-estudiante')]
     public function abrir(int $estudianteId): void
     {
@@ -112,6 +119,9 @@ new class extends Component
         $this->documentoTipoNuevo = '';
         $this->documentoArchivoNuevo = null;
         $this->documentoReversoNuevo = null;
+        $this->mostrandoFormCursoCorto = false;
+        $this->cursoCortoNuevoId = '';
+        $this->fechaInicioCursoCortoNuevo = '';
     }
 
     public function iniciarEdicionDatosPersonales(): void
@@ -293,6 +303,45 @@ new class extends Component
         $service->finalizarCursoCorto($cursoCorto, EstadoMatriculaCursoCortoEnum::from($estado));
     }
 
+    public function mostrarFormCursoCorto(): void
+    {
+        Gate::authorize('matricula.editar');
+
+        $this->resetValidation();
+        $this->cursoCortoNuevoId = '';
+        $this->fechaInicioCursoCortoNuevo = now()->format('Y-m-d');
+        $this->mostrandoFormCursoCorto = true;
+    }
+
+    public function cancelarFormCursoCorto(): void
+    {
+        $this->mostrandoFormCursoCorto = false;
+        $this->cursoCortoNuevoId = '';
+        $this->fechaInicioCursoCortoNuevo = '';
+    }
+
+    public function guardarCursoCorto(MatriculaService $service): void
+    {
+        Gate::authorize('matricula.editar');
+
+        $this->validate([
+            'cursoCortoNuevoId' => 'required|integer|exists:cursos,id',
+            'fechaInicioCursoCortoNuevo' => 'required|date',
+        ]);
+
+        $estudiante = Estudiante::query()->findOrFail($this->estudianteId);
+
+        $service->matricularCursoCorto($estudiante, [
+            'curso_id' => (int) $this->cursoCortoNuevoId,
+            'fecha_inicio' => $this->fechaInicioCursoCortoNuevo,
+            'observaciones' => null,
+            'registrado_por' => Auth::id(),
+        ]);
+
+        $this->cancelarFormCursoCorto();
+        session()->flash('status', 'Curso corto registrado.');
+    }
+
     public function editarHorario(int $matriculaId, int $cursoId): void
     {
         Gate::authorize('matricula.editar');
@@ -472,7 +521,7 @@ new class extends Component
             ->values();
     }
 
-    public function with(PlanPagoService $planes): array
+    public function with(PlanPagoService $planes, CursoService $cursos): array
     {
         $estudiante = $this->estudianteId ? Estudiante::query()->with(['media', 'user.media', 'telefonos'])->find($this->estudianteId) : null;
 
@@ -484,6 +533,7 @@ new class extends Component
             'examenes' => $estudiante?->examenesUbicacion()->with('gradoAsignado')->latest('fecha')->get(),
             'matriculas' => $matriculas,
             'cursosCortos' => $estudiante?->cursosCortos()->with('curso')->latest('fecha_inicio')->get() ?? collect(),
+            'cursosCortosDisponibles' => $cursos->deCapacitacion(),
             'cursosConHorarios' => $matriculas?->mapWithKeys(fn (Matricula $matricula) => [$matricula->id => $this->cursosConHorarios($matricula)]) ?? collect(),
             'planesPorMatricula' => $matriculas !== null && Auth::user()->hasPermissionTo('pagos.ver')
                 ? $matriculas->mapWithKeys(fn (Matricula $matricula) => [$matricula->id => $planes->planDe($matricula)])
@@ -520,6 +570,10 @@ new class extends Component
                     :examenes="$examenes"
                     :matriculas="$matriculas"
                     :cursos-cortos="$cursosCortos"
+                    :cursos-cortos-disponibles="$cursosCortosDisponibles"
+                    :mostrando-form-curso-corto="$mostrandoFormCursoCorto"
+                    :curso-corto-nuevo-id="$cursoCortoNuevoId"
+                    :fecha-inicio-curso-corto-nuevo="$fechaInicioCursoCortoNuevo"
                     :cursos-con-horarios="$cursosConHorarios"
                     :editando-horario-matricula-id="$editandoHorarioMatriculaId"
                     :editando-horario-curso-id="$editandoHorarioCursoId"

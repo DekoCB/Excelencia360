@@ -2,6 +2,7 @@
 
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\Academico\Services\CursoService;
 use App\Modules\Matricula\Enums\EstadoCivilEnum;
 use App\Modules\Matricula\Enums\EstadoEstudianteEnum;
 use App\Modules\Matricula\Enums\EstadoMatriculaCursoCortoEnum;
@@ -81,6 +82,12 @@ new #[Layout('layouts.app')] class extends Component
     public $documentoArchivoNuevo = null;
 
     public $documentoReversoNuevo = null;
+
+    public bool $mostrandoFormCursoCorto = false;
+
+    public string $cursoCortoNuevoId = '';
+
+    public string $fechaInicioCursoCortoNuevo = '';
 
     public function mount(Estudiante $estudiante): void
     {
@@ -272,6 +279,43 @@ new #[Layout('layouts.app')] class extends Component
         $service->finalizarCursoCorto($cursoCorto, EstadoMatriculaCursoCortoEnum::from($estado));
     }
 
+    public function mostrarFormCursoCorto(): void
+    {
+        Gate::authorize('matricula.editar');
+
+        $this->resetValidation();
+        $this->cursoCortoNuevoId = '';
+        $this->fechaInicioCursoCortoNuevo = now()->format('Y-m-d');
+        $this->mostrandoFormCursoCorto = true;
+    }
+
+    public function cancelarFormCursoCorto(): void
+    {
+        $this->mostrandoFormCursoCorto = false;
+        $this->cursoCortoNuevoId = '';
+        $this->fechaInicioCursoCortoNuevo = '';
+    }
+
+    public function guardarCursoCorto(MatriculaService $service): void
+    {
+        Gate::authorize('matricula.editar');
+
+        $this->validate([
+            'cursoCortoNuevoId' => 'required|integer|exists:cursos,id',
+            'fechaInicioCursoCortoNuevo' => 'required|date',
+        ]);
+
+        $service->matricularCursoCorto($this->estudiante, [
+            'curso_id' => (int) $this->cursoCortoNuevoId,
+            'fecha_inicio' => $this->fechaInicioCursoCortoNuevo,
+            'observaciones' => null,
+            'registrado_por' => Auth::id(),
+        ]);
+
+        $this->cancelarFormCursoCorto();
+        session()->flash('status', 'Curso corto registrado.');
+    }
+
     public function editarHorario(int $matriculaId, int $cursoId): void
     {
         Gate::authorize('matricula.editar');
@@ -455,7 +499,7 @@ new #[Layout('layouts.app')] class extends Component
             ->values();
     }
 
-    public function with(PlanPagoService $planes): array
+    public function with(PlanPagoService $planes, CursoService $cursos): array
     {
         $this->estudiante->refresh();
 
@@ -466,6 +510,7 @@ new #[Layout('layouts.app')] class extends Component
             'examenes' => $this->estudiante->examenesUbicacion()->with('gradoAsignado')->latest('fecha')->get(),
             'matriculas' => $matriculas,
             'cursosCortos' => $this->estudiante->cursosCortos()->with('curso')->latest('fecha_inicio')->get(),
+            'cursosCortosDisponibles' => $cursos->deCapacitacion(),
             'cursosConHorarios' => $matriculas->mapWithKeys(fn (Matricula $matricula) => [$matricula->id => $this->cursosConHorarios($matricula)]),
             'planesPorMatricula' => Auth::user()->hasPermissionTo('pagos.ver')
                 ? $matriculas->mapWithKeys(fn (Matricula $matricula) => [$matricula->id => $planes->planDe($matricula)])
@@ -506,6 +551,10 @@ new #[Layout('layouts.app')] class extends Component
         :examenes="$examenes"
         :matriculas="$matriculas"
         :cursos-cortos="$cursosCortos"
+        :cursos-cortos-disponibles="$cursosCortosDisponibles"
+        :mostrando-form-curso-corto="$mostrandoFormCursoCorto"
+        :curso-corto-nuevo-id="$cursoCortoNuevoId"
+        :fecha-inicio-curso-corto-nuevo="$fechaInicioCursoCortoNuevo"
         :cursos-con-horarios="$cursosConHorarios"
         :editando-horario-matricula-id="$editandoHorarioMatriculaId"
         :editando-horario-curso-id="$editandoHorarioCursoId"

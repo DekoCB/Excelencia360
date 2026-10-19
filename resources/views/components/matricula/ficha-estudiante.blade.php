@@ -4,6 +4,10 @@
     'examenes',
     'matriculas',
     'cursosCortos' => [],
+    'cursosCortosDisponibles' => [],
+    'mostrandoFormCursoCorto' => false,
+    'cursoCortoNuevoId' => '',
+    'fechaInicioCursoCortoNuevo' => '',
     'cursosConHorarios' => [],
     'editandoHorarioMatriculaId' => null,
     'editandoHorarioCursoId' => null,
@@ -177,9 +181,45 @@
         </div>
     @endif
 
-    @if (count($cursosCortos) > 0)
+    @if (count($cursosCortos) > 0 || $mostrandoFormCursoCorto || auth()->user()->can('matricula.editar'))
         <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
-            <h2 class="text-sm font-semibold text-ink">Cursos cortos</h2>
+            <div class="flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-ink">Cursos cortos</h2>
+                @can('matricula.editar')
+                    @if (! $mostrandoFormCursoCorto)
+                        <button type="button" wire:click="mostrarFormCursoCorto" class="text-xs font-medium text-accent hover:underline">+ Matricular en curso corto</button>
+                    @endif
+                @endcan
+            </div>
+
+            @can('matricula.editar')
+                @if ($mostrandoFormCursoCorto)
+                    <form wire:submit="guardarCursoCorto" class="mt-4 space-y-3 rounded-xl border border-border bg-surface-2 p-4">
+                        <div>
+                            <x-input-label for="cursoCortoNuevoId" value="Curso" />
+                            <x-select-input
+                                wire:model="cursoCortoNuevoId"
+                                id="cursoCortoNuevoId"
+                                class="mt-1 block w-full"
+                                placeholder="Selecciona un curso…"
+                                :options="collect($cursosCortosDisponibles)->mapWithKeys(fn ($curso) => [$curso->id => $curso->nombre])"
+                            />
+                            <x-input-error :messages="$errors->get('cursoCortoNuevoId')" class="mt-1" />
+                        </div>
+                        <div>
+                            <x-input-label for="fechaInicioCursoCortoNuevo" value="Fecha de inicio" />
+                            <x-date-input wire:model="fechaInicioCursoCortoNuevo" id="fechaInicioCursoCortoNuevo" class="mt-1 block w-full" />
+                            <x-input-error :messages="$errors->get('fechaInicioCursoCortoNuevo')" class="mt-1" />
+                        </div>
+                        <div class="flex justify-end gap-2">
+                            <x-secondary-button type="button" wire:click="cancelarFormCursoCorto">Cancelar</x-secondary-button>
+                            <x-primary-button type="submit">Matricular</x-primary-button>
+                        </div>
+                    </form>
+                @endif
+            @endcan
+
+            @if (count($cursosCortos) > 0)
             <div class="mt-4 divide-y divide-border">
                 @foreach ($cursosCortos as $cursoCorto)
                     <div class="flex items-center justify-between gap-4 py-2 text-sm">
@@ -210,6 +250,9 @@
                     </div>
                 @endforeach
             </div>
+            @elseif (! $mostrandoFormCursoCorto)
+                <p class="mt-4 text-sm text-ink-faint">Sin cursos cortos registrados todavía.</p>
+            @endif
         </div>
     @endif
 

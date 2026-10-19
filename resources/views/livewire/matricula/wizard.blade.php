@@ -131,7 +131,10 @@ new class extends Component
     public string $observacionesMatricula = '';
 
     // Paso 5 — curso corto (alternativa a Instituto; ver tipoMatricula)
-    public string $cursoCortoId = '';
+    /**
+     * @var list<string>
+     */
+    public array $cursosCortoIds = [''];
 
     // Paso 6 — cronograma de pagos (opcional)
     public bool $configurarCronograma = false;
@@ -321,7 +324,8 @@ new class extends Component
         if ($this->paso === 5) {
             if ($this->tipoMatricula === 'curso_corto') {
                 $this->validate([
-                    'cursoCortoId' => 'required|integer|exists:cursos,id',
+                    'cursosCortoIds' => 'required|array|min:1',
+                    'cursosCortoIds.*' => 'required|integer|exists:cursos,id|distinct',
                     'fechaMatricula' => 'required|date',
                 ]);
             } else {
@@ -373,6 +377,21 @@ new class extends Component
     public function agregarCargoAdicional(): void
     {
         $this->cargosAdicionales[] = ['concepto' => '', 'monto' => ''];
+    }
+
+    public function agregarCursoCorto(): void
+    {
+        $this->cursosCortoIds[] = '';
+    }
+
+    public function quitarCursoCorto(int $indice): void
+    {
+        if (count($this->cursosCortoIds) <= 1) {
+            return;
+        }
+
+        unset($this->cursosCortoIds[$indice]);
+        $this->cursosCortoIds = array_values($this->cursosCortoIds);
     }
 
     public function quitarCargoAdicional(int $indice): void
@@ -545,12 +564,14 @@ new class extends Component
             }
 
             if ($this->tipoMatricula === 'curso_corto') {
-                $matriculaService->matricularCursoCorto($estudiante, [
-                    'curso_id' => (int) $this->cursoCortoId,
-                    'fecha_inicio' => $this->fechaMatricula,
-                    'observaciones' => $this->observacionesMatricula ?: null,
-                    'registrado_por' => auth()->id(),
-                ]);
+                foreach ($this->cursosCortoIds as $cursoCortoId) {
+                    $matriculaService->matricularCursoCorto($estudiante, [
+                        'curso_id' => (int) $cursoCortoId,
+                        'fecha_inicio' => $this->fechaMatricula,
+                        'observaciones' => $this->observacionesMatricula ?: null,
+                        'registrado_por' => auth()->id(),
+                    ]);
+                }
             } else {
                 $matricula = $matriculaService->matricular($estudiante, new RegistrarMatriculaData(
                     cicloId: (int) $this->cicloId,
@@ -1009,16 +1030,29 @@ new class extends Component
                         <x-input-error :messages="$errors->get('gradoId')" class="mt-1" />
                     </div>
                 @else
-                    <div class="sm:col-span-2" wire:key="tipo-curso-corto-curso">
-                        <x-input-label for="cursoCortoId" value="Curso" />
-                        <x-select-input
-                            wire:model="cursoCortoId"
-                            id="cursoCortoId"
-                            placeholder="Selecciona un curso…"
-                            class="mt-1 block w-full"
-                            :options="collect($cursosCortosDisponibles)->mapWithKeys(fn ($curso) => [$curso->id => $curso->nombre])"
-                        />
-                        <x-input-error :messages="$errors->get('cursoCortoId')" class="mt-1" />
+                    <div class="sm:col-span-2" wire:key="tipo-curso-corto-cursos">
+                        <x-input-label value="Cursos" />
+                        <div class="mt-1 space-y-2">
+                            @foreach ($cursosCortoIds as $indice => $cursoCortoId)
+                                <div class="flex items-start gap-2" wire:key="curso-corto-{{ $indice }}">
+                                    <div class="flex-1">
+                                        <x-select-input
+                                            wire:model="cursosCortoIds.{{ $indice }}"
+                                            id="cursosCortoIds-{{ $indice }}"
+                                            placeholder="Selecciona un curso…"
+                                            class="block w-full"
+                                            :options="collect($cursosCortosDisponibles)->mapWithKeys(fn ($curso) => [$curso->id => $curso->nombre])"
+                                        />
+                                        <x-input-error :messages="$errors->get('cursosCortoIds.'.$indice)" class="mt-1" />
+                                    </div>
+                                    @if (count($cursosCortoIds) > 1)
+                                        <button type="button" wire:click="quitarCursoCorto({{ $indice }})" wire:loading.attr="disabled" class="mt-2 text-xs text-danger hover:underline disabled:cursor-not-allowed disabled:opacity-50">Quitar</button>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                        <x-input-error :messages="$errors->get('cursosCortoIds')" class="mt-1" />
+                        <button type="button" wire:click="agregarCursoCorto" wire:loading.attr="disabled" class="mt-2 text-xs font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-50">+ Agregar curso</button>
                     </div>
                 @endif
                 <div>
