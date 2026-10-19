@@ -60,6 +60,7 @@ class ModuleRoutesHaveWebMiddlewareTest extends TestCase
             'notificaciones.index' => ['notificaciones.index'],
             'notificaciones.mis-mensajes' => ['notificaciones.mis-mensajes'],
             'notificaciones.plantillas' => ['notificaciones.plantillas'],
+            'egresados.index' => ['egresados.index'],
         ];
     }
 

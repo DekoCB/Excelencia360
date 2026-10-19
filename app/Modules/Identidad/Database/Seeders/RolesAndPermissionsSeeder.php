@@ -49,6 +49,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'calendario.ver', 'calendario.gestionar',
             'asistencia_docentes.ver', 'asistencia_docentes.registrar',
             'biblioteca.ver', 'biblioteca.gestionar',
+            'egresados.ver',
         ],
 
         RolEnum::ADMINISTRATIVO->value => [
@@ -141,6 +142,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'calendario.ver', 'calendario.gestionar',
         'asistencia_docentes.ver', 'asistencia_docentes.registrar', 'asistencia_docentes.ver_propio',
         'biblioteca.ver', 'biblioteca.gestionar', 'biblioteca.ver_propio',
+        'egresados.ver',
     ];
 
     public function run(): void

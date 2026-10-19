@@ -129,6 +129,27 @@
         @endcan
     @endcan
 
+    @can('egresados.ver')
+        <div class="mt-4 border-t border-border pt-4">
+            <p class="sidebar-section-title px-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                Egresados
+            </p>
+        </div>
+
+        <a
+            href="{{ route('egresados.index') }}"
+            wire:navigate
+            @class([
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+                'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('egresados.*'),
+                'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('egresados.*'),
+            ])
+        >
+            <x-heroicon-o-academic-cap class="h-5 w-5 shrink-0" />
+            <span class="sidebar-label">Seguimiento</span>
+        </a>
+    @endcan
+
     @canany(['aula_virtual.ver', 'aula_virtual.gestionar_propio', 'aula_virtual.ver_propio'])
         <div class="mt-4 border-t border-border pt-4">
             <p class="sidebar-section-title px-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">

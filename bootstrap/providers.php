@@ -9,6 +9,7 @@ use App\Modules\Calendario\Providers\CalendarioServiceProvider;
 use App\Modules\Certificados\Providers\CertificadosServiceProvider;
 use App\Modules\Dashboard\Providers\DashboardServiceProvider;
 use App\Modules\Docentes\Providers\DocentesServiceProvider;
+use App\Modules\Egresados\Providers\EgresadosServiceProvider;
 use App\Modules\Evaluaciones\Providers\EvaluacionesServiceProvider;
 use App\Modules\FlujoCaja\Providers\FlujoCajaServiceProvider;
 use App\Modules\Identidad\Providers\IdentidadServiceProvider;
@@ -52,4 +53,5 @@ return [
     CalendarioServiceProvider::class,
     AsistenciaDocentesServiceProvider::class,
     BibliotecaServiceProvider::class,
+    EgresadosServiceProvider::class,
 ];
