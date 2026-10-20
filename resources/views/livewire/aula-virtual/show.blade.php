@@ -443,7 +443,7 @@ new #[Layout('layouts.app')] class extends Component
 
         $this->validate(['nuevaPortada' => 'image|max:4096']);
 
-        $cursoAcademico = $this->curso->horario->curso;
+        $cursoAcademico = $this->curso->cursoAcademico();
         $cursoAcademico->addMedia($this->nuevaPortada->getRealPath())
             ->usingFileName('portada-'.$cursoAcademico->id.'.'.$this->nuevaPortada->getClientOriginalExtension())
             ->toMediaCollection('portada');
@@ -470,7 +470,7 @@ new #[Layout('layouts.app')] class extends Component
         Gate::authorize('manage', $this->curso);
 
         $plantilla = PlantillaCursoVirtual::query()
-            ->where('curso_id', $this->curso->horario->curso_id)
+            ->where('curso_id', $this->curso->cursoAcademico()->id)
             ->findOrFail($plantillaId);
 
         $aplicados = $service->aplicar($plantilla, $this->curso, Auth::user());
@@ -484,7 +484,7 @@ new #[Layout('layouts.app')] class extends Component
         Gate::authorize('manage', $this->curso);
 
         $plantilla = PlantillaCursoVirtual::query()
-            ->where('curso_id', $this->curso->horario->curso_id)
+            ->where('curso_id', $this->curso->cursoAcademico()->id)
             ->findOrFail($plantillaId);
 
         $service->eliminar($plantilla);
@@ -549,7 +549,7 @@ new #[Layout('layouts.app')] class extends Component
             'tiposPublicacion' => TipoPublicacionEnum::cases(),
             'tiposEvaluacion' => TipoEvaluacionEnum::cases(),
             'cursosRelacionados' => $cursos->cursosVirtualesRelacionados($this->curso),
-            'plantillasDisponibles' => $plantillas->listarPorCurso($this->curso->horario->curso),
+            'plantillasDisponibles' => $this->curso->esDeCursoCorto() ? new Collection : $plantillas->listarPorCurso($this->curso->cursoAcademico()),
         ];
     }
 }; ?>
@@ -558,9 +558,15 @@ new #[Layout('layouts.app')] class extends Component
     <x-slot name="header">
         <a href="{{ route('aula-virtual.index') }}" wire:navigate class="text-sm text-ink-faint hover:text-ink">← Aula Virtual</a>
         <div class="mt-1 flex items-center gap-2">
-            <h1 class="font-display text-2xl text-ink">{{ $curso->horario->curso->nombre }}</h1>
+            <h1 class="font-display text-2xl text-ink">{{ $curso->cursoAcademico()->nombre }}</h1>
         </div>
-        <p class="mt-1 text-sm text-ink-dim">{{ $curso->horario->grado->nombre }} · {{ $curso->horario->ciclo->nombre }} · {{ $curso->horario->docente->name }}</p>
+        <p class="mt-1 text-sm text-ink-dim">
+            @if ($curso->esDeCursoCorto())
+                Curso corto · {{ $curso->curso->docente?->name ?? 'Sin docente asignado' }}
+            @else
+                {{ $curso->horario->grado->nombre }} · {{ $curso->horario->ciclo->nombre }} · {{ $curso->horario->docente->name }}
+            @endif
+        </p>
     </x-slot>
 
     @if (session('status'))
@@ -568,10 +574,10 @@ new #[Layout('layouts.app')] class extends Component
     @endif
 
     {{-- Portada del curso: antes que nada, incluida la "Bienvenida" de cada pestaña. --}}
-    @if ($curso->horario->curso->getFirstMediaUrl('portada') || $puedeGestionarPortada)
+    @if ($curso->cursoAcademico()->getFirstMediaUrl('portada') || $puedeGestionarPortada)
         <div class="mb-6">
-            @if ($curso->horario->curso->getFirstMediaUrl('portada'))
-                <img src="{{ $curso->horario->curso->getFirstMediaUrl('portada') }}" alt="" class="h-52 w-full rounded-lg object-cover">
+            @if ($curso->cursoAcademico()->getFirstMediaUrl('portada'))
+                <img src="{{ $curso->cursoAcademico()->getFirstMediaUrl('portada') }}" alt="" class="h-52 w-full rounded-lg object-cover">
             @else
                 <div class="flex h-36 items-center justify-center rounded-lg border border-dashed border-border bg-surface-2 text-sm text-ink-faint">
                     Sin imagen de portada
@@ -582,7 +588,7 @@ new #[Layout('layouts.app')] class extends Component
                 <div class="mt-2 flex items-center gap-3">
                     <label class="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-ink transition hover:bg-surface-2">
                         <x-heroicon-o-photo class="h-4 w-4" />
-                        {{ $curso->horario->curso->getFirstMediaUrl('portada') ? 'Cambiar imagen' : 'Subir imagen' }}
+                        {{ $curso->cursoAcademico()->getFirstMediaUrl('portada') ? 'Cambiar imagen' : 'Subir imagen' }}
                         <input type="file" wire:model="nuevaPortada" accept="image/*" class="hidden">
                     </label>
                     <span wire:loading wire:target="nuevaPortada" class="text-xs text-ink-faint">Subiendo…</span>
@@ -592,21 +598,34 @@ new #[Layout('layouts.app')] class extends Component
         </div>
     @endif
 
+    {{-- Plantillas: pensadas para reaplicar contenido de un ciclo a otro --
+         un curso corto no tiene ciclo, así que no aplica. --}}
     @can('manage', $curso)
-        <div class="mb-4 flex flex-wrap items-center justify-end gap-3">
-            @if ($plantillasDisponibles->isNotEmpty())
-                <x-secondary-button type="button" x-data x-on:click="$dispatch('open-modal', 'aplicar-plantilla')">
-                    Aplicar plantilla
+        @unless ($curso->esDeCursoCorto())
+            <div class="mb-4 flex flex-wrap items-center justify-end gap-3">
+                @if ($plantillasDisponibles->isNotEmpty())
+                    <x-secondary-button type="button" x-data x-on:click="$dispatch('open-modal', 'aplicar-plantilla')">
+                        Aplicar plantilla
+                    </x-secondary-button>
+                @endif
+                <x-secondary-button type="button" x-data x-on:click="$dispatch('open-modal', 'guardar-plantilla')">
+                    Guardar como plantilla
                 </x-secondary-button>
-            @endif
-            <x-secondary-button type="button" x-data x-on:click="$dispatch('open-modal', 'guardar-plantilla')">
-                Guardar como plantilla
-            </x-secondary-button>
-        </div>
+            </div>
+        @endunless
     @endcan
 
+    @php
+        // Evaluaciones es un módulo pensado para cursos académicos (notas
+        // por ciclo) -- un curso corto (sin ciclo) no entra en Evaluaciones,
+        // ver la decisión original de la modalidad Curso corto.
+        $tabsDisponibles = ['materiales' => 'Materiales', 'clases-grabadas' => 'Clases grabadas', 'tareas' => 'Tareas', 'evaluaciones' => 'Evaluaciones', 'publicaciones' => 'Publicaciones', 'foros' => 'Foros'];
+        if ($curso->esDeCursoCorto()) {
+            unset($tabsDisponibles['evaluaciones']);
+        }
+    @endphp
     <div class="mb-6 flex gap-1 border-b border-border">
-        @foreach (['materiales' => 'Materiales', 'clases-grabadas' => 'Clases grabadas', 'tareas' => 'Tareas', 'evaluaciones' => 'Evaluaciones', 'publicaciones' => 'Publicaciones', 'foros' => 'Foros'] as $valor => $etiqueta)
+        @foreach ($tabsDisponibles as $valor => $etiqueta)
             <button
                 wire:click="$set('tab', '{{ $valor }}')"
                 @class([

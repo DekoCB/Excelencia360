@@ -38,7 +38,7 @@ class TareaService
 
         return Tarea::query()
             ->whereIn('curso_virtual_id', $cursoIds)
-            ->with('cursoVirtual.horario.curso')
+            ->with(['cursoVirtual.horario.curso', 'cursoVirtual.curso'])
             ->with(['entregas' => fn ($query) => $query->where('estudiante_id', $estudiante->id)])
             ->orderBy('fecha_limite')
             ->get();

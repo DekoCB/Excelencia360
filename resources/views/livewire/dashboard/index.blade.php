@@ -172,7 +172,10 @@ new #[Layout('layouts.app')] class extends Component
             $this->esDocente = true;
             $this->misHorarios = Horario::query()->where('docente_id', $user->id)->count();
             $this->tareasPorCalificar = Tarea::query()
-                ->whereHas('cursoVirtual.horario', fn ($query) => $query->where('docente_id', $user->id))
+                ->whereHas('cursoVirtual', fn ($query) => $query->where(function ($query) use ($user) {
+                    $query->whereHas('horario', fn ($q) => $q->where('docente_id', $user->id))
+                        ->orWhereHas('curso', fn ($q) => $q->where('docente_id', $user->id));
+                }))
                 ->withCount(['entregas' => fn ($query) => $query->whereIn('estado', ['entregado', 'tarde'])])
                 ->get()
                 ->sum('entregas_count');
@@ -703,7 +706,7 @@ new #[Layout('layouts.app')] class extends Component
                             >
                                 <div>
                                     <p class="font-medium text-ink">{{ $tarea->titulo }}</p>
-                                    <p class="text-xs text-ink-faint">{{ $tarea->cursoVirtual->horario->curso->nombre }}</p>
+                                    <p class="text-xs text-ink-faint">{{ $tarea->cursoVirtual->cursoAcademico()->nombre }}</p>
                                 </div>
                                 <span class="shrink-0 font-mono text-xs uppercase tracking-wide {{ $tarea->fecha_limite->isPast() ? 'text-danger' : ($tarea->fecha_limite->isToday() ? 'text-warn' : 'text-ink-dim') }}">
                                     {{ $tarea->fecha_limite->isPast() ? 'Vencida' : ($tarea->fecha_limite->isToday() ? 'Vence hoy' : $tarea->fecha_limite->format('d/m')) }}

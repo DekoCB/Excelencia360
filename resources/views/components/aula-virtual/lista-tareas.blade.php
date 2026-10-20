@@ -19,7 +19,7 @@
             <div>
                 <p class="text-ink">{{ $tarea->titulo }}</p>
                 <p class="mt-0.5 text-xs text-ink-faint">
-                    {{ $tarea->cursoVirtual->horario->curso->nombre }} · Vence el {{ $tarea->fecha_limite->format('d/m/Y H:i') }}
+                    {{ $tarea->cursoVirtual->cursoAcademico()->nombre }} · Vence el {{ $tarea->fecha_limite->format('d/m/Y H:i') }}
                 </p>
             </div>
 

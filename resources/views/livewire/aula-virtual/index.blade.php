@@ -61,17 +61,23 @@ new #[Layout('layouts.app')] class extends Component
             $rol = 'supervisor';
         }
 
-        // $cursos ya viene acotado al período de matrícula actual (ver
-        // CursoVirtualService::cicloActualId()) -- acá solo queda agrupar
-        // por Programa de Estudio y Semestre, sin pedirle al usuario que
-        // elija el período a mano.
-        $programasDisponibles = $cursos->pluck('horario.grado.programaEstudio')->unique('id')->sortBy('nombre')->values();
+        // Un curso corto no tiene Programa de Estudio ni Semestre -- se
+        // muestra aparte, como lista plana, en vez de forzarlo en el
+        // drill-down de Instituto.
+        $cursosInstituto = $cursos->reject(fn ($curso) => $curso->esDeCursoCorto());
+        $cursosCortos = $cursos->filter(fn ($curso) => $curso->esDeCursoCorto())->sortBy(fn ($curso) => $curso->cursoAcademico()->nombre)->values();
+
+        // $cursosInstituto ya viene acotado al período de matrícula actual
+        // (ver CursoVirtualService::cicloActualId()) -- acá solo queda
+        // agrupar por Programa de Estudio y Semestre, sin pedirle al
+        // usuario que elija el período a mano.
+        $programasDisponibles = $cursosInstituto->pluck('horario.grado.programaEstudio')->unique('id')->sortBy('nombre')->values();
 
         $gradosDisponibles = collect();
         $grupos = collect();
 
         if ($this->programaEstudioId) {
-            $delPrograma = $cursos->filter(fn ($curso) => $curso->horario->grado->programa_estudio_id === $this->programaEstudioId);
+            $delPrograma = $cursosInstituto->filter(fn ($curso) => $curso->horario->grado->programa_estudio_id === $this->programaEstudioId);
             $gradosDisponibles = $delPrograma->pluck('horario.grado')->unique('id')->sortBy('orden')->values();
 
             if ($this->gradoId) {
@@ -88,6 +94,7 @@ new #[Layout('layouts.app')] class extends Component
         }
 
         return [
+            'cursosCortos' => $cursosCortos,
             'programasDisponibles' => $programasDisponibles,
             'gradosDisponibles' => $gradosDisponibles,
             'grupos' => $grupos,
@@ -109,6 +116,29 @@ new #[Layout('layouts.app')] class extends Component
             @endif
         </p>
     </x-slot>
+
+    @if ($cursosCortos->isNotEmpty() && ! $programaEstudioId)
+        <div class="mb-6">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Cursos cortos</p>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach ($cursosCortos as $cursoCorto)
+                    <a
+                        href="{{ route('aula-virtual.show', $cursoCorto) }}"
+                        wire:navigate
+                        class="block rounded-2xl border border-border bg-surface shadow-sm p-4 transition hover:border-accent"
+                    >
+                        <x-curso-portada :curso="$cursoCorto->cursoAcademico()" class="mb-3" />
+                        <p class="font-display text-lg text-ink">{{ $cursoCorto->cursoAcademico()->nombre }}</p>
+                        <p class="mt-3 text-xs text-ink-faint">
+                            @if ($rol !== 'docente')
+                                {{ $cursoCorto->curso->docente?->name }}
+                            @endif
+                        </p>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+    @endif
 
     @if (! $programaEstudioId)
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

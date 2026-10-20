@@ -352,7 +352,7 @@ new #[Layout('layouts.app')] class extends Component
 
 <div>
     <x-slot name="header">
-        <a href="{{ route('aula-virtual.show', $curso) }}" wire:navigate class="text-sm text-ink-faint hover:text-ink">← {{ $curso->horario->curso->nombre }}</a>
+        <a href="{{ route('aula-virtual.show', $curso) }}" wire:navigate class="text-sm text-ink-faint hover:text-ink">← {{ $curso->cursoAcademico()->nombre }}</a>
         <div class="mt-1 flex items-center gap-2">
             <h1 class="font-display text-2xl text-ink">{{ $evaluacion->nombre }}</h1>
             <x-badge variant="info">{{ $evaluacion->tipo->label() }}</x-badge>

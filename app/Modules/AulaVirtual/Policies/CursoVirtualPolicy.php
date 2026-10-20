@@ -7,6 +7,7 @@ namespace App\Modules\AulaVirtual\Policies;
 use App\Models\User;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
 use App\Modules\Matricula\Models\Matricula;
+use App\Modules\Matricula\Models\MatriculaCursoCorto;
 
 class CursoVirtualPolicy
 {
@@ -42,9 +43,10 @@ class CursoVirtualPolicy
     }
 
     /**
-     * Solo cuenta como matriculado el estudiante con una matrícula
-     * aprobada en el mismo grado y ciclo del horario (ver
-     * Matricula::scopeDelHorario()).
+     * Para un curso académico, solo cuenta como matriculado el estudiante
+     * con una matrícula aprobada en el mismo grado y ciclo del horario
+     * (ver Matricula::scopeDelHorario()); para un curso corto, el
+     * estudiante con una MatriculaCursoCorto en ese mismo curso.
      */
     private function estudianteMatriculado(User $user, CursoVirtual $curso): bool
     {
@@ -56,6 +58,13 @@ class CursoVirtualPolicy
 
         if (! $estudiante) {
             return false;
+        }
+
+        if ($curso->esDeCursoCorto()) {
+            return MatriculaCursoCorto::query()
+                ->where('estudiante_id', $estudiante->id)
+                ->where('curso_id', $curso->curso_id)
+                ->exists();
         }
 
         return Matricula::query()

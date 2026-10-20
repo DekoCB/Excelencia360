@@ -101,7 +101,7 @@ new #[Layout('layouts.app')] class extends Component
 
 <div>
     <x-slot name="header">
-        <a href="{{ route('aula-virtual.show', $curso) }}" wire:navigate class="text-sm text-ink-faint hover:text-ink">← {{ $curso->horario->curso->nombre }}</a>
+        <a href="{{ route('aula-virtual.show', $curso) }}" wire:navigate class="text-sm text-ink-faint hover:text-ink">← {{ $curso->cursoAcademico()->nombre }}</a>
         <h1 class="mt-1 font-display text-2xl text-ink">{{ $tarea->titulo }}</h1>
         <p class="mt-1 text-sm text-ink-dim">Vence {{ $tarea->fecha_limite->format('d/m/Y H:i') }} · {{ $tarea->puntaje_max }} pts</p>
     </x-slot>

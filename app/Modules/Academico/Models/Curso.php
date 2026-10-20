@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Academico\Models;
 
+use App\Models\User;
 use App\Modules\Academico\Database\Factories\CursoFactory;
 use App\Modules\Academico\Enums\TipoCursoEnum;
 use App\Modules\Identidad\Support\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\MediaLibrary\HasMedia;
@@ -22,6 +24,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property list<string>|null $franjas_permitidas
  * @property string|null $documento_autorizacion
  * @property int $horas
+ * @property int|null $docente_id
  */
 class Curso extends Model implements HasMedia
 {
@@ -35,6 +38,7 @@ class Curso extends Model implements HasMedia
         'franjas_permitidas',
         'horas',
         'documento_autorizacion',
+        'docente_id',
         'activo',
     ];
 
@@ -68,6 +72,18 @@ class Curso extends Model implements HasMedia
     public function horarios(): HasMany
     {
         return $this->hasMany(Horario::class);
+    }
+
+    /**
+     * Docente a cargo -- solo aplica a tipo=capacitacion (Curso Corto): un
+     * curso académico asigna su docente vía Horario, que puede variar por
+     * ciclo, así que no usa este campo.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function docente(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'docente_id');
     }
 
     /**

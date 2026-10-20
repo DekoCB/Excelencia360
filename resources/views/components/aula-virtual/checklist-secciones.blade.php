@@ -6,7 +6,9 @@
     ciclo -- para replicar de una sola vez en vez de repetir la carga uno
     por uno. Como curso/grado/ciclo ya son iguales para todas las opciones
     (eso es justo lo que las agrupa), lo único que distingue cada fila es
-    el aula y quién la dicta.
+    el aula y quién la dicta. Solo se llena con cursos académicos (ver
+    CursoVirtualService::cursosVirtualesRelacionados(), que devuelve vacío
+    para curso corto), así que $cursoOpcion->horario siempre existe aquí.
 --}}
 @if ($secciones->count() > 1)
     <div>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\AulaVirtual\Services;
 
 use App\Modules\Academico\Models\Ciclo;
+use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Academico\Repositories\Contracts\CicloRepositoryInterface;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
@@ -52,6 +53,13 @@ class CursoVirtualService
      */
     public function cursosVirtualesRelacionados(CursoVirtual $curso): Collection
     {
+        // Un curso corto no tiene curso/grado/ciclo que agrupe "ediciones"
+        // paralelas -- cada Curso de capacitación tiene un único docente y
+        // una única aula virtual, así que no hay nada que relacionar.
+        if ($curso->esDeCursoCorto()) {
+            return new Collection;
+        }
+
         $horario = $curso->horario;
 
         return CursoVirtual::query()
@@ -99,6 +107,25 @@ class CursoVirtualService
 
         return $this->cursos->create([
             'horario_id' => $horario->id,
+            'activo' => true,
+        ]);
+    }
+
+    /**
+     * Activa el aula virtual para un curso corto (tipo=capacitacion) en
+     * cuanto tiene un docente a cargo -- antes de eso no hay dueño del
+     * contenido. Idempotente, igual que activarParaHorario().
+     */
+    public function activarParaCursoCorto(Curso $curso): CursoVirtual
+    {
+        $existente = $this->cursos->paraCursoCorto($curso->id);
+
+        if ($existente) {
+            return $existente;
+        }
+
+        return $this->cursos->create([
+            'curso_id' => $curso->id,
             'activo' => true,
         ]);
     }

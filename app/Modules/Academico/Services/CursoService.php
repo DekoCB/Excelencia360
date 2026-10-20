@@ -8,6 +8,7 @@ use App\Modules\Academico\Enums\TipoCursoEnum;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Repositories\Contracts\CursoRepositoryInterface;
+use App\Modules\AulaVirtual\Services\CursoVirtualService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -15,6 +16,7 @@ class CursoService
 {
     public function __construct(
         private readonly CursoRepositoryInterface $cursos,
+        private readonly CursoVirtualService $cursosVirtuales,
     ) {}
 
     public function listar(int $perPage = 15): LengthAwarePaginator
@@ -31,7 +33,7 @@ class CursoService
      */
     public function listarPorTipo(TipoCursoEnum $tipo, int $perPage = 15): LengthAwarePaginator
     {
-        return Curso::query()->with('grados')->where('tipo', $tipo)->paginate($perPage);
+        return Curso::query()->with(['grados', 'docente'])->where('tipo', $tipo)->paginate($perPage);
     }
 
     /**
@@ -56,6 +58,8 @@ class CursoService
         $curso = $this->cursos->create($datos);
         $curso->grados()->sync($gradoIds);
 
+        $this->activarAulaVirtualSiCorresponde($curso);
+
         return $curso;
     }
 
@@ -70,7 +74,23 @@ class CursoService
         $curso = $this->cursos->update($curso, $datos);
         $curso->grados()->sync($gradoIds);
 
+        $this->activarAulaVirtualSiCorresponde($curso);
+
         return $curso;
+    }
+
+    /**
+     * Para que el docente de un curso corto encuentre su aula virtual ya
+     * lista en cuanto se le asigna el curso, igual que un docente de curso
+     * académico la encuentra lista al crearse su Horario (ver
+     * HorarioService::crear()). Antes de tener un docente a cargo no hay
+     * aula virtual: no hay dueño del contenido todavía.
+     */
+    private function activarAulaVirtualSiCorresponde(Curso $curso): void
+    {
+        if ($curso->tipo === TipoCursoEnum::CAPACITACION && $curso->docente_id !== null) {
+            $this->cursosVirtuales->activarParaCursoCorto($curso);
+        }
     }
 
     public function codigoDisponible(string $codigo, ?int $exceptoId = null): bool

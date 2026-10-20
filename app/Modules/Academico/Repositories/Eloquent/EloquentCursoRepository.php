@@ -16,7 +16,7 @@ class EloquentCursoRepository extends BaseRepository implements CursoRepositoryI
 {
     protected function query(): Builder
     {
-        return Curso::query()->with('grados');
+        return Curso::query()->with(['grados', 'docente']);
     }
 
     public function existeCodigo(string $codigo, ?int $exceptoId = null): bool

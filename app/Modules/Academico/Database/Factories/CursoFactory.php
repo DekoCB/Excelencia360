@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Modules\Academico\Database\Factories;
 
+use App\Models\User;
 use App\Modules\Academico\Enums\TipoCursoEnum;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
+use App\Shared\Enums\RolEnum;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -79,6 +81,17 @@ class CursoFactory extends Factory
             'tipo' => TipoCursoEnum::CAPACITACION,
             'horas' => $this->faker->numberBetween(80, 150),
             'documento_autorizacion' => 'R.D.R. N.°'.$this->faker->numberBetween(1000, 9999).'-2026-DREP',
+        ]);
+    }
+
+    /**
+     * Docente a cargo de un curso corto -- ver Curso::docente_id. Asignar
+     * uno es lo que activa su aula virtual (ver CursoService::crear()).
+     */
+    public function conDocente(?User $docente = null): static
+    {
+        return $this->state(fn () => [
+            'docente_id' => ($docente ?? User::factory()->create()->assignRole(RolEnum::DOCENTE->value))->id,
         ]);
     }
 }

@@ -40,4 +40,6 @@ interface CursoVirtualRepositoryInterface extends RepositoryInterface
     public function delEstudiante(Estudiante $estudiante, ?int $cicloId = null): Collection;
 
     public function paraHorario(int $horarioId): ?CursoVirtual;
+
+    public function paraCursoCorto(int $cursoId): ?CursoVirtual;
 }

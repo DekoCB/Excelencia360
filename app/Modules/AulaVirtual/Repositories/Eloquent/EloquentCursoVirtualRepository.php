@@ -22,21 +22,35 @@ class EloquentCursoVirtualRepository extends BaseRepository implements CursoVirt
      */
     protected function query(): Builder
     {
-        return CursoVirtual::query()->with(['horario.curso', 'horario.grado.programaEstudio', 'horario.ciclo', 'horario.docente', 'horario.dias']);
+        return CursoVirtual::query()->with([
+            'horario.curso', 'horario.grado.programaEstudio', 'horario.ciclo', 'horario.docente', 'horario.dias',
+            'curso.docente',
+        ]);
     }
 
+    /**
+     * Los cursos cortos (curso_id) no tienen Ciclo propio -- quedan fuera
+     * del acotado por $cicloId, pero siempre se incluyen: no hay "período"
+     * del que excluirlos.
+     */
     public function todos(?int $cicloId = null): Collection
     {
         return $this->query()
-            ->when($cicloId !== null, fn (Builder $query) => $query->whereHas('horario', fn ($q) => $q->where('ciclo_id', $cicloId)))
+            ->where(function (Builder $query) use ($cicloId) {
+                $query->whereNotNull('curso_id')
+                    ->orWhereHas('horario', fn ($q) => $q->when($cicloId !== null, fn ($q) => $q->where('ciclo_id', $cicloId)));
+            })
             ->get();
     }
 
     public function delDocente(int $docenteId, ?int $cicloId = null): Collection
     {
         return $this->query()
-            ->whereHas('horario', fn ($query) => $query->where('docente_id', $docenteId)
-                ->when($cicloId !== null, fn ($q) => $q->where('ciclo_id', $cicloId)))
+            ->where(function (Builder $query) use ($docenteId, $cicloId) {
+                $query->whereHas('curso', fn ($q) => $q->where('docente_id', $docenteId))
+                    ->orWhereHas('horario', fn ($q) => $q->where('docente_id', $docenteId)
+                        ->when($cicloId !== null, fn ($q) => $q->where('ciclo_id', $cicloId)));
+            })
             ->get();
     }
 
@@ -47,7 +61,9 @@ class EloquentCursoVirtualRepository extends BaseRepository implements CursoVirt
             ->when($cicloId !== null, fn ($query) => $query->where('ciclo_id', $cicloId))
             ->get(['id', 'grado_id', 'ciclo_id']);
 
-        if ($matriculas->isEmpty()) {
+        $cursosCortoIds = $estudiante->cursosCortos()->pluck('curso_id');
+
+        if ($matriculas->isEmpty() && $cursosCortoIds->isEmpty()) {
             return new Collection;
         }
 
@@ -65,12 +81,25 @@ class EloquentCursoVirtualRepository extends BaseRepository implements CursoVirt
 
         return $this->query()
             ->where('activo', true)
-            ->whereHas('horario', fn (Builder $query) => $query->where($filtroPorMatriculas))
+            ->where(function (Builder $query) use ($matriculas, $cursosCortoIds, $filtroPorMatriculas) {
+                if ($cursosCortoIds->isNotEmpty()) {
+                    $query->orWhereIn('curso_id', $cursosCortoIds);
+                }
+
+                if ($matriculas->isNotEmpty()) {
+                    $query->orWhereHas('horario', fn (Builder $query) => $query->where($filtroPorMatriculas));
+                }
+            })
             ->get();
     }
 
     public function paraHorario(int $horarioId): ?CursoVirtual
     {
         return $this->query()->where('horario_id', $horarioId)->first();
+    }
+
+    public function paraCursoCorto(int $cursoId): ?CursoVirtual
+    {
+        return $this->query()->where('curso_id', $cursoId)->first();
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\User;
 use App\Modules\Academico\Enums\FranjaHorarioEnum;
 use App\Modules\Academico\Enums\TipoCursoEnum;
 use App\Modules\Academico\Models\Ciclo;
@@ -37,6 +38,8 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $documentoAutorizacion = '';
 
+    public string $docenteId = '';
+
     public bool $activo = true;
 
     // Filtro de la lista: "académico" y "capacitación" son catálogos con
@@ -70,9 +73,10 @@ new #[Layout('layouts.app')] class extends Component
             $this->franjasPermitidas = $curso->franjas_permitidas ?? [];
             $this->horas = (string) $curso->horas;
             $this->documentoAutorizacion = $curso->documento_autorizacion ?? '';
+            $this->docenteId = $curso->docente_id !== null ? (string) $curso->docente_id : '';
             $this->activo = $curso->activo;
         } else {
-            $this->reset(['nombre', 'codigo', 'gradoIds', 'franjasPermitidas', 'horas', 'documentoAutorizacion']);
+            $this->reset(['nombre', 'codigo', 'gradoIds', 'franjasPermitidas', 'horas', 'documentoAutorizacion', 'docenteId']);
             $this->tipo = $this->tipoFiltro !== 'todos' ? $this->tipoFiltro : TipoCursoEnum::ACADEMICO->value;
             $this->activo = true;
         }
@@ -170,6 +174,7 @@ new #[Layout('layouts.app')] class extends Component
             'franjasPermitidas.*' => 'string|in:'.implode(',', array_column(FranjaHorarioEnum::cases(), 'value')),
             'horas' => 'required|integer|min:1|max:'.($esCapacitacion ? 2000 : 500),
             'documentoAutorizacion' => 'nullable|string|max:150',
+            'docenteId' => $esCapacitacion ? 'nullable|integer|exists:users,id' : 'prohibited',
         ]);
 
         if (! $service->codigoDisponible($this->codigo, $this->editandoId)) {
@@ -186,6 +191,7 @@ new #[Layout('layouts.app')] class extends Component
             'franjas_permitidas' => ! $esCapacitacion && $this->franjasPermitidas !== [] ? $this->franjasPermitidas : null,
             'horas' => (int) $this->horas,
             'documento_autorizacion' => $esCapacitacion ? ($this->documentoAutorizacion ?: null) : null,
+            'docente_id' => $esCapacitacion && $this->docenteId !== '' ? (int) $this->docenteId : null,
         ];
 
         if ($this->editandoId) {
@@ -226,6 +232,7 @@ new #[Layout('layouts.app')] class extends Component
                 ->get(),
             'ciclo' => $ciclo,
             'horariosPorCurso' => $horariosPorCurso,
+            'docentesDisponibles' => User::role('docente')->orderBy('name')->get(),
         ];
     }
 }; ?>
@@ -292,7 +299,9 @@ new #[Layout('layouts.app')] class extends Component
                 @forelse ($cursos as $curso)
                     @php
                         $horariosDelCurso = $horariosPorCurso[$curso->id] ?? collect();
-                        $docentes = $horariosDelCurso->pluck('docente.name')->filter()->unique()->values();
+                        $docentes = $curso->tipo->value === 'capacitacion'
+                            ? collect([$curso->docente?->name])->filter()
+                            : $horariosDelCurso->pluck('docente.name')->filter()->unique()->values();
                     @endphp
                     <tr wire:key="curso-{{ $curso->id }}">
                         <td class="px-4 py-3 font-mono text-ink-dim">{{ $curso->codigo }}</td>
@@ -420,6 +429,18 @@ new #[Layout('layouts.app')] class extends Component
                             <x-text-input wire:model="documentoAutorizacion" id="documentoAutorizacion" class="mt-1 block w-full" placeholder="Ej. R.D.R. N°2182-2023-DREP" />
                             <p class="mt-1 text-xs text-ink-faint">La resolución que autoriza a la institución a certificar este curso. Se imprime en el certificado y en la validación pública.</p>
                             <x-input-error :messages="$errors->get('documentoAutorizacion')" class="mt-1" />
+                        </div>
+
+                        <div>
+                            <x-input-label for="docenteId" value="Docente a cargo (opcional)" />
+                            <x-select-input
+                                wire:model="docenteId"
+                                id="docenteId"
+                                class="mt-1 block w-full"
+                                :options="collect($docentesDisponibles)->mapWithKeys(fn ($docente) => [$docente->id => $docente->name])->prepend('Sin asignar', '')"
+                            />
+                            <p class="mt-1 text-xs text-ink-faint">En cuanto se asigna, se activa el aula virtual del curso.</p>
+                            <x-input-error :messages="$errors->get('docenteId')" class="mt-1" />
                         </div>
                     @endunless
 
