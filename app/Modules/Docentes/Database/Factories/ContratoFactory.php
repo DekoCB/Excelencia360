@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Docentes\Database\Factories;
 
+use App\Models\User;
 use App\Modules\Docentes\Models\Contrato;
-use App\Modules\Docentes\Models\Docente;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,7 +18,7 @@ class ContratoFactory extends Factory
     public function definition(): array
     {
         return [
-            'docente_id' => Docente::factory(),
+            'user_id' => User::factory(),
             'tipo' => fake()->randomElement(['Plazo fijo', 'Plazo indeterminado', 'Locación de servicios']),
             'fecha_inicio' => fake()->dateTimeBetween('-1 year', 'now')->format('Y-m-d'),
             'fecha_fin' => null,

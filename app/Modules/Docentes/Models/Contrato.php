@@ -15,21 +15,25 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
 /**
+ * Ya no es exclusivo de Docente (punto 10 del backlog): aplica a
+ * cualquier usuario con cuenta de login -- Personal queda fuera porque,
+ * a diferencia de Docente, no tiene User (ver Personal::class).
+ *
  * @property int $id
- * @property int $docente_id
+ * @property int $user_id
  * @property string $tipo
  * @property Carbon $fecha_inicio
  * @property ?Carbon $fecha_fin
  * @property ?string $monto
  * @property ?string $observaciones
- * @property-read Docente $docente
+ * @property-read User $usuario
  */
 class Contrato extends Model implements HasMedia
 {
     use Auditable, HasFactory, InteractsWithMedia;
 
     protected $fillable = [
-        'docente_id',
+        'user_id',
         'tipo',
         'fecha_inicio',
         'fecha_fin',
@@ -57,9 +61,9 @@ class Contrato extends Model implements HasMedia
         $this->addMediaCollection('documento')->singleFile();
     }
 
-    public function docente(): BelongsTo
+    public function usuario(): BelongsTo
     {
-        return $this->belongsTo(Docente::class);
+        return $this->belongsTo(User::class);
     }
 
     public function registradoPor(): BelongsTo

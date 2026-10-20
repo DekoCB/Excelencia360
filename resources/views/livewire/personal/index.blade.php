@@ -202,8 +202,11 @@ new #[Layout('layouts.app')] class extends Component
                             </x-badge>
                         </td>
                         <td class="px-4 py-3 text-right">
+                            <a href="{{ route('personal.show', $persona) }}" wire:navigate class="text-sm font-medium text-accent hover:underline">
+                                Ver ficha
+                            </a>
                             @if ($puedeGestionar)
-                                <button type="button" wire:click="abrirModalEditar({{ $persona->id }})" class="text-sm font-medium text-accent hover:underline">
+                                <button type="button" wire:click="abrirModalEditar({{ $persona->id }})" class="ml-3 text-sm font-medium text-accent hover:underline">
                                     Editar
                                 </button>
                             @endif

@@ -31,6 +31,10 @@ class RolesAndPermissionsSeeder extends Seeder
         RolEnum::COORDINADOR->value => [
             'academico.ver', 'academico.gestionar',
             'matricula.crear', 'matricula.ver', 'matricula.editar', 'matricula.anular', 'matricula.eliminar',
+            // usuarios.ver: desde el punto 10 del backlog, Contrato se
+            // gestiona desde la ficha de Usuario (ya no tiene pantalla
+            // propia), así que Coordinador necesita poder abrirla.
+            'usuarios.ver',
             'docentes.ver', 'docentes.gestionar',
             'contratos.ver', 'contratos.gestionar',
             'personal.ver', 'personal.gestionar',

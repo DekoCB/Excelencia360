@@ -1,4 +1,8 @@
-@props(['usuario', 'rolesDisponibles', 'puedeGestionarRoles', 'puedeGestionarSesiones', 'sesiones', 'puedeVerAuditoria', 'historial'])
+@props([
+    'usuario', 'rolesDisponibles', 'puedeGestionarRoles', 'puedeGestionarSesiones', 'sesiones', 'puedeVerAuditoria', 'historial',
+    'puedeVerContratos' => false, 'puedeGestionarContratos' => false, 'contratos' => null, 'contratoId' => null,
+    'mostrarFormContrato' => false, 'tipo' => '', 'fechaInicio' => '', 'fechaFin' => '', 'monto' => '', 'observaciones' => '',
+])
 
 {{--
     Contenido del detalle de usuario, compartido entre la página completa
@@ -53,6 +57,20 @@
             @endcan
         </form>
     </div>
+
+    @if ($puedeVerContratos && $usuario->esPersonalInstitucional())
+        <x-usuarios.contratos-usuario
+            :contratos="$contratos"
+            :puede-gestionar="$puedeGestionarContratos"
+            :contrato-id="$contratoId"
+            :mostrar-form-contrato="$mostrarFormContrato"
+            :tipo="$tipo"
+            :fecha-inicio="$fechaInicio"
+            :fecha-fin="$fechaFin"
+            :monto="$monto"
+            :observaciones="$observaciones"
+        />
+    @endif
 
     @if ($puedeGestionarRoles)
         <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">

@@ -15,4 +15,10 @@ Route::middleware(['auth'])->prefix('personal')->name('personal.')->group(functi
     Volt::route('carga-masiva', 'personal.carga-masiva')
         ->middleware('can:personal.gestionar')
         ->name('carga-masiva');
+
+    // Después de carga-masiva por el mismo motivo documentado ahí: un
+    // segmento comodín capturaría esa ruta literal si se registrara antes.
+    Volt::route('{personal}', 'personal.show')
+        ->middleware('can:personal.ver')
+        ->name('show');
 });

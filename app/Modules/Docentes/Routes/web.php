@@ -16,9 +16,3 @@ Route::middleware(['auth'])->prefix('docentes')->name('docentes.')->group(functi
         ->middleware('can:docentes.gestionar')
         ->name('carga-masiva');
 });
-
-Route::middleware(['auth'])->prefix('contratos')->name('contratos.')->group(function () {
-    Volt::route('/', 'contratos.index')
-        ->middleware('can:contratos.ver')
-        ->name('index');
-});

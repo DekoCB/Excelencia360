@@ -510,60 +510,7 @@
         </div>
     @endif
 
-    @canany(['docentes.ver', 'contratos.ver', 'personal.ver'])
-        <div class="mt-4 border-t border-border pt-4">
-            <p class="sidebar-section-title px-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">
-                Recursos Humanos
-            </p>
-        </div>
-
-        @can('docentes.ver')
-            <a
-                href="{{ route('docentes.index') }}"
-                wire:navigate
-                @class([
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
-                    'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('docentes.*'),
-                    'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('docentes.*'),
-                ])
-            >
-                <x-heroicon-o-academic-cap class="h-5 w-5 shrink-0" />
-                <span class="sidebar-label">Docentes</span>
-            </a>
-        @endcan
-
-        @can('contratos.ver')
-            <a
-                href="{{ route('contratos.index') }}"
-                wire:navigate
-                @class([
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
-                    'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('contratos.*'),
-                    'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('contratos.*'),
-                ])
-            >
-                <x-heroicon-o-document-text class="h-5 w-5 shrink-0" />
-                <span class="sidebar-label">Contratos</span>
-            </a>
-        @endcan
-
-        @can('personal.ver')
-            <a
-                href="{{ route('personal.index') }}"
-                wire:navigate
-                @class([
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
-                    'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('personal.*'),
-                    'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('personal.*'),
-                ])
-            >
-                <x-heroicon-o-user-group class="h-5 w-5 shrink-0" />
-                <span class="sidebar-label">Personal</span>
-            </a>
-        @endcan
-    @endcanany
-
-    @canany(['usuarios.ver', 'roles.gestionar', 'auditoria.ver'])
+    @canany(['usuarios.ver', 'docentes.ver', 'personal.ver', 'roles.gestionar', 'auditoria.ver'])
         <div class="mt-4 border-t border-border pt-4">
             <p class="sidebar-section-title px-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">
                 Administración
@@ -582,6 +529,36 @@
             >
                 <x-heroicon-o-users class="h-5 w-5 shrink-0" />
                 <span class="sidebar-label">Usuarios</span>
+            </a>
+        @endcan
+
+        @can('docentes.ver')
+            <a
+                href="{{ route('docentes.index') }}"
+                wire:navigate
+                @class([
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+                    'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('docentes.*'),
+                    'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('docentes.*'),
+                ])
+            >
+                <x-heroicon-o-academic-cap class="h-5 w-5 shrink-0" />
+                <span class="sidebar-label">Docentes</span>
+            </a>
+        @endcan
+
+        @can('personal.ver')
+            <a
+                href="{{ route('personal.index') }}"
+                wire:navigate
+                @class([
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+                    'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('personal.*'),
+                    'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('personal.*'),
+                ])
+            >
+                <x-heroicon-o-user-group class="h-5 w-5 shrink-0" />
+                <span class="sidebar-label">Personal</span>
             </a>
         @endcan
 

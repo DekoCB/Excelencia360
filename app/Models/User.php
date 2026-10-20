@@ -121,6 +121,17 @@ class User extends Authenticatable implements HasMedia
     }
 
     /**
+     * Si corresponde ofrecerle un Contrato (punto 10 del backlog): solo
+     * tiene sentido para cuentas de personal institucional, no para
+     * Estudiante/Apoderado (que sí tienen cuenta de login, pero no son
+     * personal contratado).
+     */
+    public function esPersonalInstitucional(): bool
+    {
+        return ! $this->hasRole(RolEnum::ESTUDIANTE->value) && ! $this->hasRole(RolEnum::APODERADO->value);
+    }
+
+    /**
      * 'instituto' o 'curso_corto' si este usuario es una de las dos
      * secretarías de matrícula (acotadas a su propia modalidad), o null
      * para cualquier otro rol (sin restricción de modalidad).

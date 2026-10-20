@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\User;
+use App\Modules\Docentes\Models\Contrato;
+use App\Modules\Docentes\Services\ContratoService;
 use App\Modules\Identidad\DTOs\ActualizarUsuarioData;
 use App\Modules\Identidad\Services\AuditService;
 use App\Modules\Identidad\Services\SessionControlService;
@@ -12,6 +14,7 @@ use App\Shared\ValueObjects\Telefono;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\On;
 use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
 
 /**
  * Modal "Ver" de usuarios/index.blade.php, aislado en su propio componente
@@ -19,6 +22,8 @@ use Livewire\Volt\Component;
  */
 new class extends Component
 {
+    use WithFileUploads;
+
     public ?int $usuarioId = null;
 
     public string $name = '';
@@ -32,6 +37,24 @@ new class extends Component
     public string $estado = '';
 
     public string $rol = '';
+
+    // Contrato de este usuario (punto 10 del backlog) -- ver
+    // resources/views/components/usuarios/contratos-usuario.blade.php.
+    public bool $mostrarFormContrato = false;
+
+    public ?int $contratoId = null;
+
+    public string $tipo = '';
+
+    public string $fechaInicio = '';
+
+    public string $fechaFin = '';
+
+    public string $monto = '';
+
+    public string $observaciones = '';
+
+    public $documento = null;
 
     #[On('ver-usuario')]
     public function abrir(int $usuarioId): void
@@ -47,6 +70,7 @@ new class extends Component
         $this->phone = (string) $usuario->phone;
         $this->estado = $usuario->estado->value;
         $this->rol = $usuario->roles->first()?->name ?? '';
+        $this->reset(['mostrarFormContrato', 'contratoId', 'tipo', 'fechaInicio', 'fechaFin', 'monto', 'observaciones', 'documento']);
     }
 
     public function guardarDatos(UserManagementService $service): void
@@ -110,14 +134,90 @@ new class extends Component
         session()->flash('status', 'Sesión cerrada.');
     }
 
+    public function abrirFormContratoCrear(): void
+    {
+        Gate::authorize('contratos.gestionar');
+
+        $this->reset(['contratoId', 'tipo', 'fechaFin', 'monto', 'observaciones', 'documento']);
+        $this->fechaInicio = now()->format('Y-m-d');
+        $this->resetValidation();
+        $this->mostrarFormContrato = true;
+    }
+
+    public function abrirFormContratoEditar(int $contratoId): void
+    {
+        Gate::authorize('contratos.gestionar');
+
+        $contrato = Contrato::query()->where('user_id', $this->usuarioId)->findOrFail($contratoId);
+
+        $this->contratoId = $contrato->id;
+        $this->tipo = $contrato->tipo;
+        $this->fechaInicio = $contrato->fecha_inicio->format('Y-m-d');
+        $this->fechaFin = $contrato->fecha_fin?->format('Y-m-d') ?? '';
+        $this->monto = $contrato->monto !== null ? (string) $contrato->monto : '';
+        $this->observaciones = $contrato->observaciones ?? '';
+        $this->documento = null;
+        $this->resetValidation();
+        $this->mostrarFormContrato = true;
+    }
+
+    public function cerrarFormContrato(): void
+    {
+        $this->mostrarFormContrato = false;
+    }
+
+    public function guardarContrato(ContratoService $service): void
+    {
+        $usuario = $this->usuario();
+
+        Gate::authorize('contratos.gestionar');
+
+        $this->validate([
+            'tipo' => 'required|string|max:150',
+            'fechaInicio' => 'required|date',
+            'fechaFin' => 'nullable|date|after:fechaInicio',
+            'monto' => 'nullable|numeric|min:0',
+            'observaciones' => 'nullable|string|max:1000',
+            'documento' => 'nullable|file|mimes:pdf|max:5120',
+        ]);
+
+        $datos = [
+            'tipo' => $this->tipo,
+            'fechaInicio' => $this->fechaInicio,
+            'fechaFin' => $this->fechaFin !== '' ? $this->fechaFin : null,
+            'monto' => $this->monto !== '' ? (float) $this->monto : null,
+            'observaciones' => $this->observaciones !== '' ? $this->observaciones : null,
+        ];
+
+        if ($this->contratoId === null) {
+            $service->registrar($usuario, $datos, $this->documento, auth()->id());
+            session()->flash('status', 'Contrato registrado correctamente.');
+        } else {
+            $service->actualizar(Contrato::query()->where('user_id', $usuario->id)->findOrFail($this->contratoId), $datos, $this->documento);
+            session()->flash('status', 'Contrato actualizado correctamente.');
+        }
+
+        $this->mostrarFormContrato = false;
+    }
+
+    public function eliminarContrato(int $contratoId, ContratoService $service): void
+    {
+        Gate::authorize('contratos.gestionar');
+
+        $service->eliminar(Contrato::query()->where('user_id', $this->usuarioId)->findOrFail($contratoId));
+
+        session()->flash('status', 'Contrato eliminado.');
+    }
+
     private function usuario(): User
     {
         return User::query()->findOrFail($this->usuarioId);
     }
 
-    public function with(SessionControlService $sessions, AuditService $audit): array
+    public function with(SessionControlService $sessions, AuditService $audit, ContratoService $contratos): array
     {
         $usuario = $this->usuarioId ? User::query()->find($this->usuarioId) : null;
+        $puedeVerContratos = $usuario && Gate::allows('contratos.ver') && $usuario->esPersonalInstitucional();
 
         return [
             'usuario' => $usuario,
@@ -131,6 +231,9 @@ new class extends Component
             'historial' => $usuario && Gate::allows('auditoria.ver')
                 ? $audit->historialDe($usuario)->take(10)
                 : collect(),
+            'puedeVerContratos' => $puedeVerContratos,
+            'puedeGestionarContratos' => $puedeVerContratos && Gate::allows('contratos.gestionar'),
+            'contratos' => $puedeVerContratos ? $contratos->deUsuario($usuario) : collect(),
         ];
     }
 }; ?>
@@ -154,6 +257,16 @@ new class extends Component
                     :sesiones="$sesiones"
                     :puede-ver-auditoria="$puedeVerAuditoria"
                     :historial="$historial"
+                    :puede-ver-contratos="$puedeVerContratos"
+                    :puede-gestionar-contratos="$puedeGestionarContratos"
+                    :contratos="$contratos"
+                    :contrato-id="$contratoId"
+                    :mostrar-form-contrato="$mostrarFormContrato"
+                    :tipo="$tipo"
+                    :fecha-inicio="$fechaInicio"
+                    :fecha-fin="$fechaFin"
+                    :monto="$monto"
+                    :observaciones="$observaciones"
                 />
             @else
                 <p class="py-8 text-center text-sm text-ink-faint">Cargando…</p>
