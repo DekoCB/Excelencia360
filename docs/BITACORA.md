@@ -7,6 +7,121 @@ fecha y los commits que le corresponden.
 
 ---
 
+## 2026-10-19
+
+### Backlog de 16 puntos: franjas horarias, secretarías por modalidad, Aula Virtual en Cursos Cortos, contratos generalizados y más
+
+**Commits:** `374fe04`, `a5d90c4`, `f90d357`, `942649d`, `29f9c30`, `612d367`,
+`66342e0`, `e264f2a`, `368af50`, `fe073cc`, `063c277`.
+
+El cliente mandó una lista de 16 cambios en un solo pedido. Varios tocaban
+arquitectura (eliminar/fusionar módulos), así que antes de construir cada
+uno se investigó el código actual y se confirmaron las decisiones con el
+cliente en el momento. Se trabajó bloque por bloque, un commit por punto
+cerrado, con tests nuevos y Pint/Larastan limpios en cada entrega.
+
+1. **"Cursos" → "Unidades Didácticas"** (`374fe04`): cambio de etiqueta en
+   el menú únicamente, sin tocar el modelo `Curso` ni la tabla.
+2. **Eliminar libros de Biblioteca** (`a5d90c4`): borrado reversible
+   (soft delete), antes no existía ningún método de borrado para `Libro`.
+3. **Varios cursos cortos por estudiante** (`f90d357`): la ficha del
+   estudiante ya solo mostraba los cursos cortos existentes (concluir/
+   retirar), sin botón para agregar uno nuevo; el wizard de matrícula
+   pasó de un solo `cursoCortoId` a poder elegir varios a la vez.
+4. **Módulo nuevo "Egresados"** (`942649d`): pantalla de listado/edición
+   para estudiantes en estado `egresado` (el estado ya existía en
+   `EstadoEstudianteEnum`, faltaba la pantalla), en una sección nueva
+   debajo de "Matrícula".
+5. **Certificado oficial subido desde la ficha + quita el PDF
+   autogenerado** (`29f9c30`): la ficha del estudiante ahora permite
+   subir el documento oficial real (varios archivos, uno por curso) en
+   Documentos; se quitó la vista/descarga del PDF autogenerado por
+   `CertificadoService::generarPdf()` del historial de Certificados —
+   el cliente aclaró que esos PDFs no tienen validez legal, el
+   documento real se sube a mano. El registro/historial se mantiene,
+   solo se quitó la vista del PDF generado por el sistema.
+6. **Fusión de Período de Matrícula + eliminación de Siagie** (`612d367`,
+   el punto más grande): se descubrió una confusión de nombres real —
+   el cliente dice "Periodo Académico" para referirse a **Ciclo**
+   (`academico.ciclos.index`), no a Siagie (clasificación MINEDU
+   independiente de Ciclo que también existía). Las fechas de matrícula
+   (antes `PeriodoMatricula`, tabla hija de Ciclo) se fusionaron dentro
+   de Ciclo directamente; Siagie se eliminó por completo del sistema
+   (modelo, tabla, campo del wizard, filtros de reportes) porque la
+   distinción Instituto/Curso Corto ya cubre lo que antes cubría Siagie.
+   Aulas y Horarios, que hasta entonces no validaban ningún periodo,
+   ahora exigen que el Ciclo esté vigente/abierto para crear datos ahí.
+7. **Reemplazo de las 3 franjas horarias por 2** (`66342e0`): de
+   Lunes-Miércoles/Martes-Jueves/Domingo a Lunes-Viernes/
+   Sábados-Domingos. Reemplazo total (decisión confirmada): los
+   horarios ya creados con las franjas viejas no se migran, quedan como
+   están hasta que alguien los edite. El enum ganó un matcher genérico
+   (`FranjaHorarioEnum::desdeDias()`) que itera sobre sus propios casos,
+   así que todos los consumidores (reportes, ocupación de aulas,
+   asistencia) se adaptaron solos sin tocar su lógica.
+8. **Roles "Secretaria Instituto" y "Secretaria Excelencia"** (`e264f2a`):
+   cada una limitada a su propia modalidad de matrícula — Instituto o
+   Curso Corto. Comparten los mismos permisos `matricula.*` que
+   Coordinador; lo que las distingue es el alcance de las consultas
+   (`User::modalidadMatriculaRestringida()`), no un permiso nuevo. Esto
+   requirió agregar la distinción de modalidad en varios puntos donde
+   antes no existía: listado de estudiantes, ficha, wizard (el selector
+   de tipo se oculta y queda fijo) y carga masiva.
+9. **Cursos Cortos en Aula Virtual** (`368af50`): hasta entonces Aula
+   Virtual (`CursoVirtual belongsTo Horario`) dependía 100% de Horario,
+   que a su vez depende de Matrícula tradicional — un estudiante
+   matriculado solo vía Curso Corto no tenía ningún camino hacia Aula
+   Virtual. Se ancló el aula virtual de un curso corto directamente al
+   `Curso` (nuevo `Curso::docente_id`, solo aplica a tipo=capacitacion)
+   en vez de a un Horario que no existe para ese caso;
+   `CursoVirtual::horario_id` pasa a nullable con `curso_id` como
+   alternativa (exactamente uno de los dos). La pestaña "Evaluaciones" y
+   las plantillas de contenido (pensadas para reaplicar de un ciclo a
+   otro) se ocultan para curso corto, que no tiene ciclo.
+10. **Contrato generalizado a cualquier usuario + elimina "Recursos
+    Humanos"** (`fe073cc`): `Contrato` dejó de ser exclusivo de Docente
+    (la FK pasó de `docente_id` a `user_id`, con backfill de los
+    contratos ya registrados) y ahora aplica a cualquier usuario de
+    personal institucional — se gestiona como una sección dentro de la
+    ficha de Usuario en vez de en una pantalla propia, que se eliminó.
+    La sección "Recursos Humanos" del menú desapareció; Docentes y
+    Personal se mudaron a "Administración", junto a Usuarios. Personal
+    ganó una ficha propia más rica (antes solo tenía el modal del
+    listado): datos editables, antigüedad calculada y actividad
+    reciente — sin sección de Contrato, porque Personal no tiene cuenta
+    de login. Coordinador ganó el permiso `usuarios.ver` (antes no lo
+    tenía): sin él no podía abrir ninguna ficha de usuario para
+    gestionar contratos.
+11. **El QR de asistencia muestra nombre, DNI, hora y curso** (`063c277`):
+    al escanear, antes solo quedaba un mensaje flash de una línea
+    ("Juan Pérez — Presente."); ahora se muestra una tarjeta con nombre
+    completo, DNI, hora exacta y los cursos en que el estudiante está
+    matriculado, resaltada en ámbar si quedó como tardanza. Alcance
+    limitado a enriquecer esta pantalla (decisión confirmada): sigue
+    siendo un solo registro por día, no se construyó un concepto real
+    de ingreso+salida separados.
+
+El QR de asistencia en sí (punto pedido "por si acaso" por el cliente) ya
+existía y funcionaba de antes — no requirió trabajo nuevo salvo el punto
+11 de arriba.
+
+**Verificación:** suite completa en verde en cada punto grande (1244 →
+1276 tests a lo largo de la sesión), con la única falla recurrente siendo
+el mismo flake preexistente y no relacionado de
+`AulaVirtualServiceTest > tareas del estudiante solo incluye las de sus
+cursos matriculados`, confirmado desde antes de tocar nada de este
+backlog. Pint y Larastan limpios en cada entrega.
+
+**Pendiente menor detectado, fuera de alcance de este backlog:**
+`AcademicoDemoSeeder.php` (seeder de desarrollo local) falla al insertar
+en `cursos` con `grado_id` — esa columna ya no existe ahí (se eliminó en
+la fusión de Programa de Estudio de una sesión anterior). Bug preexistente
+sin relación con este backlog, solo bloquea `php artisan db:seed` en
+local; no afecta producción. No se tocó a propósito para no salirse de
+alcance.
+
+---
+
 ## 2026-09-30
 
 ### Backlog de 7 puntos: eliminación masiva, cursos de capacitación fusionados con Académico, ficha de estudiante editable, y más
