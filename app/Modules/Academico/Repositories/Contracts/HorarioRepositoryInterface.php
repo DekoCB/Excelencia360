@@ -18,11 +18,14 @@ interface HorarioRepositoryInterface extends RepositoryInterface
     /**
      * Días (de otros horarios) que ya ocupan la misma aula, mismo día y
      * mismo ciclo, con un rango horario que se cruza con
-     * [$horaInicio, $horaFin).
+     * [$horaInicio, $horaFin). $cicloId null (horario de curso corto)
+     * solo cruza contra otros horarios de curso corto (también sin
+     * ciclo) -- no contra los horarios de Instituto, que viven en su
+     * propio período acotado.
      *
      * @return Collection<int, HorarioDia>
      */
-    public function enAulaQueSolapan(int $aulaId, int $cicloId, DiaSemanaEnum $dia, string $horaInicio, string $horaFin, ?int $exceptoHorarioId = null): Collection;
+    public function enAulaQueSolapan(int $aulaId, ?int $cicloId, DiaSemanaEnum $dia, string $horaInicio, string $horaFin, ?int $exceptoHorarioId = null): Collection;
 
     /**
      * Igual que {@see enAulaQueSolapan} pero para el mismo docente: un
@@ -31,10 +34,18 @@ interface HorarioRepositoryInterface extends RepositoryInterface
      *
      * @return Collection<int, HorarioDia>
      */
-    public function delDocenteQueSolapan(int $docenteId, int $cicloId, DiaSemanaEnum $dia, string $horaInicio, string $horaFin, ?int $exceptoHorarioId = null): Collection;
+    public function delDocenteQueSolapan(int $docenteId, ?int $cicloId, DiaSemanaEnum $dia, string $horaInicio, string $horaFin, ?int $exceptoHorarioId = null): Collection;
 
     /**
      * @return Collection<int, Horario>
      */
     public function delCiclo(int $cicloId): Collection;
+
+    /**
+     * Horarios de curso corto (ciclo_id null) -- no viven dentro de
+     * ningún ciclo, así que no se filtran por él como delCiclo().
+     *
+     * @return Collection<int, Horario>
+     */
+    public function deCursoCorto(): Collection;
 }

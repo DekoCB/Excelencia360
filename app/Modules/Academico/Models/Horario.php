@@ -18,16 +18,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
+ * ciclo_id y grado_id son null cuando es un horario de curso corto (sin
+ * Período de matrícula ni Semestre, ver esDeCursoCorto()) -- null en
+ * ambos es la señal, igual que CursoVirtual::esDeCursoCorto() usa
+ * horario_id null.
+ *
  * @property int $id
  * @property int $curso_id
  * @property int $docente_id
  * @property int $aula_id
- * @property int $ciclo_id
- * @property int $grado_id
+ * @property int|null $ciclo_id
+ * @property int|null $grado_id
  * @property-read Curso $curso
  * @property-read User $docente
  * @property-read Aula $aula
- * @property-read Grado $grado
+ * @property-read Grado|null $grado
  * @property-read Collection<int, HorarioDia> $dias
  */
 class Horario extends Model
@@ -95,6 +100,11 @@ class Horario extends Model
         return FranjaHorarioEnum::desdeDias($this->dias->pluck('dia_semana'));
     }
 
+    public function esDeCursoCorto(): bool
+    {
+        return $this->ciclo_id === null;
+    }
+
     /**
      * Los horarios que corresponden a una matrícula: mismo grado y ciclo.
      * Complementa a Matricula::scopeDelHorario(), la misma regla vista
@@ -134,6 +144,10 @@ class Horario extends Model
             fn (HorarioDia $dia) => $dia->hora_inicio === $primero->hora_inicio && $dia->hora_fin === $primero->hora_fin,
         );
 
+        if ($primero->hora_inicio === null) {
+            return $this->nombresDias($dias);
+        }
+
         if ($mismoHorario) {
             return $this->nombresDias($dias).' '.$this->rangoHorario($primero);
         }
@@ -159,6 +173,10 @@ class Horario extends Model
 
     private function rangoHorario(HorarioDia $dia): string
     {
+        if ($dia->hora_inicio === null || $dia->hora_fin === null) {
+            return 'sin hora definida';
+        }
+
         return substr($dia->hora_inicio, 0, 5).'–'.substr($dia->hora_fin, 0, 5);
     }
 }

@@ -29,7 +29,15 @@ class HorarioService
     }
 
     /**
-     * @param  array{curso_id: int, docente_id: int, aula_id: int, ciclo_id: int, grado_id: int, dias: list<array{dia_semana: DiaSemanaEnum, hora_inicio: string, hora_fin: string}>}  $datos
+     * @return Collection<int, Horario>
+     */
+    public function deCursoCorto(): Collection
+    {
+        return $this->horarios->deCursoCorto();
+    }
+
+    /**
+     * @param  array{curso_id: int, docente_id: int, aula_id: int, ciclo_id: ?int, grado_id: ?int, dias: list<array{dia_semana: DiaSemanaEnum, hora_inicio: ?string, hora_fin: ?string}>}  $datos
      */
     public function crear(array $datos): Horario
     {
@@ -57,7 +65,7 @@ class HorarioService
     }
 
     /**
-     * @param  array{curso_id: int, docente_id: int, aula_id: int, ciclo_id: int, grado_id: int, dias: list<array{dia_semana: DiaSemanaEnum, hora_inicio: string, hora_fin: string}>}  $datos
+     * @param  array{curso_id: int, docente_id: int, aula_id: int, ciclo_id: ?int, grado_id: ?int, dias: list<array{dia_semana: DiaSemanaEnum, hora_inicio: ?string, hora_fin: ?string}>}  $datos
      */
     public function actualizar(Horario $horario, array $datos): Horario
     {
@@ -80,9 +88,9 @@ class HorarioService
     }
 
     /**
-     * @param  list<array{dia_semana: DiaSemanaEnum, hora_inicio: string, hora_fin: string}>  $dias
+     * @param  list<array{dia_semana: DiaSemanaEnum, hora_inicio: ?string, hora_fin: ?string}>  $dias
      */
-    private function validarDias(array $dias, int $aulaId, int $docenteId, int $cicloId, ?int $exceptoHorarioId = null): void
+    private function validarDias(array $dias, int $aulaId, int $docenteId, ?int $cicloId, ?int $exceptoHorarioId = null): void
     {
         if ($dias === []) {
             throw ValidationException::withMessages([
@@ -91,6 +99,14 @@ class HorarioService
         }
 
         foreach ($dias as $dia) {
+            // Un horario de curso corto puede quedar sin horas definidas
+            // (días sueltos, sin hora de clase) -- sin ambas horas no hay
+            // nada que cruzar contra otro horario, así que se salta el
+            // resto de la validación para ese día.
+            if ($dia['hora_inicio'] === null || $dia['hora_fin'] === null) {
+                continue;
+            }
+
             if ($dia['hora_fin'] <= $dia['hora_inicio']) {
                 throw ValidationException::withMessages([
                     'dias' => "La hora de fin debe ser posterior a la hora de inicio el {$dia['dia_semana']->label()}.",

@@ -25,23 +25,34 @@ class EloquentHorarioRepository extends BaseRepository implements HorarioReposit
         return Horario::query()->with(['curso', 'docente', 'aula', 'ciclo', 'grado', 'dias']);
     }
 
-    public function enAulaQueSolapan(int $aulaId, int $cicloId, DiaSemanaEnum $dia, string $horaInicio, string $horaFin, ?int $exceptoHorarioId = null): Collection
+    public function enAulaQueSolapan(int $aulaId, ?int $cicloId, DiaSemanaEnum $dia, string $horaInicio, string $horaFin, ?int $exceptoHorarioId = null): Collection
     {
         return $this->consultaDiasSolapados($dia, $horaInicio, $horaFin, $exceptoHorarioId)
-            ->whereHas('horario', fn ($query) => $query->where('aula_id', $aulaId)->where('ciclo_id', $cicloId))
+            ->whereHas('horario', function ($query) use ($aulaId, $cicloId) {
+                $query->where('aula_id', $aulaId);
+                $cicloId !== null ? $query->where('ciclo_id', $cicloId) : $query->whereNull('ciclo_id');
+            })
             ->get();
     }
 
-    public function delDocenteQueSolapan(int $docenteId, int $cicloId, DiaSemanaEnum $dia, string $horaInicio, string $horaFin, ?int $exceptoHorarioId = null): Collection
+    public function delDocenteQueSolapan(int $docenteId, ?int $cicloId, DiaSemanaEnum $dia, string $horaInicio, string $horaFin, ?int $exceptoHorarioId = null): Collection
     {
         return $this->consultaDiasSolapados($dia, $horaInicio, $horaFin, $exceptoHorarioId)
-            ->whereHas('horario', fn ($query) => $query->where('docente_id', $docenteId)->where('ciclo_id', $cicloId))
+            ->whereHas('horario', function ($query) use ($docenteId, $cicloId) {
+                $query->where('docente_id', $docenteId);
+                $cicloId !== null ? $query->where('ciclo_id', $cicloId) : $query->whereNull('ciclo_id');
+            })
             ->get();
     }
 
     public function delCiclo(int $cicloId): Collection
     {
         return $this->query()->where('ciclo_id', $cicloId)->get();
+    }
+
+    public function deCursoCorto(): Collection
+    {
+        return $this->query()->whereNull('ciclo_id')->get();
     }
 
     /**
