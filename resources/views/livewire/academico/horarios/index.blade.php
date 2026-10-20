@@ -724,7 +724,14 @@ new #[Layout('layouts.app')] class extends Component
                         </div>
                     @endif
 
-                    <div>
+                    {{-- wire:key con $tipo: x-select-input arma su lista de
+                         opciones una sola vez dentro de x-data (Alpine), así
+                         que al cambiar de tipo Livewire debe reconstruir
+                         este nodo entero (no solo "parchar" sus atributos)
+                         para que Alpine reinicialice con la lista de cursos
+                         ya filtrada -- sin esto, el desplegable se queda
+                         mostrando cursos del tipo anterior. --}}
+                    <div wire:key="campo-curso-{{ $tipo }}">
                         <x-input-label for="cursoId" value="Curso" />
                         <x-select-input
                             wire:model.live="cursoId"
