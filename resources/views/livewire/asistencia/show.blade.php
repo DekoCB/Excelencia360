@@ -36,6 +36,15 @@ new #[Layout('layouts.app')] class extends Component
 
     public bool $guardado = false;
 
+    /**
+     * Resultado del último escaneo de QR (punto 14 del backlog): antes solo
+     * se mostraba un mensaje flash con nombre + estado, ahora una tarjeta
+     * con nombre, DNI, cursos matriculados y la hora exacta del registro.
+     *
+     * @var array{nombres: string, dni: string, cursos: list<string>, hora: string, estado: string, esTardanza: bool}|null
+     */
+    public ?array $ultimoEscaneado = null;
+
     // Solicitud de justificación (estudiante)
     public ?int $solicitudAsistenciaId = null;
 
@@ -134,6 +143,7 @@ new #[Layout('layouts.app')] class extends Component
         Gate::authorize('asistencia.registrar-horario', $this->horario);
         abort_unless($this->fecha === now()->format('Y-m-d'), 403);
 
+        $this->ultimoEscaneado = null;
         $estudiante = $service->estudianteParaQrToken($codigo);
 
         if (! $estudiante) {
@@ -151,7 +161,15 @@ new #[Layout('layouts.app')] class extends Component
         $asistencia = $service->autorregistrar($this->horario, $estudiante);
 
         $this->estados[$estudiante->id] = $asistencia->estado->value;
-        session()->flash('status', "{$estudiante->nombreCompleto()} — {$asistencia->estado->label()}.");
+
+        $this->ultimoEscaneado = [
+            'nombres' => $estudiante->nombreCompleto(),
+            'dni' => $estudiante->dni,
+            'cursos' => $service->horariosDelEstudiante($estudiante)->pluck('curso.nombre')->filter()->unique()->values()->all(),
+            'hora' => now()->format('H:i'),
+            'estado' => $asistencia->estado->label(),
+            'esTardanza' => $asistencia->estado === EstadoAsistenciaEnum::TARDANZA,
+        ];
     }
 
     public function abrirSolicitud(int $asistenciaId): void
@@ -317,12 +335,29 @@ new #[Layout('layouts.app')] class extends Component
             <p class="mb-4 rounded-md bg-accent-soft px-3 py-2 text-sm text-accent">Asistencia guardada.</p>
         @endif
 
-        @if (session('status'))
-            <p class="mb-4 rounded-md bg-accent-soft px-3 py-2 text-sm text-accent">{{ session('status') }}</p>
-        @endif
-
         @if (session('qr_error'))
             <p class="mb-4 rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">{{ session('qr_error') }}</p>
+        @endif
+
+        @if ($ultimoEscaneado)
+            <div
+                @class([
+                    'mb-4 rounded-md border px-4 py-3 text-sm',
+                    'border-warn/30 bg-warn/10' => $ultimoEscaneado['esTardanza'],
+                    'border-accent/30 bg-accent-soft' => ! $ultimoEscaneado['esTardanza'],
+                ])
+            >
+                <div class="flex items-center justify-between gap-3">
+                    <p class="font-display text-base text-ink">{{ $ultimoEscaneado['nombres'] }}</p>
+                    <x-badge :variant="$ultimoEscaneado['esTardanza'] ? 'warn' : 'ok'">{{ $ultimoEscaneado['estado'] }}</x-badge>
+                </div>
+                <p class="mt-1 text-xs text-ink-dim">
+                    DNI {{ $ultimoEscaneado['dni'] }} · Ingreso {{ $ultimoEscaneado['hora'] }}
+                    @if ($ultimoEscaneado['cursos'] !== [])
+                        · {{ implode(', ', $ultimoEscaneado['cursos']) }}
+                    @endif
+                </p>
+            </div>
         @endif
 
         @if ($puedeRegistrar && $fecha === now()->format('Y-m-d'))

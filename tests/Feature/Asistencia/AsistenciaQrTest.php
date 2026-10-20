@@ -83,6 +83,35 @@ class AsistenciaQrTest extends TestCase
         ]);
     }
 
+    public function test_escanear_muestra_una_tarjeta_con_nombre_dni_hora_y_curso(): void
+    {
+        [$horario, $docente, $estudiante, $domingo] = $this->docenteConClaseUnDomingo();
+        $horario->load('curso');
+
+        $this->travelTo($domingo->copy()->setTime(18, 5));
+        $this->actingAs($docente);
+
+        Volt::test('asistencia.show', ['horario' => $horario])
+            ->call('escanearQr', $estudiante->obtenerOCrearQrToken())
+            ->assertSee($estudiante->nombreCompleto())
+            ->assertSee((string) $estudiante->dni)
+            ->assertSee('18:05')
+            ->assertSee($horario->curso->nombre)
+            ->assertSee('Presente');
+    }
+
+    public function test_escanear_fuera_de_la_tolerancia_muestra_tardanza_en_la_tarjeta(): void
+    {
+        [$horario, $docente, $estudiante, $domingo] = $this->docenteConClaseUnDomingo();
+
+        $this->travelTo($domingo->copy()->setTime(18, 30));
+        $this->actingAs($docente);
+
+        Volt::test('asistencia.show', ['horario' => $horario])
+            ->call('escanearQr', $estudiante->obtenerOCrearQrToken())
+            ->assertSee('Tardanza');
+    }
+
     public function test_escanear_un_codigo_no_reconocido_no_crea_registro(): void
     {
         [$horario, $docente, , $domingo] = $this->docenteConClaseUnDomingo();
