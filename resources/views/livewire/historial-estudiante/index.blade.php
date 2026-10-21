@@ -20,11 +20,43 @@ new #[Layout('layouts.app')] class extends Component
 
     public function mount(): void
     {
-        abort_unless(Auth::user()->hasPermissionTo('reportes.historial_estudiante'), 403);
+        $user = Auth::user();
+
+        abort_unless(
+            $this->modoDirectorio() || ($user->hasPermissionTo('reportes.historial_estudiante_propio') && $user->estudiante),
+            403,
+        );
+
+        // Modo propio: sin buscador, directo a su propio historial -- ver
+        // mis-hijos.blade.php, mismo criterio para el Portal de Apoderados.
+        if (! $this->modoDirectorio() && $user->estudiante) {
+            $this->estudianteSeleccionadoId = $user->estudiante->id;
+
+            $historial = app(HistorialEstudianteService::class)->porId($user->estudiante->id);
+            $this->cicloLibretaId = $historial['notasPorCiclo']->last()['ciclo']->id ?? null;
+        }
+    }
+
+    private function modoDirectorio(): bool
+    {
+        return Auth::user()->hasPermissionTo('reportes.historial_estudiante');
+    }
+
+    /**
+     * $estudianteSeleccionadoId es una propiedad pública de Livewire: en
+     * modo propio, cada acción vuelve a validar que siga apuntando al
+     * propio estudiante en vez de confiar en que llegó por el camino
+     * esperado -- mismo criterio que mis-hijos.blade.php.
+     */
+    private function puedeVer(int $estudianteId): bool
+    {
+        return $this->modoDirectorio() || Auth::user()->estudiante?->id === $estudianteId;
     }
 
     public function seleccionarEstudiante(int $estudianteId, string $nombre, HistorialEstudianteService $servicio): void
     {
+        abort_unless($this->puedeVer($estudianteId), 403);
+
         $this->estudianteSeleccionadoId = $estudianteId;
         $this->estudianteSeleccionadoNombre = $nombre;
         $this->terminoBusqueda = '';
@@ -38,8 +70,9 @@ new #[Layout('layouts.app')] class extends Component
     public function exportarPdf(HistorialEstudianteService $servicio)
     {
         abort_unless(Auth::user()->hasPermissionTo('reportes.exportar'), 403);
+        abort_unless($this->estudianteSeleccionadoId !== null && $this->puedeVer($this->estudianteSeleccionadoId), 403);
 
-        $historial = $this->estudianteSeleccionadoId !== null ? $servicio->porId($this->estudianteSeleccionadoId) : null;
+        $historial = $servicio->porId($this->estudianteSeleccionadoId);
 
         abort_if($historial === null, 404);
 
@@ -64,6 +97,7 @@ new #[Layout('layouts.app')] class extends Component
     {
         abort_unless(Auth::user()->hasPermissionTo('reportes.exportar'), 403);
         abort_if($this->estudianteSeleccionadoId === null || $this->cicloLibretaId === null, 404);
+        abort_unless($this->puedeVer($this->estudianteSeleccionadoId), 403);
 
         $historial = $servicio->porId($this->estudianteSeleccionadoId);
         abort_if($historial === null, 404);
@@ -82,9 +116,15 @@ new #[Layout('layouts.app')] class extends Component
 
     public function with(HistorialEstudianteService $servicio, LibretaService $libretas): array
     {
+        if ($this->estudianteSeleccionadoId !== null && ! $this->puedeVer($this->estudianteSeleccionadoId)) {
+            $this->estudianteSeleccionadoId = null;
+        }
+
         $resultadosBusqueda = collect();
 
-        if ($this->terminoBusqueda !== '' && $this->estudianteSeleccionadoId === null) {
+        if (! $this->modoDirectorio()) {
+            // Sin buscador en modo propio: nunca hay resultados que listar.
+        } elseif ($this->terminoBusqueda !== '' && $this->estudianteSeleccionadoId === null) {
             $termino = $this->terminoBusqueda;
 
             $resultadosBusqueda = Estudiante::query()
@@ -103,6 +143,7 @@ new #[Layout('layouts.app')] class extends Component
         $cursosLibreta = ($historial && $cicloLibreta) ? $libretas->resumenPorCursos($historial['estudiante'], $cicloLibreta) : collect();
 
         return [
+            'modoDirectorio' => $this->modoDirectorio(),
             'resultadosBusqueda' => $resultadosBusqueda,
             'historial' => $historial,
             'puedeExportar' => Auth::user()->hasPermissionTo('reportes.exportar'),
@@ -115,51 +156,63 @@ new #[Layout('layouts.app')] class extends Component
 
 <div>
     <x-slot name="header">
-        <h1 class="font-display text-2xl text-ink">Historial del estudiante</h1>
-        <p class="mt-1 text-sm text-ink-dim">Busca por nombre o DNI para ver semestres cursados, pagos, documentos y notas en un solo lugar.</p>
+        <h1 class="font-display text-2xl text-ink">{{ $modoDirectorio ? 'Historial del estudiante' : 'Mi historial' }}</h1>
+        <p class="mt-1 text-sm text-ink-dim">
+            @if ($modoDirectorio)
+                Busca por nombre o DNI para ver semestres cursados, pagos, documentos y notas en un solo lugar.
+            @else
+                Tus semestres cursados, pagos, documentos y notas en un solo lugar.
+            @endif
+        </p>
     </x-slot>
 
     <div class="space-y-6">
-        <div class="rounded-2xl border border-border bg-surface shadow-sm p-4">
-            <x-input-label for="terminoBusqueda" value="Buscar estudiante" />
+        @if ($modoDirectorio)
+            <div class="rounded-2xl border border-border bg-surface shadow-sm p-4">
+                <x-input-label for="terminoBusqueda" value="Buscar estudiante" />
 
-            @if ($estudianteSeleccionadoId)
-                <div class="mt-1 flex items-center justify-between rounded-md bg-accent-soft px-3 py-2 text-sm text-accent sm:max-w-sm">
-                    {{ $estudianteSeleccionadoNombre }}
-                    <button type="button" wire:click="$set('estudianteSeleccionadoId', null)" class="text-xs underline">Cambiar</button>
-                </div>
-            @else
-                <x-text-input
-                    wire:model.live.debounce.300ms="terminoBusqueda"
-                    id="terminoBusqueda"
-                    class="mt-1 block w-full sm:max-w-sm"
-                    placeholder="Nombre, apellido o DNI…"
-                    autocomplete="off"
-                />
-
-                @if ($resultadosBusqueda->isNotEmpty())
-                    <div class="mt-1 divide-y divide-border rounded-md border border-border bg-surface sm:max-w-sm">
-                        @foreach ($resultadosBusqueda as $estudiante)
-                            <button
-                                type="button"
-                                wire:click="seleccionarEstudiante({{ $estudiante->id }}, '{{ addslashes($estudiante->nombreCompleto()) }}')"
-                                class="block w-full px-3 py-2 text-left text-sm hover:bg-surface-2"
-                            >
-                                {{ $estudiante->nombreCompleto() }} <span class="text-ink-faint">· {{ $estudiante->dni }}</span>
-                            </button>
-                        @endforeach
+                @if ($estudianteSeleccionadoId)
+                    <div class="mt-1 flex items-center justify-between rounded-md bg-accent-soft px-3 py-2 text-sm text-accent sm:max-w-sm">
+                        {{ $estudianteSeleccionadoNombre }}
+                        <button type="button" wire:click="$set('estudianteSeleccionadoId', null)" class="text-xs underline">Cambiar</button>
                     </div>
-                @elseif ($terminoBusqueda !== '')
-                    <p class="mt-1 text-sm text-ink-faint">No se encontraron estudiantes.</p>
-                @endif
-            @endif
+                @else
+                    <x-text-input
+                        wire:model.live.debounce.300ms="terminoBusqueda"
+                        id="terminoBusqueda"
+                        class="mt-1 block w-full sm:max-w-sm"
+                        placeholder="Nombre, apellido o DNI…"
+                        autocomplete="off"
+                    />
 
-            @if ($historial && $puedeExportar)
-                <div class="mt-4">
-                    <x-secondary-button type="button" wire:click="exportarPdf">Exportar PDF</x-secondary-button>
-                </div>
-            @endif
-        </div>
+                    @if ($resultadosBusqueda->isNotEmpty())
+                        <div class="mt-1 divide-y divide-border rounded-md border border-border bg-surface sm:max-w-sm">
+                            @foreach ($resultadosBusqueda as $estudiante)
+                                <button
+                                    type="button"
+                                    wire:click="seleccionarEstudiante({{ $estudiante->id }}, '{{ addslashes($estudiante->nombreCompleto()) }}')"
+                                    class="block w-full px-3 py-2 text-left text-sm hover:bg-surface-2"
+                                >
+                                    {{ $estudiante->nombreCompleto() }} <span class="text-ink-faint">· {{ $estudiante->dni }}</span>
+                                </button>
+                            @endforeach
+                        </div>
+                    @elseif ($terminoBusqueda !== '')
+                        <p class="mt-1 text-sm text-ink-faint">No se encontraron estudiantes.</p>
+                    @endif
+                @endif
+
+                @if ($historial && $puedeExportar)
+                    <div class="mt-4">
+                        <x-secondary-button type="button" wire:click="exportarPdf">Exportar PDF</x-secondary-button>
+                    </div>
+                @endif
+            </div>
+        @elseif ($historial && $puedeExportar)
+            <div class="flex justify-end">
+                <x-secondary-button type="button" wire:click="exportarPdf">Exportar PDF</x-secondary-button>
+            </div>
+        @endif
 
         @if ($estudianteSeleccionadoId === null)
             <p class="rounded-2xl border border-border bg-surface shadow-sm px-4 py-8 text-center text-sm text-ink-faint">

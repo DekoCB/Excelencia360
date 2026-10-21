@@ -8,6 +8,7 @@ use App\Modules\Certificados\Enums\TipoDocumentoEnum;
 use App\Modules\Certificados\Models\PlantillaCertificado;
 use App\Modules\Certificados\Services\CertificadoService;
 use App\Modules\Matricula\Models\Estudiante;
+use App\Modules\Matricula\Models\MatriculaCursoCorto;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -40,6 +41,74 @@ class CertificadoCapacitacionTest extends TestCase
         $this->assertSame($curso->id, $certificado->curso_id);
         $this->assertSame('3002324002', $certificado->numero_registro);
         $this->assertNotNull($certificado->getFirstMedia('pdf'));
+    }
+
+    /**
+     * Emitir un certificado de capacitación es la prueba de que el
+     * estudiante llevó ese curso -- si todavía no tenía una matrícula de
+     * curso corto para él, se crea automáticamente.
+     */
+    public function test_emitir_un_certificado_de_capacitacion_matricula_al_curso_corto_si_hacia_falta(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $emisor = User::factory()->create();
+        $curso = Curso::factory()->capacitacion()->create();
+
+        $this->service()->emitir(
+            $estudiante,
+            null,
+            null,
+            null,
+            $emisor,
+            TipoDocumentoEnum::CERTIFICADO_CAPACITACION,
+            $curso,
+            '3002324003',
+        );
+
+        $this->assertDatabaseHas('matriculas_curso_corto', [
+            'estudiante_id' => $estudiante->id,
+            'curso_id' => $curso->id,
+            'estado' => 'activo',
+        ]);
+    }
+
+    public function test_emitir_no_duplica_la_matricula_de_curso_corto_si_ya_existia(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $emisor = User::factory()->create();
+        $curso = Curso::factory()->capacitacion()->create();
+
+        MatriculaCursoCorto::factory()->create([
+            'estudiante_id' => $estudiante->id,
+            'curso_id' => $curso->id,
+            'estado' => 'concluido',
+        ]);
+
+        $this->service()->emitir(
+            $estudiante,
+            null,
+            null,
+            null,
+            $emisor,
+            TipoDocumentoEnum::CERTIFICADO_CAPACITACION,
+            $curso,
+            '3002324004',
+        );
+
+        $this->assertSame(1, MatriculaCursoCorto::query()
+            ->where('estudiante_id', $estudiante->id)
+            ->where('curso_id', $curso->id)
+            ->count());
+    }
+
+    public function test_emitir_un_certificado_academico_no_crea_matricula_de_curso_corto(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $emisor = User::factory()->create();
+
+        $this->service()->emitir($estudiante, null, null, null, $emisor);
+
+        $this->assertDatabaseCount('matriculas_curso_corto', 0);
     }
 
     public function test_verificar_encuentra_un_certificado_de_capacitacion_por_su_numero_de_registro(): void

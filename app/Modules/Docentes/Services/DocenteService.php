@@ -46,18 +46,24 @@ class DocenteService
             ->exists();
     }
 
+    public function emailDisponible(string $email, ?int $exceptoUserId = null): bool
+    {
+        return $this->usuarios->emailDisponible($email, $exceptoUserId);
+    }
+
     /**
      * Además de la ficha del docente, crea (o reutiliza, si el DNI ya
-     * tiene cuenta) su acceso al sistema -- mismo criterio que
-     * MatriculaService::registrarEstudiante(): correo institucional
-     * {dni}@excelencia360.com y contraseña inicial igual al DNI.
+     * tiene cuenta) su acceso al sistema -- a diferencia de
+     * MatriculaService::registrarEstudiante(), el correo es el real del
+     * docente (quien sí recibe comunicaciones institucionales), no uno
+     * autoasignado por DNI; la contraseña inicial sigue siendo el DNI.
      *
-     * @param  array{nombres: string, apellidos: string, dni: Dni, celular: ?Telefono, especialidad: ?string, gradoAcademico: ?string, fechaIngreso: ?string}  $datos
+     * @param  array{nombres: string, apellidos: string, dni: Dni, email: string, celular: ?Telefono, especialidad: ?string, gradoAcademico: ?string, fechaIngreso: ?string}  $datos
      */
     public function registrar(array $datos): Docente
     {
         return DB::transaction(function () use ($datos) {
-            $email = $datos['dni']->correoInstitucional();
+            $email = $datos['email'];
 
             $usuario = User::query()->where('dni', $datos['dni']->valor())->first();
 
@@ -114,9 +120,18 @@ class DocenteService
                     $nombres = $this->celdaObligatoria($fila, 'nombres');
                     $apellidos = $this->celdaObligatoria($fila, 'apellidos');
                     $dniTexto = $this->celdaObligatoria($fila, 'dni');
+                    $email = $this->celdaObligatoria($fila, 'email');
 
                     if (! $this->dniDisponible($dniTexto)) {
                         throw new InvalidArgumentException("Ya existe una cuenta registrada con el DNI {$dniTexto}.");
+                    }
+
+                    if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                        throw new InvalidArgumentException("El correo «{$email}» no es válido.");
+                    }
+
+                    if (! $this->emailDisponible($email)) {
+                        throw new InvalidArgumentException("Ya existe una cuenta registrada con el correo {$email}.");
                     }
 
                     $celularTexto = $this->celdaOpcional($fila, 'celular');
@@ -126,6 +141,7 @@ class DocenteService
                         'nombres' => $nombres,
                         'apellidos' => $apellidos,
                         'dni' => new Dni($dniTexto),
+                        'email' => $email,
                         'celular' => $celularTexto !== null ? new Telefono($celularTexto) : null,
                         'especialidad' => $this->celdaOpcional($fila, 'especialidad'),
                         'gradoAcademico' => $this->celdaOpcional($fila, 'grado_academico'),

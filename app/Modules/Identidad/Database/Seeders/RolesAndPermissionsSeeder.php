@@ -104,6 +104,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'tramites.crear', 'tramites.ver_propio',
             'calendario.ver',
             'biblioteca.ver', 'biblioteca.ver_propio',
+            'reportes.historial_estudiante_propio',
         ],
 
         // Solo lectura sobre el/los hijo(s) vinculados a su cuenta (ver
@@ -155,7 +156,8 @@ class RolesAndPermissionsSeeder extends Seeder
         'tesoreria.gestionar',
         'certificados.emitir', 'certificados.duplicar', 'certificados.ver', 'certificados.solicitar', 'certificados.gestionar_plantilla',
         'reportes.academicos', 'reportes.operativos', 'reportes.financieros', 'reportes.morosos',
-        'reportes.matricula', 'reportes.certificados', 'reportes.propios', 'reportes.historial_estudiante', 'reportes.exportar',
+        'reportes.matricula', 'reportes.certificados', 'reportes.propios', 'reportes.historial_estudiante',
+        'reportes.historial_estudiante_propio', 'reportes.exportar',
         'whatsapp.enviar', 'whatsapp.ver', 'notificaciones.ver_propio',
         'flujo_caja.ver', 'flujo_caja.gestionar',
         'roles.gestionar', 'auditoria.ver',

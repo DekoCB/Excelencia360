@@ -77,13 +77,41 @@ class HistorialEstudiantePermisosTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_estudiante_no_puede_ver_el_historial_de_estudiante(): void
+    public function test_estudiante_puede_ver_su_propio_historial_sin_buscador(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::ESTUDIANTE->value);
+        $estudiante = Estudiante::factory()->create(['user_id' => $usuario->id, 'dni' => '55667788']);
+
+        $this->actingAs($usuario);
+
+        Volt::test('historial-estudiante.index')
+            ->assertDontSee('Buscar estudiante')
+            ->assertSee('DNI 55667788');
+    }
+
+    public function test_estudiante_sin_ficha_no_puede_ver_el_historial(): void
     {
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::ESTUDIANTE->value);
 
         $this->actingAs($usuario)
             ->get(route('historial-estudiante.index'))
+            ->assertForbidden();
+    }
+
+    public function test_estudiante_no_puede_forzar_ver_el_historial_de_otro_estudiante(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::ESTUDIANTE->value);
+        Estudiante::factory()->create(['user_id' => $usuario->id]);
+
+        $otro = Estudiante::factory()->create();
+
+        $this->actingAs($usuario);
+
+        Volt::test('historial-estudiante.index')
+            ->call('seleccionarEstudiante', $otro->id, $otro->nombreCompleto())
             ->assertForbidden();
     }
 

@@ -12,7 +12,7 @@ class DocentesPlantillaExport implements FromArray, WithHeadings
     public function headings(): array
     {
         return [
-            'nombres', 'apellidos', 'dni', 'celular',
+            'nombres', 'apellidos', 'dni', 'email', 'celular',
             'especialidad', 'grado_academico', 'fecha_ingreso',
         ];
     }
@@ -21,11 +21,11 @@ class DocentesPlantillaExport implements FromArray, WithHeadings
     {
         return [
             [
-                'Ana', 'Torres Quispe', '45678912', '987654321',
+                'Ana', 'Torres Quispe', '45678912', 'ana.torres@example.com', '987654321',
                 'Matemática', 'Licenciado', '01/03/2024',
             ],
             [
-                'Luis', 'Ramírez Soto', '78912345', '',
+                'Luis', 'Ramírez Soto', '78912345', 'luis.ramirez@example.com', '',
                 '', '', '',
             ],
         ];

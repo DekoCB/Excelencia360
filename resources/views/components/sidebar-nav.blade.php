@@ -461,7 +461,7 @@
         </div>
     @endcanany
 
-    @can('reportes.historial_estudiante')
+    @canany(['reportes.historial_estudiante', 'reportes.historial_estudiante_propio'])
         <a
             href="{{ route('historial-estudiante.index') }}"
             wire:navigate
@@ -472,9 +472,9 @@
             ])
         >
             <x-heroicon-o-document-magnifying-glass class="h-5 w-5 shrink-0" />
-            <span class="sidebar-label">Historial de estudiante</span>
+            <span class="sidebar-label">{{ auth()->user()->can('reportes.historial_estudiante') ? 'Historial de estudiante' : 'Mi historial' }}</span>
         </a>
-    @endcan
+    @endcanany
 
     @canany(['whatsapp.ver', 'whatsapp.enviar'])
         <div class="mt-4 border-t border-border pt-4">

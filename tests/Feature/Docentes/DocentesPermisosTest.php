@@ -73,6 +73,7 @@ class DocentesPermisosTest extends TestCase
             ->set('nombres', 'Ana')
             ->set('apellidos', 'Torres Quispe')
             ->set('dni', '45678912')
+            ->set('email', 'ana.torres@example.com')
             ->set('celular', '987654321')
             ->set('especialidad', 'Matemática')
             ->call('guardar')
@@ -82,7 +83,7 @@ class DocentesPermisosTest extends TestCase
         $usuario = User::query()->where('dni', '45678912')->first();
 
         $this->assertNotNull($usuario);
-        $this->assertSame('45678912@excelencia360.com', $usuario->email);
+        $this->assertSame('ana.torres@example.com', $usuario->email);
         $this->assertTrue($usuario->hasRole(RolEnum::DOCENTE->value));
         $this->assertDatabaseHas('docentes', ['user_id' => $usuario->id, 'especialidad' => 'Matemática']);
     }
@@ -100,8 +101,27 @@ class DocentesPermisosTest extends TestCase
             ->set('nombres', 'Otro')
             ->set('apellidos', 'Docente')
             ->set('dni', '11223344')
+            ->set('email', 'otro.docente@example.com')
             ->call('guardar')
             ->assertHasErrors('dni');
+    }
+
+    public function test_no_permite_registrar_dos_docentes_con_el_mismo_correo(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        User::factory()->create(['email' => 'repetido@example.com']);
+
+        $this->actingAs($coordinador);
+
+        Volt::test('docentes.index')
+            ->call('abrirModalCrear')
+            ->set('nombres', 'Otro')
+            ->set('apellidos', 'Docente')
+            ->set('dni', '11223344')
+            ->set('email', 'repetido@example.com')
+            ->call('guardar')
+            ->assertHasErrors('email');
     }
 
     public function test_coordinador_edita_la_especialidad_de_un_docente_existente(): void
@@ -150,9 +170,9 @@ class DocentesPermisosTest extends TestCase
 
         $archivo = UploadedFile::fake()->createWithContent(
             'docentes.csv',
-            "nombres,apellidos,dni,celular,especialidad,grado_academico,fecha_ingreso\n".
-            "Ana,Torres Quispe,45678912,987654321,Matemática,Licenciado,01/03/2024\n".
-            "Luis,Ramírez Soto,78912345,,,,\n"
+            "nombres,apellidos,dni,email,celular,especialidad,grado_academico,fecha_ingreso\n".
+            "Ana,Torres Quispe,45678912,ana.torres@example.com,987654321,Matemática,Licenciado,01/03/2024\n".
+            "Luis,Ramírez Soto,78912345,luis.ramirez@example.com,,,,\n"
         );
 
         Volt::test('docentes.carga-masiva')

@@ -27,6 +27,8 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $dni = '';
 
+    public string $email = '';
+
     public string $celular = '';
 
     public string $especialidad = '';
@@ -54,7 +56,7 @@ new #[Layout('layouts.app')] class extends Component
     {
         Gate::authorize('docentes.gestionar');
 
-        $this->reset(['docenteId', 'nombres', 'apellidos', 'dni', 'celular', 'especialidad', 'gradoAcademico', 'fechaIngreso']);
+        $this->reset(['docenteId', 'nombres', 'apellidos', 'dni', 'email', 'celular', 'especialidad', 'gradoAcademico', 'fechaIngreso']);
         $this->resetValidation();
         $this->mostrarModal = true;
     }
@@ -65,7 +67,7 @@ new #[Layout('layouts.app')] class extends Component
 
         $docente = Docente::query()->findOrFail($docenteId);
 
-        $this->reset(['nombres', 'apellidos', 'dni', 'celular']);
+        $this->reset(['nombres', 'apellidos', 'dni', 'email', 'celular']);
         $this->docenteId = $docente->id;
         $this->especialidad = $docente->especialidad ?? '';
         $this->gradoAcademico = $docente->grado_academico ?? '';
@@ -106,6 +108,7 @@ new #[Layout('layouts.app')] class extends Component
             'nombres' => 'required|string|max:150',
             'apellidos' => 'required|string|max:150',
             'dni' => 'required|string|min:8|max:12',
+            'email' => 'required|email|max:150',
             'celular' => 'nullable|string',
             'especialidad' => 'nullable|string|max:150',
             'gradoAcademico' => 'nullable|string|max:150',
@@ -118,10 +121,17 @@ new #[Layout('layouts.app')] class extends Component
             return;
         }
 
+        if (! $service->emailDisponible($this->email)) {
+            $this->addError('email', 'Ya existe otro usuario con este correo.');
+
+            return;
+        }
+
         $service->registrar([
             'nombres' => $this->nombres,
             'apellidos' => $this->apellidos,
             'dni' => new Dni($this->dni),
+            'email' => $this->email,
             'celular' => $this->celular !== '' ? new Telefono($this->celular) : null,
             'especialidad' => $this->especialidad !== '' ? $this->especialidad : null,
             'gradoAcademico' => $this->gradoAcademico !== '' ? $this->gradoAcademico : null,
@@ -276,9 +286,15 @@ new #[Layout('layouts.app')] class extends Component
                         </div>
                     </div>
 
+                    <div>
+                        <x-input-label for="email" value="Correo" />
+                        <x-text-input wire:model="email" id="email" type="email" class="mt-1 block w-full" />
+                        <x-input-error :messages="$errors->get('email')" class="mt-1" />
+                    </div>
+
                     <p class="text-xs text-ink-faint">
-                        El correo institucional y la contraseña inicial se asignan automáticamente a partir del DNI
-                        (igual que en Usuarios). El nombre, DNI y celular se editan después desde Usuarios.
+                        La contraseña inicial de acceso es el DNI. El nombre, DNI, correo y celular se editan
+                        después desde Usuarios.
                     </p>
                 @endif
 

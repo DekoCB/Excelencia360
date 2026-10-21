@@ -18,6 +18,7 @@ use App\Modules\Evaluaciones\Services\LibretaService;
 use App\Modules\Matricula\DTOs\RegistrarEstudianteData;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
+use App\Modules\Matricula\Models\MatriculaCursoCorto;
 use App\Modules\Matricula\Services\MatriculaService;
 use App\Modules\Notificaciones\Enums\TipoNotificacionEnum;
 use App\Modules\Notificaciones\Services\NotificacionService;
@@ -103,6 +104,10 @@ class CertificadoService
                 'correo_entrega' => $solicitud?->correo_entrega,
             ]);
 
+            if ($curso !== null) {
+                $this->matricularCursoCortoSiHaceFalta($estudiante, $curso, $emisor);
+            }
+
             $this->generarPdf($certificado);
 
             if ($solicitud) {
@@ -124,6 +129,33 @@ class CertificadoService
 
             return $certificado;
         });
+    }
+
+    /**
+     * Emitir un certificado de capacitación es, en la práctica, la prueba
+     * de que el estudiante llevó ese curso -- así que si todavía no tiene
+     * una MatriculaCursoCorto para ese curso, se crea aquí mismo en vez de
+     * exigir un paso aparte. Idempotente: si ya existe una (aunque esté
+     * concluida/retirada, p. ej. al emitir un duplicado o una segunda
+     * constancia), no se crea otra.
+     */
+    private function matricularCursoCortoSiHaceFalta(Estudiante $estudiante, Curso $curso, User $emisor): void
+    {
+        $yaMatriculado = MatriculaCursoCorto::query()
+            ->where('estudiante_id', $estudiante->id)
+            ->where('curso_id', $curso->id)
+            ->exists();
+
+        if ($yaMatriculado) {
+            return;
+        }
+
+        $this->matricula->matricularCursoCorto($estudiante, [
+            'curso_id' => $curso->id,
+            'fecha_inicio' => now()->format('Y-m-d'),
+            'observaciones' => null,
+            'registrado_por' => $emisor->id,
+        ]);
     }
 
     /**
