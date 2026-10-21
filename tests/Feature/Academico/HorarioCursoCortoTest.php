@@ -10,6 +10,7 @@ use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Academico\Services\HorarioService;
+use App\Modules\AulaVirtual\Models\CursoVirtual;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Shared\Enums\RolEnum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -62,6 +63,62 @@ class HorarioCursoCortoTest extends TestCase
         ]);
 
         $this->assertTrue($horario->fresh()->esDeCursoCorto());
+    }
+
+    /**
+     * Regresión: el aula virtual de un horario de curso corto se activaba
+     * por horario_id (igual que un curso académico), pero
+     * CursoVirtual::esDeCursoCorto() y el resto del sistema solo reconocen
+     * un curso corto por curso_id -- quedaba creada pero invisible en todos
+     * los listados de Aula Virtual.
+     */
+    public function test_crear_un_horario_de_curso_corto_activa_el_aula_virtual_por_curso_no_por_horario(): void
+    {
+        $curso = Curso::factory()->capacitacion()->create(['docente_id' => null]);
+        $docente = User::factory()->create();
+
+        $horario = $this->service()->crear([
+            'curso_id' => $curso->id,
+            'docente_id' => $docente->id,
+            'aula_id' => Aula::factory()->create()->id,
+            'ciclo_id' => null,
+            'grado_id' => null,
+            'dias' => [
+                ['dia_semana' => DiaSemanaEnum::SABADO, 'hora_inicio' => null, 'hora_fin' => null],
+            ],
+        ]);
+
+        $cursoVirtual = CursoVirtual::query()->where('curso_id', $curso->id)->first();
+
+        $this->assertNotNull($cursoVirtual);
+        $this->assertNull($cursoVirtual->horario_id);
+        $this->assertTrue($cursoVirtual->esDeCursoCorto());
+        $this->assertFalse(CursoVirtual::query()->where('horario_id', $horario->id)->exists());
+    }
+
+    /**
+     * Si el docente se asigna en el Horario (no editando el Curso
+     * directamente), Curso::docente_id se sincroniza -- es el único campo
+     * que CursoVirtual::docenteId() consulta para un curso corto, así que
+     * sin esto el docente no podría gestionar su propia aula virtual.
+     */
+    public function test_crear_un_horario_de_curso_corto_sincroniza_el_docente_del_curso(): void
+    {
+        $curso = Curso::factory()->capacitacion()->create(['docente_id' => null]);
+        $docente = User::factory()->create();
+
+        $this->service()->crear([
+            'curso_id' => $curso->id,
+            'docente_id' => $docente->id,
+            'aula_id' => Aula::factory()->create()->id,
+            'ciclo_id' => null,
+            'grado_id' => null,
+            'dias' => [
+                ['dia_semana' => DiaSemanaEnum::SABADO, 'hora_inicio' => null, 'hora_fin' => null],
+            ],
+        ]);
+
+        $this->assertSame($docente->id, $curso->fresh()->docente_id);
     }
 
     public function test_crear_sin_horas_definidas_guarda_los_dias_sin_hora(): void

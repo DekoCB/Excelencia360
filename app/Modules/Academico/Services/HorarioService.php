@@ -57,11 +57,36 @@ class HorarioService
             return $horario;
         });
 
-        // Para que el docente encuentre su aula virtual ya lista, sin tener
-        // que "activarla" a mano después de que se le asigna el horario.
-        $this->cursosVirtuales->activarParaHorario($horario);
+        $this->activarAulaVirtual($horario);
 
         return $horario->load('dias');
+    }
+
+    /**
+     * Para que el docente encuentre su aula virtual ya lista, sin tener que
+     * "activarla" a mano después de que se le asigna el horario. Un horario
+     * de curso corto se activa por curso_id, no por horario_id -- igual que
+     * CursoService::activarAulaVirtualSiCorresponde() -- porque el resto
+     * del sistema (CursoVirtual::esDeCursoCorto(), CursoVirtualPolicy, los
+     * filtros de listado) solo reconoce un curso corto por curso_id. Se
+     * sincroniza además Curso::docente_id con el del horario: es el único
+     * campo que CursoVirtual::docenteId() consulta para un curso corto, así
+     * que si el docente se asignó aquí (no editando el Curso) igual queda
+     * como dueño de su aula virtual.
+     */
+    private function activarAulaVirtual(Horario $horario): void
+    {
+        if (! $horario->esDeCursoCorto()) {
+            $this->cursosVirtuales->activarParaHorario($horario);
+
+            return;
+        }
+
+        if ($horario->curso->docente_id !== $horario->docente_id) {
+            $horario->curso->update(['docente_id' => $horario->docente_id]);
+        }
+
+        $this->cursosVirtuales->activarParaCursoCorto($horario->curso);
     }
 
     /**
@@ -71,7 +96,7 @@ class HorarioService
     {
         $this->validarDias($datos['dias'], $datos['aula_id'], $datos['docente_id'], $datos['ciclo_id'], $horario->id);
 
-        return DB::transaction(function () use ($horario, $datos) {
+        $horario = DB::transaction(function () use ($horario, $datos) {
             $this->horarios->update($horario, [
                 'curso_id' => $datos['curso_id'],
                 'docente_id' => $datos['docente_id'],
@@ -85,6 +110,10 @@ class HorarioService
 
             return $horario->load('dias');
         });
+
+        $this->activarAulaVirtual($horario);
+
+        return $horario;
     }
 
     /**
