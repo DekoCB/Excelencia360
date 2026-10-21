@@ -140,6 +140,7 @@ class AulaVirtualCursoCortoTest extends TestCase
 
         Volt::test('aula-virtual.index')
             ->assertSee('Cursos cortos')
+            ->call('elegirModalidad', 'curso_corto')
             ->assertSee('Ofimática Básica');
     }
 
@@ -157,6 +158,7 @@ class AulaVirtualCursoCortoTest extends TestCase
 
         Volt::test('aula-virtual.index')
             ->assertSee('Cursos cortos')
+            ->call('elegirModalidad', 'curso_corto')
             ->assertSee('Inglés Básico');
     }
 

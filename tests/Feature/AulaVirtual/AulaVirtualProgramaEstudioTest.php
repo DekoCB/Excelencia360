@@ -45,6 +45,7 @@ class AulaVirtualProgramaEstudioTest extends TestCase
         $this->actingAs($usuario);
 
         Volt::test('aula-virtual.index')
+            ->call('elegirModalidad', 'instituto')
             ->call('seleccionarPrograma', $programa->id)
             ->assertSee('Semestre 1')
             ->assertDontSee('Sección A')
@@ -67,6 +68,7 @@ class AulaVirtualProgramaEstudioTest extends TestCase
         $this->actingAs($usuario);
 
         Volt::test('aula-virtual.index')
+            ->call('elegirModalidad', 'instituto')
             ->call('seleccionarPrograma', $programaA->id)
             ->assertSee('Semestre de A')
             ->assertDontSee('Semestre de B');
@@ -85,6 +87,7 @@ class AulaVirtualProgramaEstudioTest extends TestCase
         $this->actingAs($usuario);
 
         Volt::test('aula-virtual.index')
+            ->call('elegirModalidad', 'instituto')
             ->call('seleccionarPrograma', $programa->id)
             ->call('seleccionarGrado', $grado->id)
             ->assertSee($curso->horario->curso->nombre);
@@ -103,6 +106,7 @@ class AulaVirtualProgramaEstudioTest extends TestCase
         $this->actingAs($usuario);
 
         Volt::test('aula-virtual.index')
+            ->call('elegirModalidad', 'instituto')
             ->call('seleccionarPrograma', $programa->id)
             ->call('seleccionarGrado', $grado->id)
             ->call('volverASemestres')
@@ -123,6 +127,7 @@ class AulaVirtualProgramaEstudioTest extends TestCase
         $this->actingAs($usuario);
 
         Volt::test('aula-virtual.index')
+            ->call('elegirModalidad', 'instituto')
             ->call('seleccionarPrograma', $programa->id)
             ->call('seleccionarGrado', $grado->id)
             ->call('volverAProgramas')
@@ -147,6 +152,7 @@ class AulaVirtualProgramaEstudioTest extends TestCase
         $this->actingAs($usuario);
 
         Volt::test('aula-virtual.index')
+            ->call('elegirModalidad', 'instituto')
             ->call('seleccionarPrograma', $programa->id)
             ->assertSee('Semestre vigente')
             ->assertDontSee('Semestre pasado');

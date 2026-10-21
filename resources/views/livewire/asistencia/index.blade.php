@@ -8,6 +8,9 @@ use Livewire\Volt\Component;
 
 new #[Layout('layouts.app')] class extends Component
 {
+    /** @var 'instituto'|'curso_corto'|null */
+    public ?string $modalidad = null;
+
     public ?int $cicloId = null;
 
     public ?string $seccion = null;
@@ -22,6 +25,25 @@ new #[Layout('layouts.app')] class extends Component
             $user->hasAnyPermission(['asistencia.ver', 'asistencia.registrar', 'asistencia.ver_propio']),
             403,
         );
+    }
+
+    /**
+     * @param  'instituto'|'curso_corto'  $modalidad
+     */
+    public function elegirModalidad(string $modalidad): void
+    {
+        $this->modalidad = $modalidad;
+        $this->cicloId = null;
+        $this->seccion = null;
+        $this->gradoId = null;
+    }
+
+    public function volverAModalidad(): void
+    {
+        $this->modalidad = null;
+        $this->cicloId = null;
+        $this->seccion = null;
+        $this->gradoId = null;
     }
 
     public function seleccionarGrupo(int $cicloId): void
@@ -151,30 +173,58 @@ new #[Layout('layouts.app')] class extends Component
         </div>
     @endif
 
-    @if ($horariosCortos->isNotEmpty() && ! $cicloId)
-        <div class="mb-6">
-            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Cursos cortos</p>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                @foreach ($horariosCortos as $horarioCorto)
-                    <a
-                        href="{{ route('asistencia.show', $horarioCorto) }}"
-                        wire:navigate
-                        class="block rounded-2xl border border-border bg-surface shadow-sm p-4 transition hover:border-accent"
-                    >
-                        <p class="font-display text-lg text-ink">{{ $horarioCorto->curso->nombre }}</p>
-                        <p class="mt-3 text-xs text-ink-faint">
-                            @if ($rol !== 'docente')
-                                {{ $horarioCorto->docente->name }} ·
-                            @endif
-                            {{ $horarioCorto->diasResumen() }}
-                        </p>
-                    </a>
-                @endforeach
-            </div>
+    @if (! $modalidad)
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <button
+                type="button"
+                wire:click="elegirModalidad('instituto')"
+                class="block rounded-2xl border border-border bg-surface shadow-sm p-6 text-left transition hover:border-accent"
+            >
+                <p class="font-display text-lg text-ink">Instituto</p>
+                <p class="mt-1 text-sm text-ink-dim">Programas de estudio por período de matrícula y semestre.</p>
+            </button>
+            <button
+                type="button"
+                wire:click="elegirModalidad('curso_corto')"
+                class="block rounded-2xl border border-border bg-surface shadow-sm p-6 text-left transition hover:border-accent"
+            >
+                <p class="font-display text-lg text-ink">Cursos cortos</p>
+                <p class="mt-1 text-sm text-ink-dim">Cursos de capacitación individuales.</p>
+            </button>
         </div>
-    @endif
+    @elseif ($modalidad === 'curso_corto')
+        <button type="button" wire:click="volverAModalidad" class="mb-4 text-sm text-ink-faint hover:text-ink">← Instituto / Cursos cortos</button>
 
-    @if (! $cicloId)
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            @forelse ($horariosCortos as $horarioCorto)
+                <a
+                    href="{{ route('asistencia.show', $horarioCorto) }}"
+                    wire:navigate
+                    class="block rounded-2xl border border-border bg-surface shadow-sm p-4 transition hover:border-accent"
+                >
+                    <p class="font-display text-lg text-ink">{{ $horarioCorto->curso->nombre }}</p>
+                    <p class="mt-3 text-xs text-ink-faint">
+                        @if ($rol !== 'docente')
+                            {{ $horarioCorto->docente->name }} ·
+                        @endif
+                        {{ $horarioCorto->diasResumen() }}
+                    </p>
+                </a>
+            @empty
+                <p class="col-span-full py-8 text-center text-sm text-ink-faint">
+                    @if ($rol === 'docente')
+                        Todavía no tienes cursos cortos asignados.
+                    @elseif ($rol === 'estudiante')
+                        Todavía no estás matriculado en ningún curso corto.
+                    @else
+                        No hay cursos cortos registrados.
+                    @endif
+                </p>
+            @endforelse
+        </div>
+    @elseif (! $cicloId)
+        <button type="button" wire:click="volverAModalidad" class="mb-4 text-sm text-ink-faint hover:text-ink">← Instituto / Cursos cortos</button>
+
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             @forelse ($gruposDisponibles as $grupo)
                 <button

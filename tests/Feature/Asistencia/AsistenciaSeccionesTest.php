@@ -37,6 +37,7 @@ class AsistenciaSeccionesTest extends TestCase
         $this->actingAs($usuario);
 
         Volt::test('asistencia.index')
+            ->call('elegirModalidad', 'instituto')
             ->call('seleccionarGrupo', $ciclo->id)
             ->assertSee('Sección A')
             ->assertSee('Sección B')
@@ -59,6 +60,7 @@ class AsistenciaSeccionesTest extends TestCase
         $this->actingAs($usuario);
 
         Volt::test('asistencia.index')
+            ->call('elegirModalidad', 'instituto')
             ->call('seleccionarGrupo', $ciclo->id)
             ->call('seleccionarSeccion', 'A')
             ->assertSee('Grado 1')
@@ -78,6 +80,7 @@ class AsistenciaSeccionesTest extends TestCase
         $this->actingAs($usuario);
 
         Volt::test('asistencia.index')
+            ->call('elegirModalidad', 'instituto')
             ->call('seleccionarGrupo', $ciclo->id)
             ->call('seleccionarSeccion', 'A')
             ->call('seleccionarGrado', $grado->id)
@@ -96,6 +99,7 @@ class AsistenciaSeccionesTest extends TestCase
         $this->actingAs($usuario);
 
         Volt::test('asistencia.index')
+            ->call('elegirModalidad', 'instituto')
             ->call('seleccionarGrupo', $ciclo->id)
             ->call('seleccionarSeccion', 'A')
             ->call('seleccionarGrado', $grado->id)

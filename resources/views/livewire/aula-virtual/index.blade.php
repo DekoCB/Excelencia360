@@ -8,6 +8,9 @@ use Livewire\Volt\Component;
 
 new #[Layout('layouts.app')] class extends Component
 {
+    /** @var 'instituto'|'curso_corto'|null */
+    public ?string $modalidad = null;
+
     public ?int $programaEstudioId = null;
 
     public ?int $gradoId = null;
@@ -20,6 +23,23 @@ new #[Layout('layouts.app')] class extends Component
             $user->hasAnyPermission(['aula_virtual.ver', 'aula_virtual.gestionar_propio', 'aula_virtual.ver_propio']),
             403,
         );
+    }
+
+    /**
+     * @param  'instituto'|'curso_corto'  $modalidad
+     */
+    public function elegirModalidad(string $modalidad): void
+    {
+        $this->modalidad = $modalidad;
+        $this->programaEstudioId = null;
+        $this->gradoId = null;
+    }
+
+    public function volverAModalidad(): void
+    {
+        $this->modalidad = null;
+        $this->programaEstudioId = null;
+        $this->gradoId = null;
     }
 
     public function seleccionarPrograma(int $programaEstudioId): void
@@ -117,30 +137,58 @@ new #[Layout('layouts.app')] class extends Component
         </p>
     </x-slot>
 
-    @if ($cursosCortos->isNotEmpty() && ! $programaEstudioId)
-        <div class="mb-6">
-            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Cursos cortos</p>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                @foreach ($cursosCortos as $cursoCorto)
-                    <a
-                        href="{{ route('aula-virtual.show', $cursoCorto) }}"
-                        wire:navigate
-                        class="block rounded-2xl border border-border bg-surface shadow-sm p-4 transition hover:border-accent"
-                    >
-                        <x-curso-portada :curso="$cursoCorto->cursoAcademico()" class="mb-3" />
-                        <p class="font-display text-lg text-ink">{{ $cursoCorto->cursoAcademico()->nombre }}</p>
-                        <p class="mt-3 text-xs text-ink-faint">
-                            @if ($rol !== 'docente')
-                                {{ $cursoCorto->curso->docente?->name }}
-                            @endif
-                        </p>
-                    </a>
-                @endforeach
-            </div>
+    @if (! $modalidad)
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <button
+                type="button"
+                wire:click="elegirModalidad('instituto')"
+                class="block rounded-2xl border border-border bg-surface shadow-sm p-6 text-left transition hover:border-accent"
+            >
+                <p class="font-display text-lg text-ink">Instituto</p>
+                <p class="mt-1 text-sm text-ink-dim">Programas de estudio por período de matrícula y semestre.</p>
+            </button>
+            <button
+                type="button"
+                wire:click="elegirModalidad('curso_corto')"
+                class="block rounded-2xl border border-border bg-surface shadow-sm p-6 text-left transition hover:border-accent"
+            >
+                <p class="font-display text-lg text-ink">Cursos cortos</p>
+                <p class="mt-1 text-sm text-ink-dim">Cursos de capacitación individuales.</p>
+            </button>
         </div>
-    @endif
+    @elseif ($modalidad === 'curso_corto')
+        <button type="button" wire:click="volverAModalidad" class="mb-4 text-sm text-ink-faint hover:text-ink">← Instituto / Cursos cortos</button>
 
-    @if (! $programaEstudioId)
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            @forelse ($cursosCortos as $cursoCorto)
+                <a
+                    href="{{ route('aula-virtual.show', $cursoCorto) }}"
+                    wire:navigate
+                    class="block rounded-2xl border border-border bg-surface shadow-sm p-4 transition hover:border-accent"
+                >
+                    <x-curso-portada :curso="$cursoCorto->cursoAcademico()" class="mb-3" />
+                    <p class="font-display text-lg text-ink">{{ $cursoCorto->cursoAcademico()->nombre }}</p>
+                    <p class="mt-3 text-xs text-ink-faint">
+                        @if ($rol !== 'docente')
+                            {{ $cursoCorto->curso->docente?->name }}
+                        @endif
+                    </p>
+                </a>
+            @empty
+                <p class="col-span-full py-8 text-center text-sm text-ink-faint">
+                    @if ($rol === 'docente')
+                        Todavía no tienes cursos cortos con aula virtual activada.
+                    @elseif ($rol === 'estudiante')
+                        Todavía no estás matriculado en ningún curso corto.
+                    @else
+                        No hay cursos cortos virtuales activos.
+                    @endif
+                </p>
+            @endforelse
+        </div>
+    @elseif (! $programaEstudioId)
+        <button type="button" wire:click="volverAModalidad" class="mb-4 text-sm text-ink-faint hover:text-ink">← Instituto / Cursos cortos</button>
+
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             @forelse ($programasDisponibles as $programa)
                 <button
