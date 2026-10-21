@@ -13,6 +13,7 @@ use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\Academico\Models\ProgramaEstudio;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 
@@ -20,12 +21,17 @@ class AcademicoDemoSeeder extends Seeder
 {
     public function run(): void
     {
+        $programaEstudio = ProgramaEstudio::query()->create([
+            'nombre' => 'Programa Académico Regular',
+            'activo' => true,
+        ]);
+
         $grados = collect([
             ['nombre' => 'Semestre 1', 'orden' => 1],
             ['nombre' => 'Semestre 2', 'orden' => 2],
             ['nombre' => 'Semestre 3', 'orden' => 3],
             ['nombre' => 'Semestre 4', 'orden' => 4],
-        ])->map(fn (array $datos) => Grado::query()->create($datos));
+        ])->map(fn (array $datos) => Grado::query()->create([...$datos, 'programa_estudio_id' => $programaEstudio->id]));
 
         $cursoComunicacion = Curso::query()->create([
             'nombre' => 'Comunicación',
