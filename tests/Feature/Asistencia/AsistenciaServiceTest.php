@@ -13,6 +13,7 @@ use App\Modules\Asistencia\Models\Asistencia;
 use App\Modules\Asistencia\Services\AsistenciaService;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
+use App\Modules\Matricula\Models\MatriculaCursoCorto;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -410,11 +411,11 @@ class AsistenciaServiceTest extends TestCase
     }
 
     /**
-     * Regresión: un horario de curso corto no tiene ciclo ni grado (ver
-     * Horario::esDeCursoCorto()) -- Asistencia no lo soporta y no debía
-     * tronar al listarlo junto a los horarios de Instituto.
+     * Un horario de curso corto no tiene ciclo ni grado (ver
+     * Horario::esDeCursoCorto()) pero sí entra en Asistencia junto a los
+     * horarios de Instituto -- listado aparte en la vista, no excluido.
      */
-    public function test_horarios_del_docente_no_incluye_horarios_de_curso_corto(): void
+    public function test_horarios_del_docente_incluye_horarios_de_curso_corto(): void
     {
         $docente = User::factory()->create();
         $horarioInstituto = Horario::factory()->create(['docente_id' => $docente->id]);
@@ -427,10 +428,10 @@ class AsistenciaServiceTest extends TestCase
         $horarios = $this->service()->horariosDelDocente($docente->id);
 
         $this->assertTrue($horarios->contains('id', $horarioInstituto->id));
-        $this->assertFalse($horarios->contains('id', $horarioCursoCorto->id));
+        $this->assertTrue($horarios->contains('id', $horarioCursoCorto->id));
     }
 
-    public function test_todos_no_incluye_horarios_de_curso_corto(): void
+    public function test_todos_incluye_horarios_de_curso_corto(): void
     {
         $horarioInstituto = Horario::factory()->create();
         $horarioCursoCorto = Horario::factory()->create(['ciclo_id' => null, 'grado_id' => null]);
@@ -438,6 +439,80 @@ class AsistenciaServiceTest extends TestCase
         $horarios = $this->service()->todos();
 
         $this->assertTrue($horarios->contains('id', $horarioInstituto->id));
-        $this->assertFalse($horarios->contains('id', $horarioCursoCorto->id));
+        $this->assertTrue($horarios->contains('id', $horarioCursoCorto->id));
+    }
+
+    public function test_horarios_del_estudiante_incluye_su_curso_corto_activo(): void
+    {
+        $curso = Curso::factory()->create();
+        $horarioCursoCorto = Horario::factory()->create([
+            'curso_id' => $curso->id,
+            'ciclo_id' => null,
+            'grado_id' => null,
+        ]);
+
+        $estudiante = Estudiante::factory()->create();
+        MatriculaCursoCorto::factory()->create([
+            'estudiante_id' => $estudiante->id,
+            'curso_id' => $curso->id,
+            'estado' => 'activo',
+        ]);
+
+        $otroCursoCorto = Horario::factory()->create(['ciclo_id' => null, 'grado_id' => null]);
+
+        $horarios = $this->service()->horariosDelEstudiante($estudiante);
+
+        $this->assertTrue($horarios->contains('id', $horarioCursoCorto->id));
+        $this->assertFalse($horarios->contains('id', $otroCursoCorto->id));
+    }
+
+    public function test_estudiantes_del_horario_de_curso_corto_solo_incluye_matriculados_activos(): void
+    {
+        $curso = Curso::factory()->create();
+        $horario = Horario::factory()->create(['curso_id' => $curso->id, 'ciclo_id' => null, 'grado_id' => null]);
+
+        $activo = Estudiante::factory()->create();
+        MatriculaCursoCorto::factory()->create(['estudiante_id' => $activo->id, 'curso_id' => $curso->id, 'estado' => 'activo']);
+
+        $retirado = Estudiante::factory()->create();
+        MatriculaCursoCorto::factory()->create(['estudiante_id' => $retirado->id, 'curso_id' => $curso->id, 'estado' => 'retirado']);
+
+        $noMatriculado = Estudiante::factory()->create();
+
+        $estudiantes = $this->service()->estudiantesDelHorario($horario);
+
+        $this->assertTrue($estudiantes->contains('id', $activo->id));
+        $this->assertFalse($estudiantes->contains('id', $retirado->id));
+        $this->assertFalse($estudiantes->contains('id', $noMatriculado->id));
+    }
+
+    public function test_esta_matriculado_en_horario_de_curso_corto(): void
+    {
+        $curso = Curso::factory()->create();
+        $horario = Horario::factory()->create(['curso_id' => $curso->id, 'ciclo_id' => null, 'grado_id' => null]);
+
+        $matriculado = Estudiante::factory()->create();
+        MatriculaCursoCorto::factory()->create(['estudiante_id' => $matriculado->id, 'curso_id' => $curso->id, 'estado' => 'activo']);
+
+        $noMatriculado = Estudiante::factory()->create();
+
+        $this->assertTrue($this->service()->estaMatriculadoEnHorario($matriculado, $horario));
+        $this->assertFalse($this->service()->estaMatriculadoEnHorario($noMatriculado, $horario));
+    }
+
+    public function test_fechas_de_clase_de_curso_corto_usa_la_creacion_del_horario_como_inicio(): void
+    {
+        $horario = $this->horarioConDias(['ciclo_id' => null, 'grado_id' => null], [DiaSemanaEnum::DOMINGO]);
+        $creadoEn = $horario->created_at->copy()->startOfDay();
+
+        $this->travelTo($creadoEn->copy()->addMonths(2));
+
+        $fechas = $this->service()->fechasDeClase($horario, 4);
+
+        $this->assertTrue($fechas->isNotEmpty());
+        foreach ($fechas as $fecha) {
+            $this->assertSame(0, Carbon::parse($fecha)->dayOfWeek);
+            $this->assertTrue(Carbon::parse($fecha)->gte($creadoEn));
+        }
     }
 }

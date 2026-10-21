@@ -10,6 +10,7 @@ use App\Modules\Asistencia\Enums\EstadoAsistenciaEnum;
 use App\Modules\Asistencia\Models\Asistencia;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
+use App\Modules\Matricula\Models\MatriculaCursoCorto;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -34,7 +35,6 @@ class AsistenciaService
     {
         return Horario::query()
             ->where('docente_id', $docenteId)
-            ->whereNotNull('ciclo_id')
             ->with(['curso', 'grado', 'ciclo', 'dias'])
             ->get();
     }
@@ -48,14 +48,20 @@ class AsistenciaService
             ->where('estado', 'aprobada')
             ->get(['id', 'grado_id', 'ciclo_id']);
 
-        if ($matriculas->isEmpty()) {
+        $cursosCortoIds = $estudiante->cursosCortos()->where('estado', 'activo')->pluck('curso_id');
+
+        if ($matriculas->isEmpty() && $cursosCortoIds->isEmpty()) {
             return new Collection;
         }
 
         return Horario::query()
-            ->where(function ($query) use ($matriculas) {
+            ->where(function ($query) use ($matriculas, $cursosCortoIds) {
                 foreach ($matriculas as $matricula) {
                     $query->orWhere(fn ($query) => $query->deLaMatricula($matricula));
+                }
+
+                if ($cursosCortoIds->isNotEmpty()) {
+                    $query->orWhereIn('curso_id', $cursosCortoIds)->whereNull('ciclo_id');
                 }
             })
             ->with(['curso', 'grado', 'ciclo', 'docente', 'dias'])
@@ -67,21 +73,28 @@ class AsistenciaService
      */
     public function todos(): Collection
     {
-        // Un horario de curso corto (sin ciclo) no entra en Asistencia --
-        // ver la decisión original de la modalidad Curso corto.
-        return Horario::query()->whereNotNull('ciclo_id')->with(['curso', 'grado', 'ciclo', 'docente', 'dias'])->get();
+        return Horario::query()->with(['curso', 'grado', 'ciclo', 'docente', 'dias'])->get();
     }
 
     /**
-     * Estudiantes matriculados (aprobados) en el grado y ciclo de un
-     * horario -- ver Matricula::scopeDelHorario().
+     * Estudiantes que cuentan para un horario: matriculados (aprobados) en
+     * su grado y ciclo (ver Matricula::scopeDelHorario()) para un curso
+     * académico, o con MatriculaCursoCorto activa en su curso para un
+     * curso corto (sin grado ni ciclo, ver Horario::esDeCursoCorto()).
      *
      * @return Collection<int, Estudiante>
      */
     public function estudiantesDelHorario(Horario $horario): Collection
     {
+        $estudianteIds = $horario->esDeCursoCorto()
+            ? MatriculaCursoCorto::query()
+                ->where('curso_id', $horario->curso_id)
+                ->where('estado', 'activo')
+                ->pluck('estudiante_id')
+            : Matricula::query()->delHorario($horario)->pluck('estudiante_id');
+
         return Estudiante::query()
-            ->whereIn('id', Matricula::query()->delHorario($horario)->pluck('estudiante_id'))
+            ->whereIn('id', $estudianteIds)
             ->orderBy('apellidos')
             ->orderBy('nombres')
             ->get();
@@ -94,6 +107,14 @@ class AsistenciaService
 
     public function estaMatriculadoEnHorario(Estudiante $estudiante, Horario $horario): bool
     {
+        if ($horario->esDeCursoCorto()) {
+            return MatriculaCursoCorto::query()
+                ->where('estudiante_id', $estudiante->id)
+                ->where('curso_id', $horario->curso_id)
+                ->where('estado', 'activo')
+                ->exists();
+        }
+
         return Matricula::query()->delHorario($horario)->where('estudiante_id', $estudiante->id)->exists();
     }
 
@@ -122,8 +143,12 @@ class AsistenciaService
     {
         $diasValidos = $horario->dias->map(fn (HorarioDia $dia) => $dia->dia_semana->numeroCarbon())->all();
 
-        $cursor = now()->min($horario->ciclo->fecha_fin)->copy()->startOfDay();
-        $inicio = $horario->ciclo->fecha_inicio->copy()->startOfDay();
+        // Un horario de curso corto no tiene Ciclo que acote el rango --
+        // se usa su fecha de creación como "inicio" (antes de eso no pudo
+        // haber dictado clase) y hoy como tope.
+        $fin = $horario->esDeCursoCorto() ? now() : now()->min($horario->ciclo->fecha_fin);
+        $cursor = $fin->copy()->startOfDay();
+        $inicio = ($horario->esDeCursoCorto() ? $horario->created_at : $horario->ciclo->fecha_inicio)->copy()->startOfDay();
 
         /** @var list<string> $fechas */
         $fechas = [];

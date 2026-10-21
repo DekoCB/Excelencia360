@@ -75,14 +75,20 @@ new #[Layout('layouts.app')] class extends Component
             $rol = 'supervisor';
         }
 
-        $gruposDisponibles = $horarios->pluck('ciclo')->unique('id')->sortByDesc('fecha_inicio')->values();
+        // Un curso corto no tiene Período de matrícula ni Semestre -- se
+        // muestra aparte, como lista plana, en vez de forzarlo en el
+        // drill-down de Instituto (mismo criterio que Aula Virtual).
+        $horariosInstituto = $horarios->reject(fn ($horario) => $horario->esDeCursoCorto());
+        $horariosCortos = $horarios->filter(fn ($horario) => $horario->esDeCursoCorto())->sortBy(fn ($horario) => $horario->curso->nombre)->values();
+
+        $gruposDisponibles = $horariosInstituto->pluck('ciclo')->unique('id')->sortByDesc('fecha_inicio')->values();
 
         $gradosPorSeccion = collect();
         $gradosDisponibles = collect();
         $grupos = collect();
 
         if ($this->cicloId) {
-            $delCiclo = $horarios->where('ciclo_id', $this->cicloId);
+            $delCiclo = $horariosInstituto->where('ciclo_id', $this->cicloId);
             $gradosPorSeccion = $delCiclo->pluck('grado')->unique('id')->sortBy('orden')->values()->groupBy(fn ($grado) => $grado->letraAula());
 
             if ($this->seccion) {
@@ -102,6 +108,7 @@ new #[Layout('layouts.app')] class extends Component
         }
 
         return [
+            'horariosCortos' => $horariosCortos,
             'gruposDisponibles' => $gruposDisponibles,
             'gradosPorSeccion' => $gradosPorSeccion,
             'gradosDisponibles' => $gradosDisponibles,
@@ -141,6 +148,29 @@ new #[Layout('layouts.app')] class extends Component
                 </span>
                 <x-heroicon-o-chevron-right class="h-5 w-5 shrink-0 text-accent" />
             </a>
+        </div>
+    @endif
+
+    @if ($horariosCortos->isNotEmpty() && ! $cicloId)
+        <div class="mb-6">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Cursos cortos</p>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach ($horariosCortos as $horarioCorto)
+                    <a
+                        href="{{ route('asistencia.show', $horarioCorto) }}"
+                        wire:navigate
+                        class="block rounded-2xl border border-border bg-surface shadow-sm p-4 transition hover:border-accent"
+                    >
+                        <p class="font-display text-lg text-ink">{{ $horarioCorto->curso->nombre }}</p>
+                        <p class="mt-3 text-xs text-ink-faint">
+                            @if ($rol !== 'docente')
+                                {{ $horarioCorto->docente->name }} ·
+                            @endif
+                            {{ $horarioCorto->diasResumen() }}
+                        </p>
+                    </a>
+                @endforeach
+            </div>
         </div>
     @endif
 

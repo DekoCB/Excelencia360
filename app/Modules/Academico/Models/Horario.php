@@ -29,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property int $aula_id
  * @property int|null $ciclo_id
  * @property int|null $grado_id
+ * @property Carbon $created_at
  * @property-read Curso $curso
  * @property-read User $docente
  * @property-read Aula $aula

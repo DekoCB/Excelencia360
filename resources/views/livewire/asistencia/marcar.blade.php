@@ -77,7 +77,7 @@ new #[Layout('layouts.app')] class extends Component
                 <p class="mt-1 font-display text-xl text-ink">{{ $horarioEnCurso->curso->nombre }}</p>
                 @php $diaDeHoy = $horarioEnCurso->diaParaFecha(now()); @endphp
                 <p class="mt-1 text-sm text-ink-dim">
-                    {{ $horarioEnCurso->grado->nombre }}
+                    {{ $horarioEnCurso->esDeCursoCorto() ? 'Curso corto' : $horarioEnCurso->grado->nombre }}
                     @if ($diaDeHoy)
                         · {{ $diaDeHoy->dia_semana->label() }}
                         {{ substr($diaDeHoy->hora_inicio, 0, 5) }}–{{ substr($diaDeHoy->hora_fin, 0, 5) }}

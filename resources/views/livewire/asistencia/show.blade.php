@@ -268,7 +268,12 @@ new #[Layout('layouts.app')] class extends Component
             <h1 class="font-display text-2xl text-ink">{{ $horario->curso->nombre }}</h1>
         </div>
         <p class="mt-1 text-sm text-ink-dim">
-            {{ $horario->grado->nombre }} · {{ $horario->ciclo->nombre }} · {{ $horario->docente->name }} ·
+            @if ($horario->esDeCursoCorto())
+                Curso corto ·
+            @else
+                {{ $horario->grado->nombre }} · {{ $horario->ciclo->nombre }} ·
+            @endif
+            {{ $horario->docente->name }} ·
             {{ $horario->diasResumen() }}
         </p>
     </x-slot>

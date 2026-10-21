@@ -7,6 +7,7 @@ namespace App\Modules\Asistencia\Policies;
 use App\Models\User;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Matricula\Models\Matricula;
+use App\Modules\Matricula\Models\MatriculaCursoCorto;
 
 /**
  * Autorización sobre "¿puede este usuario ver/registrar la asistencia de
@@ -40,9 +41,10 @@ class HorarioAsistenciaPolicy
     }
 
     /**
-     * Solo cuenta como matriculado el estudiante con una matrícula
-     * aprobada en el mismo grado y ciclo del horario (ver
-     * Matricula::scopeDelHorario()).
+     * Para un curso académico, solo cuenta como matriculado el estudiante
+     * con una matrícula aprobada en el mismo grado y ciclo del horario
+     * (ver Matricula::scopeDelHorario()); para un curso corto, el
+     * estudiante con una MatriculaCursoCorto activa en ese mismo curso.
      */
     private function estudianteMatriculado(User $user, Horario $horario): bool
     {
@@ -54,6 +56,14 @@ class HorarioAsistenciaPolicy
 
         if (! $estudiante) {
             return false;
+        }
+
+        if ($horario->esDeCursoCorto()) {
+            return MatriculaCursoCorto::query()
+                ->where('estudiante_id', $estudiante->id)
+                ->where('curso_id', $horario->curso_id)
+                ->where('estado', 'activo')
+                ->exists();
         }
 
         return Matricula::query()
