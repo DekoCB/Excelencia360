@@ -12,6 +12,11 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Volt\Volt;
 use Tests\TestCase;
 
+/**
+ * Un Instituto solo se divide en carreras y semestres, no en "secciones"
+ * (A/B) -- ese paso se quitó del drill-down. Elegir un período de matrícula
+ * va directo a los semestres disponibles.
+ */
 class AsistenciaSeccionesTest extends TestCase
 {
     use RefreshDatabase;
@@ -23,38 +28,15 @@ class AsistenciaSeccionesTest extends TestCase
         $this->seed(RolesAndPermissionsSeeder::class);
     }
 
-    public function test_elegir_un_grupo_ofrece_secciones_a_y_b_antes_de_los_grados(): void
+    public function test_elegir_un_grupo_lista_los_semestres_directamente(): void
     {
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
 
         $ciclo = Ciclo::factory()->create();
-        $gradoA = Grado::factory()->create(['nombre' => 'Grado 1', 'orden' => 1]);
-        $gradoB = Grado::factory()->create(['nombre' => 'Grado 3', 'orden' => 3]);
-        Horario::factory()->create(['ciclo_id' => $ciclo->id, 'grado_id' => $gradoA->id]);
-        Horario::factory()->create(['ciclo_id' => $ciclo->id, 'grado_id' => $gradoB->id]);
-
-        $this->actingAs($usuario);
-
-        Volt::test('asistencia.index')
-            ->call('elegirModalidad', 'instituto')
-            ->call('seleccionarGrupo', $ciclo->id)
-            ->assertSee('Sección A')
-            ->assertSee('Sección B')
-            ->assertSet('seccion', null);
-    }
-
-    public function test_la_seccion_a_solo_lista_los_grados_1_y_2(): void
-    {
-        $usuario = User::factory()->create();
-        $usuario->assignRole(RolEnum::COORDINADOR->value);
-
-        $ciclo = Ciclo::factory()->create();
-        $grado1 = Grado::factory()->create(['nombre' => 'Grado 1', 'orden' => 1]);
-        $grado2 = Grado::factory()->create(['nombre' => 'Grado 2', 'orden' => 2]);
-        $grado3 = Grado::factory()->create(['nombre' => 'Grado 3', 'orden' => 3]);
+        $grado1 = Grado::factory()->create(['nombre' => 'Semestre 1', 'orden' => 1]);
+        $grado3 = Grado::factory()->create(['nombre' => 'Semestre 3', 'orden' => 3]);
         Horario::factory()->create(['ciclo_id' => $ciclo->id, 'grado_id' => $grado1->id]);
-        Horario::factory()->create(['ciclo_id' => $ciclo->id, 'grado_id' => $grado2->id]);
         Horario::factory()->create(['ciclo_id' => $ciclo->id, 'grado_id' => $grado3->id]);
 
         $this->actingAs($usuario);
@@ -62,13 +44,12 @@ class AsistenciaSeccionesTest extends TestCase
         Volt::test('asistencia.index')
             ->call('elegirModalidad', 'instituto')
             ->call('seleccionarGrupo', $ciclo->id)
-            ->call('seleccionarSeccion', 'A')
-            ->assertSee('Grado 1')
-            ->assertSee('Grado 2')
-            ->assertDontSee('Grado 3');
+            ->assertDontSee('Sección')
+            ->assertSee('Semestre 1')
+            ->assertSee('Semestre 3');
     }
 
-    public function test_elegir_grado_dentro_de_una_seccion_muestra_su_horario(): void
+    public function test_elegir_grado_muestra_su_horario(): void
     {
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
@@ -82,12 +63,11 @@ class AsistenciaSeccionesTest extends TestCase
         Volt::test('asistencia.index')
             ->call('elegirModalidad', 'instituto')
             ->call('seleccionarGrupo', $ciclo->id)
-            ->call('seleccionarSeccion', 'A')
             ->call('seleccionarGrado', $grado->id)
             ->assertSee($horario->curso->nombre);
     }
 
-    public function test_volver_a_secciones_limpia_el_grado_elegido(): void
+    public function test_volver_a_grupos_limpia_el_grado_elegido(): void
     {
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
@@ -101,11 +81,9 @@ class AsistenciaSeccionesTest extends TestCase
         Volt::test('asistencia.index')
             ->call('elegirModalidad', 'instituto')
             ->call('seleccionarGrupo', $ciclo->id)
-            ->call('seleccionarSeccion', 'A')
             ->call('seleccionarGrado', $grado->id)
-            ->call('volverASecciones')
-            ->assertSet('seccion', null)
-            ->assertSet('gradoId', null)
-            ->assertSee('Sección A');
+            ->call('volverAGrupos')
+            ->assertSet('cicloId', null)
+            ->assertSet('gradoId', null);
     }
 }

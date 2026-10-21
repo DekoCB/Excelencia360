@@ -490,7 +490,6 @@
                         </span>
                     </div>
                     <p class="mt-1 text-ink-faint">Matriculado el {{ $matricula->fecha_matricula->format('d/m/Y') }}</p>
-                    <p class="mt-1 text-ink-faint">Aula: {{ $matricula->grado->letraAula() }}</p>
 
                     <div class="mt-2 flex items-center gap-2">
                         <p class="text-ink-faint">Fin de estudios: {{ $matricula->fecha_fin_estudio?->format('d/m/Y') ?? '—' }}</p>

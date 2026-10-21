@@ -36,20 +36,19 @@ class MigracionService
      * los filtros elegidos. El primer filtro es siempre la modalidad del
      * ciclo (Grupo rotativo de 6 meses vs. SIAGIE anual) -- ver el
      * comentario de la vista sobre por qué SIAGIE anual no tiene un filtro
-     * de "Grupo" propio, a diferencia de 6 meses. $seccion es 'A'/'B' (ver
-     * Grado::scopeDeSeccion()); todos los filtros salvo $modalidad son
-     * opcionales.
+     * de "Grupo" propio, a diferencia de 6 meses. Todos los filtros salvo
+     * $modalidad son opcionales.
      *
      * @return Collection<int, Matricula>
      */
-    public function matriculasVigentes(?ModalidadCicloEnum $modalidad, ?int $cicloId, ?string $seccion, ?int $gradoId): Collection
+    public function matriculasVigentes(?ModalidadCicloEnum $modalidad, ?int $cicloId, ?int $programaEstudioId, ?int $gradoId): Collection
     {
         return Matricula::query()
             ->where('estado', EstadoMatriculaEnum::APROBADA)
             ->when($modalidad !== null, fn ($q) => $q->whereHas('ciclo', fn ($qq) => $qq->where('modalidad', $modalidad)))
             ->when($cicloId !== null, fn ($q) => $q->where('ciclo_id', $cicloId))
             ->when($gradoId !== null, fn ($q) => $q->where('grado_id', $gradoId))
-            ->when($seccion !== null, fn ($q) => $q->whereHas('grado', fn ($qq) => $seccion === 'A' ? $qq->where('orden', '<=', 2) : $qq->where('orden', '>', 2)))
+            ->when($programaEstudioId !== null, fn ($q) => $q->whereHas('grado', fn ($qq) => $qq->where('programa_estudio_id', $programaEstudioId)))
             ->with(['estudiante', 'grado', 'ciclo'])
             ->get();
     }

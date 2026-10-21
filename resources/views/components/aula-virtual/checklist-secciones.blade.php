@@ -22,7 +22,7 @@
                         wire:model="{{ $campo }}"
                         class="rounded border-border text-accent focus:ring-accent"
                     >
-                    Aula {{ $cursoOpcion->horario->grado->letraAula() }} · {{ $cursoOpcion->horario->docente->name }}
+                    {{ $cursoOpcion->horario->aula->nombre }} · {{ $cursoOpcion->horario->docente->name }}
                 </label>
             @endforeach
         </div>

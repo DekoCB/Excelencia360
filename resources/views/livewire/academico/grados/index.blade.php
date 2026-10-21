@@ -120,7 +120,6 @@ new #[Layout('layouts.app')] class extends Component
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Nombre</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Programa de estudio</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Orden</th>
-                    <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Aula</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Estado</th>
                     <th class="px-4 py-3"></th>
                 </tr>
@@ -131,7 +130,6 @@ new #[Layout('layouts.app')] class extends Component
                         <td class="px-4 py-3 font-medium text-ink">{{ $grado->nombre }}</td>
                         <td class="px-4 py-3 text-ink-dim">{{ $grado->programaEstudio->nombre }}</td>
                         <td class="px-4 py-3 font-mono text-ink-dim">{{ $grado->orden }}</td>
-                        <td class="px-4 py-3 text-ink-dim">{{ $grado->letraAula() }}</td>
                         <td class="px-4 py-3">
                             <span @class(['rounded-full px-2 py-0.5 text-xs font-medium', 'bg-ok/10 text-ok' => $grado->activo, 'bg-ink-faint/10 text-ink-faint' => ! $grado->activo])>
                                 {{ $grado->activo ? 'Activo' : 'Inactivo' }}

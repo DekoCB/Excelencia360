@@ -3,6 +3,7 @@
 use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Grado;
+use App\Modules\Academico\Models\ProgramaEstudio;
 use App\Modules\Academico\Services\CicloService;
 use App\Modules\Matricula\Enums\EstadoMatriculaEnum;
 use App\Modules\Matricula\Models\Estudiante;
@@ -34,7 +35,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $cicloOrigenId = '';
 
-    public string $seccionOrigen = '';
+    public string $programaEstudioOrigenId = '';
 
     public string $gradoOrigenId = '';
 
@@ -98,13 +99,13 @@ new #[Layout('layouts.app')] class extends Component
     public function updatedModalidadOrigen(): void
     {
         $this->cicloOrigenId = '';
-        $this->seccionOrigen = '';
+        $this->programaEstudioOrigenId = '';
         $this->gradoOrigenId = '';
         $this->masivoCicloDestinoId = '';
         $this->masivoGradoDestinoId = '';
     }
 
-    public function updatedSeccionOrigen(): void
+    public function updatedProgramaEstudioOrigenId(): void
     {
         $this->gradoOrigenId = '';
         $this->masivoGradoDestinoId = '';
@@ -189,7 +190,7 @@ new #[Layout('layouts.app')] class extends Component
         return $service->matriculasVigentes(
             $modalidad,
             $cicloId,
-            $this->seccionOrigen !== '' ? $this->seccionOrigen : null,
+            $this->programaEstudioOrigenId !== '' ? (int) $this->programaEstudioOrigenId : null,
             (int) $this->gradoOrigenId,
         );
     }
@@ -212,7 +213,7 @@ new #[Layout('layouts.app')] class extends Component
 
         $gradosOrigenDisponibles = Grado::query()
             ->where('activo', true)
-            ->when($this->seccionOrigen !== '', fn ($q) => $q->deSeccion($this->seccionOrigen))
+            ->when($this->programaEstudioOrigenId !== '', fn ($q) => $q->where('programa_estudio_id', $this->programaEstudioOrigenId))
             ->orderBy('orden')
             ->get();
 
@@ -223,6 +224,7 @@ new #[Layout('layouts.app')] class extends Component
             'ciclosSeisMeses' => Ciclo::query()->where('modalidad', ModalidadCicloEnum::SEIS_MESES)->orderByDesc('fecha_inicio')->get(),
             'cicloAnualVigente' => $service->cicloAnualVigente(),
             'grados' => Grado::query()->where('activo', true)->orderBy('orden')->get(),
+            'programasEstudio' => ProgramaEstudio::query()->where('activo', true)->orderBy('nombre')->get(),
             'gradosOrigenDisponibles' => $gradosOrigenDisponibles,
             'cohorteMasiva' => $this->cohorteMasivaActual($service),
         ];
@@ -232,7 +234,7 @@ new #[Layout('layouts.app')] class extends Component
 <div>
     <x-slot name="header">
         <h1 class="font-display text-2xl text-ink">Migraciones</h1>
-        <p class="mt-1 text-sm text-ink-dim">Pasar de semestre a un estudiante, o a varios a la vez filtrados por Modalidad/Período de Matrícula/Sección/Semestre.</p>
+        <p class="mt-1 text-sm text-ink-dim">Pasar de semestre a un estudiante, o a varios a la vez filtrados por Modalidad/Período de Matrícula/Carrera/Semestre.</p>
     </x-slot>
 
     @if (session('status'))
@@ -360,12 +362,12 @@ new #[Layout('layouts.app')] class extends Component
 
                     @if ($modalidadOrigen !== '')
                         <div>
-                            <x-input-label for="seccionOrigen" value="Sección" />
+                            <x-input-label for="programaEstudioOrigenId" value="Carrera" />
                             <x-select-input
-                                wire:model.live="seccionOrigen"
-                                id="seccionOrigen"
+                                wire:model.live="programaEstudioOrigenId"
+                                id="programaEstudioOrigenId"
                                 class="mt-1 block w-full"
-                                :options="['' => 'Todas', 'A' => 'Aula A', 'B' => 'Aula B']"
+                                :options="collect(['' => 'Todas'])->merge(collect($programasEstudio)->mapWithKeys(fn ($programa) => [$programa->id => $programa->nombre]))"
                             />
                         </div>
                         <div>

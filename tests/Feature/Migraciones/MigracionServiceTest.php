@@ -113,19 +113,21 @@ class MigracionServiceTest extends TestCase
         $this->assertSame($estudianteC->nombreCompleto(), $resultado['errores'][0]['estudiante']);
     }
 
-    public function test_matriculas_vigentes_filtra_por_ciclo_seccion_y_grado(): void
+    public function test_matriculas_vigentes_filtra_por_ciclo_programa_de_estudio_y_grado(): void
     {
-        $gradoSeccionA = Grado::factory()->create(['orden' => 1]);
-        $gradoSeccionB = Grado::factory()->create(['orden' => 3]);
+        $programaA = ProgramaEstudio::factory()->create();
+        $programaB = ProgramaEstudio::factory()->create();
+        $gradoProgramaA = Grado::factory()->create(['programa_estudio_id' => $programaA->id, 'orden' => 1]);
+        $gradoProgramaB = Grado::factory()->create(['programa_estudio_id' => $programaB->id, 'orden' => 1]);
         $ciclo = $this->cicloConPeriodoAbierto();
 
-        $this->estudianteMatriculado($ciclo, $gradoSeccionA);
-        $this->estudianteMatriculado($ciclo, $gradoSeccionB);
+        $this->estudianteMatriculado($ciclo, $gradoProgramaA);
+        $this->estudianteMatriculado($ciclo, $gradoProgramaB);
 
-        $this->assertCount(1, $this->service()->matriculasVigentes(null, $ciclo->id, 'A', null));
-        $this->assertCount(1, $this->service()->matriculasVigentes(null, $ciclo->id, 'B', null));
+        $this->assertCount(1, $this->service()->matriculasVigentes(null, $ciclo->id, $programaA->id, null));
+        $this->assertCount(1, $this->service()->matriculasVigentes(null, $ciclo->id, $programaB->id, null));
         $this->assertCount(2, $this->service()->matriculasVigentes(null, $ciclo->id, null, null));
-        $this->assertCount(1, $this->service()->matriculasVigentes(null, $ciclo->id, null, $gradoSeccionA->id));
+        $this->assertCount(1, $this->service()->matriculasVigentes(null, $ciclo->id, null, $gradoProgramaA->id));
     }
 
     public function test_matriculas_vigentes_filtra_por_modalidad(): void
