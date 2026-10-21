@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Asistencia;
 
+use App\Models\User;
 use App\Modules\Academico\Enums\DiaSemanaEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
@@ -406,5 +407,37 @@ class AsistenciaServiceTest extends TestCase
 
         $this->assertSame(EstadoAsistenciaEnum::FALTA, $asistencia->estado);
         $this->assertDatabaseCount('asistencias', 1);
+    }
+
+    /**
+     * Regresión: un horario de curso corto no tiene ciclo ni grado (ver
+     * Horario::esDeCursoCorto()) -- Asistencia no lo soporta y no debía
+     * tronar al listarlo junto a los horarios de Instituto.
+     */
+    public function test_horarios_del_docente_no_incluye_horarios_de_curso_corto(): void
+    {
+        $docente = User::factory()->create();
+        $horarioInstituto = Horario::factory()->create(['docente_id' => $docente->id]);
+        $horarioCursoCorto = Horario::factory()->create([
+            'docente_id' => $docente->id,
+            'ciclo_id' => null,
+            'grado_id' => null,
+        ]);
+
+        $horarios = $this->service()->horariosDelDocente($docente->id);
+
+        $this->assertTrue($horarios->contains('id', $horarioInstituto->id));
+        $this->assertFalse($horarios->contains('id', $horarioCursoCorto->id));
+    }
+
+    public function test_todos_no_incluye_horarios_de_curso_corto(): void
+    {
+        $horarioInstituto = Horario::factory()->create();
+        $horarioCursoCorto = Horario::factory()->create(['ciclo_id' => null, 'grado_id' => null]);
+
+        $horarios = $this->service()->todos();
+
+        $this->assertTrue($horarios->contains('id', $horarioInstituto->id));
+        $this->assertFalse($horarios->contains('id', $horarioCursoCorto->id));
     }
 }

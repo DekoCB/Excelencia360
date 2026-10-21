@@ -49,6 +49,7 @@ class EvaluacionService
     {
         return Horario::query()
             ->where('docente_id', $docenteId)
+            ->whereNotNull('ciclo_id')
             ->with(['curso', 'grado', 'ciclo', 'docente', 'dias'])
             ->get();
     }
@@ -81,7 +82,9 @@ class EvaluacionService
      */
     public function todos(): Collection
     {
-        return Horario::query()->with(['curso', 'grado', 'ciclo', 'docente', 'dias'])->get();
+        // Un horario de curso corto (sin ciclo) no entra en Evaluaciones --
+        // ver la decisión original de la modalidad Curso corto.
+        return Horario::query()->whereNotNull('ciclo_id')->with(['curso', 'grado', 'ciclo', 'docente', 'dias'])->get();
     }
 
     /**

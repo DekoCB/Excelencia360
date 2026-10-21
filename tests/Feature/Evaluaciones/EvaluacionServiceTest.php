@@ -536,4 +536,37 @@ class EvaluacionServiceTest extends TestCase
         $this->assertSame($cicloAnterior->id, $porCiclo->last()['ciclo']->id);
         $this->assertSame(12.0, $porCiclo->last()['promedioGeneral']);
     }
+
+    /**
+     * Regresión: un horario de curso corto no tiene ciclo ni grado (ver
+     * Horario::esDeCursoCorto()) -- Evaluaciones no lo soporta y no debía
+     * tronar al listarlo junto a los horarios de Instituto (lo consume
+     * también Calendario, vía estos mismos métodos).
+     */
+    public function test_horarios_del_docente_no_incluye_horarios_de_curso_corto(): void
+    {
+        $docente = User::factory()->create();
+        $horarioInstituto = Horario::factory()->create(['docente_id' => $docente->id]);
+        $horarioCursoCorto = Horario::factory()->create([
+            'docente_id' => $docente->id,
+            'ciclo_id' => null,
+            'grado_id' => null,
+        ]);
+
+        $horarios = $this->service()->horariosDelDocente($docente->id);
+
+        $this->assertTrue($horarios->contains('id', $horarioInstituto->id));
+        $this->assertFalse($horarios->contains('id', $horarioCursoCorto->id));
+    }
+
+    public function test_todos_no_incluye_horarios_de_curso_corto(): void
+    {
+        $horarioInstituto = Horario::factory()->create();
+        $horarioCursoCorto = Horario::factory()->create(['ciclo_id' => null, 'grado_id' => null]);
+
+        $horarios = $this->service()->todos();
+
+        $this->assertTrue($horarios->contains('id', $horarioInstituto->id));
+        $this->assertFalse($horarios->contains('id', $horarioCursoCorto->id));
+    }
 }
