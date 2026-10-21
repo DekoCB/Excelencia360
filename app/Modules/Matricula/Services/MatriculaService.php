@@ -12,6 +12,7 @@ use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\Academico\Models\ProgramaEstudio;
 use App\Modules\Identidad\DTOs\CrearUsuarioData;
 use App\Modules\Identidad\Services\UserManagementService;
 use App\Modules\Matricula\DTOs\RegistrarApoderadoData;
@@ -302,10 +303,40 @@ class MatriculaService
 
             $estudiante->update(['grado_actual_id' => $grado->id]);
 
+            foreach ($data->cursoIds ?? [] as $cursoId) {
+                $this->asignarCursoEspecifico($matricula, (int) $cursoId);
+            }
+
             event(new EstudianteMatriculado($matricula));
 
             return $matricula;
         });
+    }
+
+    /**
+     * Variante de asignarHorarioDeCurso() que resuelve el horario a partir
+     * del curso en vez de pedirlo explícito -- para cuando solo hay un
+     * Horario para ese curso+grado+ciclo (el caso normal). Si hay varios
+     * (paralelos), no hay forma de adivinar cuál: se le pide a quien
+     * matricula que lo asigne a mano después desde la ficha.
+     */
+    private function asignarCursoEspecifico(Matricula $matricula, int $cursoId): void
+    {
+        $horarios = Horario::query()
+            ->where('curso_id', $cursoId)
+            ->where('grado_id', $matricula->grado_id)
+            ->where('ciclo_id', $matricula->ciclo_id)
+            ->get();
+
+        if ($horarios->count() !== 1) {
+            throw ValidationException::withMessages([
+                'cursoIds' => $horarios->isEmpty()
+                    ? 'Uno de los cursos elegidos no tiene horario en ese semestre y período.'
+                    : 'Uno de los cursos elegidos tiene varias secciones: asígnalo a mano desde la ficha del estudiante.',
+            ]);
+        }
+
+        $matricula->horarios()->attach($horarios->first()->id);
     }
 
     /**
@@ -516,6 +547,15 @@ class MatriculaService
      * @param  Collection<int, Collection<string, mixed>>  $filas
      * @return array{exitosos: int, errores: list<array{fila: int, mensaje: string}>}
      */
+    /**
+     * Columnas: dni, carrera, semestre, curso (opcional), observaciones
+     * (opcional). "carrera" desambigua semestres con el mismo nombre en
+     * carreras distintas (ej. "Semestre 1" existe en varias); sin ella, el
+     * semestre se buscaba solo por nombre y podía chocar con otro igual de
+     * otra carrera. "curso" es opcional: si se llena, matricula solo en
+     * ESE curso del semestre (ver RegistrarMatriculaData::$cursoIds); si
+     * se deja vacío, matricula en todo el semestre como siempre.
+     */
     public function matricularDesdeFilas(int $cicloId, Collection $filas, ?int $registradoPor): array
     {
         $exitosos = 0;
@@ -524,16 +564,33 @@ class MatriculaService
         foreach ($filas as $indice => $fila) {
             try {
                 $dniTexto = (new Dni($this->celdaObligatoria($fila, 'dni')))->valor();
-                $nombreGrado = $this->celdaObligatoria($fila, 'grado');
+                $nombreCarrera = $this->celdaObligatoria($fila, 'carrera');
+                $nombreGrado = $this->celdaObligatoria($fila, 'semestre');
 
                 $estudiante = Estudiante::query()->where('dni', $dniTexto)->first();
                 if (! $estudiante) {
                     throw new InvalidArgumentException("No existe ningún estudiante registrado con el DNI {$dniTexto}.");
                 }
 
-                $grado = Grado::query()->where('nombre', $nombreGrado)->first();
+                $programaEstudio = ProgramaEstudio::query()->where('nombre', $nombreCarrera)->first();
+                if (! $programaEstudio) {
+                    throw new InvalidArgumentException("No existe la carrera «{$nombreCarrera}».");
+                }
+
+                $grado = Grado::query()->where('programa_estudio_id', $programaEstudio->id)->where('nombre', $nombreGrado)->first();
                 if (! $grado) {
-                    throw new InvalidArgumentException("No existe el grado «{$nombreGrado}».");
+                    throw new InvalidArgumentException("La carrera «{$nombreCarrera}» no tiene el semestre «{$nombreGrado}».");
+                }
+
+                $cursoIds = null;
+                $nombreCurso = $this->celdaOpcional($fila, 'curso');
+
+                if ($nombreCurso !== null && trim($nombreCurso) !== '') {
+                    $curso = Curso::query()->whereHas('grados', fn ($q) => $q->where('grados.id', $grado->id))->where('nombre', $nombreCurso)->first();
+                    if (! $curso) {
+                        throw new InvalidArgumentException("El semestre «{$nombreGrado}» no tiene el curso «{$nombreCurso}».");
+                    }
+                    $cursoIds = [$curso->id];
                 }
 
                 $this->matricular($estudiante, new RegistrarMatriculaData(
@@ -541,7 +598,52 @@ class MatriculaService
                     gradoId: $grado->id,
                     observaciones: $this->celdaOpcional($fila, 'observaciones'),
                     registradoPor: $registradoPor,
+                    cursoIds: $cursoIds,
                 ));
+
+                $exitosos++;
+            } catch (Throwable $e) {
+                $errores[] = ['fila' => $indice + 2, 'mensaje' => $this->mensajeDeError($e)];
+            }
+        }
+
+        return ['exitosos' => $exitosos, 'errores' => $errores];
+    }
+
+    /**
+     * Carga masiva de curso corto: columnas dni, curso. El estudiante ya
+     * debe estar registrado (se busca por dni); el curso debe ser de
+     * tipo=capacitacion, igual que matricularCursoCorto().
+     *
+     * @param  Collection<int, Collection<string, mixed>>  $filas
+     * @return array{exitosos: int, errores: list<array{fila: int, mensaje: string}>}
+     */
+    public function matricularCursoCortoDesdeFilas(Collection $filas, ?int $registradoPor): array
+    {
+        $exitosos = 0;
+        $errores = [];
+
+        foreach ($filas as $indice => $fila) {
+            try {
+                $dniTexto = (new Dni($this->celdaObligatoria($fila, 'dni')))->valor();
+                $nombreCurso = $this->celdaObligatoria($fila, 'curso');
+
+                $estudiante = Estudiante::query()->where('dni', $dniTexto)->first();
+                if (! $estudiante) {
+                    throw new InvalidArgumentException("No existe ningún estudiante registrado con el DNI {$dniTexto}.");
+                }
+
+                $curso = Curso::query()->where('tipo', TipoCursoEnum::CAPACITACION)->where('nombre', $nombreCurso)->first();
+                if (! $curso) {
+                    throw new InvalidArgumentException("No existe el curso corto «{$nombreCurso}».");
+                }
+
+                $this->matricularCursoCorto($estudiante, [
+                    'curso_id' => $curso->id,
+                    'fecha_inicio' => now()->format('Y-m-d'),
+                    'observaciones' => null,
+                    'registrado_por' => $registradoPor,
+                ]);
 
                 $exitosos++;
             } catch (Throwable $e) {

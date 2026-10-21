@@ -189,14 +189,16 @@ class SecretariaModalidadTest extends TestCase
             ->assertSet('tipoMatricula', 'curso_corto');
     }
 
-    public function test_secretaria_excelencia_no_puede_entrar_a_la_carga_masiva_de_instituto(): void
+    public function test_secretaria_excelencia_entra_a_la_carga_masiva_fija_en_curso_corto(): void
     {
         $secretaria = User::factory()->create();
         $secretaria->assignRole(RolEnum::SECRETARIA_EXCELENCIA->value);
 
-        $this->actingAs($secretaria)
-            ->get(route('matricula.carga-masiva'))
-            ->assertForbidden();
+        $this->actingAs($secretaria);
+
+        Volt::test('matricula.carga-masiva')
+            ->assertSet('tipoMatricula', 'curso_corto')
+            ->assertDontSee('Tipo de matrícula');
     }
 
     public function test_secretaria_instituto_si_puede_entrar_a_la_carga_masiva_de_instituto(): void

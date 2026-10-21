@@ -5,6 +5,7 @@ namespace Tests\Feature\Matricula;
 use App\Models\User;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Grado;
+use App\Modules\Academico\Models\ProgramaEstudio;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Shared\Enums\RolEnum;
@@ -96,10 +97,11 @@ class CargaMasivaTest extends TestCase
             'fecha_fin_matricula' => now()->addDays(10),
             'estado_matricula' => 'abierto',
         ]);
-        Grado::factory()->create(['nombre' => '3ro de Secundaria']);
+        $programa = ProgramaEstudio::factory()->create(['nombre' => 'Administración de Empresas']);
+        Grado::factory()->create(['programa_estudio_id' => $programa->id, 'nombre' => 'Semestre 3']);
         $estudiante = Estudiante::factory()->create(['dni' => '22334455', 'es_menor_edad' => false]);
 
-        $archivo = $this->archivoExcel(['dni', 'grado'], [['22334455', '3ro de Secundaria']]);
+        $archivo = $this->archivoExcel(['dni', 'carrera', 'semestre'], [['22334455', 'Administración de Empresas', 'Semestre 3']]);
 
         $this->actingAs($coordinador);
 

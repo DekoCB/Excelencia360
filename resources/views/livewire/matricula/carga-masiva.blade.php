@@ -1,6 +1,9 @@
 <?php
 
+use App\Modules\Academico\Enums\EstadoCicloEnum;
+use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Models\Ciclo;
+use App\Modules\Matricula\Exports\MatriculaCursoCortoPlantillaExport;
 use App\Modules\Matricula\Exports\MatriculaMasivaPlantillaExport;
 use App\Modules\Matricula\Imports\HojaConEncabezadosImport;
 use App\Modules\Matricula\Services\MatriculaService;
@@ -15,6 +18,8 @@ new #[Layout('layouts.app')] class extends Component
 {
     use WithFileUploads;
 
+    public string $tipoMatricula = 'instituto';
+
     public string $cicloId = '';
 
     public $archivo = null;
@@ -22,50 +27,94 @@ new #[Layout('layouts.app')] class extends Component
     /** @var array{exitosos: int, errores: list<array{fila: int, mensaje: string}>}|null */
     public ?array $resultado = null;
 
+    // Fijo cuando quien matricula es una secretaría acotada a una sola
+    // modalidad -- en ese caso el selector de tipo no se muestra, mismo
+    // criterio que matricula/wizard.blade.php.
+    public ?string $modalidadRestringida = null;
+
     public function mount(): void
     {
         Gate::authorize('matricula.crear');
 
-        // Carga masiva vía Ciclo/Grado: solo tiene sentido para Instituto,
-        // Curso Corto no tiene este flujo (ver plan de "Modalidad Curso
-        // corto"), así que Secretaria Excelencia no entra aquí.
-        if (Auth::user()->modalidadMatriculaRestringida() === 'curso_corto') {
-            abort(403);
+        $this->modalidadRestringida = Auth::user()->modalidadMatriculaRestringida();
+
+        if ($this->modalidadRestringida !== null) {
+            $this->tipoMatricula = $this->modalidadRestringida;
         }
+    }
+
+    public function updatedTipoMatricula(): void
+    {
+        $this->cicloId = '';
+        $this->resultado = null;
     }
 
     public function descargarPlantilla()
     {
         Gate::authorize('matricula.crear');
 
-        return Excel::download(new MatriculaMasivaPlantillaExport, 'plantilla-matricula.xlsx');
+        return $this->tipoMatricula === 'curso_corto'
+            ? Excel::download(new MatriculaCursoCortoPlantillaExport, 'plantilla-matricula-curso-corto.xlsx')
+            : Excel::download(new MatriculaMasivaPlantillaExport, 'plantilla-matricula-instituto.xlsx');
     }
 
     public function procesar(MatriculaService $service): void
     {
         Gate::authorize('matricula.crear');
 
-        $this->validate([
-            'cicloId' => ['required', 'integer', 'exists:ciclos,id'],
-            'archivo' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:2048'],
-        ]);
+        if ($this->tipoMatricula === 'curso_corto') {
+            $this->validate(['archivo' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:2048']]);
 
-        $import = new HojaConEncabezadosImport;
-        Excel::import($import, $this->archivo);
+            $import = new HojaConEncabezadosImport;
+            Excel::import($import, $this->archivo);
 
-        $this->resultado = $service->matricularDesdeFilas((int) $this->cicloId, $import->filas, Auth::id());
+            $this->resultado = $service->matricularCursoCortoDesdeFilas($import->filas, Auth::id());
+        } else {
+            $this->validate([
+                'cicloId' => ['required', 'integer', 'exists:ciclos,id'],
+                'archivo' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:2048'],
+            ]);
+
+            $import = new HojaConEncabezadosImport;
+            Excel::import($import, $this->archivo);
+
+            $this->resultado = $service->matricularDesdeFilas((int) $this->cicloId, $import->filas, Auth::id());
+        }
+
         $this->reset('archivo');
+    }
+
+    /**
+     * El período de matrícula de Instituto es el propio Período Académico
+     * vigente: un ciclo anual cuenta mientras esté activo (igual que
+     * matricula/wizard.blade.php, que ya autoasigna el ciclo anual vigente
+     * sin pedir período aparte); uno de 6 meses sigue dependiendo de su
+     * ventana de admisión propia (fecha_inicio_matricula/fecha_fin_matricula).
+     * Antes esto exigía estado_matricula='abierto' para cualquier ciclo, algo
+     * que un ciclo anual nunca tiene (ver CicloService::prepararFechasDeMatricula()),
+     * así que Instituto -- que opera sobre todo con ciclos anuales -- nunca
+     * encontraba ninguno.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, Ciclo>
+     */
+    private function ciclosDisponibles(): \Illuminate\Database\Eloquent\Collection
+    {
+        return Ciclo::query()
+            ->where(function ($query) {
+                $query->where(fn ($q) => $q->where('modalidad', ModalidadCicloEnum::ANUAL)->where('estado', EstadoCicloEnum::ACTIVO))
+                    ->orWhere(fn ($q) => $q->where('modalidad', ModalidadCicloEnum::SEIS_MESES)
+                        ->where('estado_matricula', 'abierto')
+                        ->where('fecha_inicio_matricula', '<=', now())
+                        ->where('fecha_fin_matricula', '>=', now()));
+            })
+            ->orderByDesc('fecha_inicio')
+            ->get();
     }
 
     public function with(): array
     {
         return [
-            'ciclosDisponibles' => Ciclo::query()
-                ->where('estado_matricula', 'abierto')
-                ->where('fecha_inicio_matricula', '<=', now())
-                ->where('fecha_fin_matricula', '>=', now())
-                ->orderByDesc('fecha_inicio')
-                ->get(),
+            'ciclosDisponibles' => $this->tipoMatricula === 'instituto' ? $this->ciclosDisponibles() : collect(),
         ];
     }
 }; ?>
@@ -73,17 +122,37 @@ new #[Layout('layouts.app')] class extends Component
 <div>
     <x-slot name="header">
         <h1 class="font-display text-2xl text-ink">Matrícula masiva</h1>
-        <p class="mt-1 text-sm text-ink-dim">Matricula en un ciclo a muchos estudiantes ya registrados, subiendo un archivo Excel.</p>
+        <p class="mt-1 text-sm text-ink-dim">Matricula a muchos estudiantes ya registrados a la vez, subiendo un archivo Excel.</p>
     </x-slot>
 
     <div class="max-w-3xl space-y-6">
+        @if (! $modalidadRestringida)
+            <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
+                <x-input-label for="tipoMatricula" value="Tipo de matrícula" />
+                <x-select-input
+                    wire:model.live="tipoMatricula"
+                    id="tipoMatricula"
+                    class="mt-1 block w-full sm:max-w-xs"
+                    :options="['instituto' => 'Instituto', 'curso_corto' => 'Curso corto']"
+                />
+            </div>
+        @endif
+
         <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
             <div class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
                     <h2 class="font-display text-lg text-ink">1. Descarga la plantilla</h2>
-                    <p class="mt-1 text-sm text-ink-dim">
-                        Una fila por estudiante: su DNI (ya debe estar registrado) y el nombre exacto del semestre.
-                    </p>
+                    @if ($tipoMatricula === 'curso_corto')
+                        <p class="mt-1 text-sm text-ink-dim">
+                            Una fila por estudiante: su DNI (ya debe estar registrado) y el nombre exacto del curso corto.
+                        </p>
+                    @else
+                        <p class="mt-1 text-sm text-ink-dim">
+                            Una fila por estudiante: su DNI (ya debe estar registrado), carrera y semestre exactos. La
+                            columna «curso» es opcional -- si se llena, matricula solo en ese curso del semestre; si se
+                            deja vacía, matricula en todos los cursos del semestre.
+                        </p>
+                    @endif
                 </div>
                 <x-secondary-button type="button" wire:click="descargarPlantilla" class="shrink-0">
                     <x-heroicon-o-arrow-down-tray class="me-1.5 h-4 w-4" />
@@ -93,23 +162,25 @@ new #[Layout('layouts.app')] class extends Component
         </div>
 
         <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
-            <h2 class="font-display text-lg text-ink">2. Elige el ciclo y sube el archivo</h2>
+            <h2 class="font-display text-lg text-ink">2. {{ $tipoMatricula === 'curso_corto' ? 'Sube el archivo' : 'Elige el período y sube el archivo' }}</h2>
 
-            @if ($ciclosDisponibles->isEmpty())
-                <p class="mt-3 text-sm text-danger">No hay ningún ciclo con periodo de matrícula abierto hoy.</p>
+            @if ($tipoMatricula === 'instituto' && $ciclosDisponibles->isEmpty())
+                <p class="mt-3 text-sm text-danger">No hay ningún período académico vigente ni período de matrícula abierto hoy.</p>
             @endif
 
             <form wire:submit="procesar" class="mt-4 space-y-4">
-                <div>
-                    <x-input-label for="cicloId" value="Período de matrícula" />
-                    <x-select-input
-                        wire:model="cicloId"
-                        id="cicloId"
-                        class="mt-1 block w-full sm:max-w-xs"
-                        :options="collect($ciclosDisponibles)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])"
-                    />
-                    <x-input-error :messages="$errors->get('cicloId')" class="mt-1" />
-                </div>
+                @if ($tipoMatricula === 'instituto')
+                    <div>
+                        <x-input-label for="cicloId" value="Período de matrícula" />
+                        <x-select-input
+                            wire:model="cicloId"
+                            id="cicloId"
+                            class="mt-1 block w-full sm:max-w-xs"
+                            :options="collect($ciclosDisponibles)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])"
+                        />
+                        <x-input-error :messages="$errors->get('cicloId')" class="mt-1" />
+                    </div>
+                @endif
 
                 <div>
                     <x-input-label for="archivo" value="Archivo" />

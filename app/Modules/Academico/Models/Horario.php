@@ -107,12 +107,19 @@ class Horario extends Model
     }
 
     /**
-     * Los horarios que corresponden a una matrícula: mismo grado y ciclo.
-     * Complementa a Matricula::scopeDelHorario(), la misma regla vista
-     * desde el otro lado.
+     * Los horarios que corresponden a una matrícula: si tiene asignaciones
+     * explícitas (ver Matricula::horarios()), solo esos; si no, todos los
+     * del mismo grado y ciclo. Complementa a Matricula::scopeDelHorario(),
+     * la misma regla vista desde el otro lado.
      */
     public function scopeDeLaMatricula(Builder $query, Matricula $matricula): Builder
     {
+        $asignados = $matricula->horarios()->pluck('horarios.id');
+
+        if ($asignados->isNotEmpty()) {
+            return $query->whereIn('id', $asignados);
+        }
+
         return $query->where('grado_id', $matricula->grado_id)->where('ciclo_id', $matricula->ciclo_id);
     }
 

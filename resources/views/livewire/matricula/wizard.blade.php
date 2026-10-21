@@ -3,6 +3,7 @@
 use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Grado;
+use App\Modules\Academico\Models\Horario;
 use App\Modules\Academico\Services\CicloService;
 use App\Modules\Academico\Services\CursoService;
 use App\Modules\Matricula\DTOs\RegistrarApoderadoData;
@@ -123,6 +124,15 @@ new class extends Component
 
     public string $gradoId = '';
 
+    /**
+     * Cursos específicos del semestre a los que matricular (opcional): si
+     * se deja vacío, queda matriculado en todo el semestre como siempre
+     * (ver RegistrarMatriculaData::$cursoIds).
+     *
+     * @var list<string>
+     */
+    public array $cursosEspecificosIds = [];
+
     public string $fechaMatricula = '';
 
     public string $observacionesMatricula = '';
@@ -178,6 +188,31 @@ new class extends Component
         }
 
         return MatriculaService::esMenorDeEdad($this->fechaNacimiento);
+    }
+
+    /**
+     * Los cursos del semestre elegido, para el selector opcional "Cursos
+     * específicos" -- dejarlo vacío matricula en todos (comportamiento por
+     * defecto, ver RegistrarMatriculaData::$cursoIds).
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Modules\Academico\Models\Curso>
+     */
+    #[Computed]
+    public function cursosDelSemestre(): \Illuminate\Support\Collection
+    {
+        if ($this->cicloId === '' || $this->gradoId === '') {
+            return collect();
+        }
+
+        return Horario::query()
+            ->where('grado_id', (int) $this->gradoId)
+            ->where('ciclo_id', (int) $this->cicloId)
+            ->with('curso')
+            ->get()
+            ->pluck('curso')
+            ->unique('id')
+            ->sortBy('nombre')
+            ->values();
     }
 
     public function agregarCelular(): void
@@ -244,11 +279,17 @@ new class extends Component
     public function updatedModalidadCiclo(CicloService $ciclos): void
     {
         $this->cicloId = '';
+        $this->cursosEspecificosIds = [];
 
         if ($this->modalidadCiclo === ModalidadCicloEnum::ANUAL->value) {
             $cicloAnual = $ciclos->cicloAnualVigente();
             $this->cicloId = $cicloAnual !== null ? (string) $cicloAnual->id : '';
         }
+    }
+
+    public function updatedGradoId(): void
+    {
+        $this->cursosEspecificosIds = [];
     }
 
     public function avanzar(MatriculaService $service): void
@@ -493,6 +534,7 @@ new class extends Component
                     observaciones: $this->observacionesMatricula ?: null,
                     registradoPor: auth()->id(),
                     fechaMatricula: $this->fechaMatricula !== '' ? $this->fechaMatricula : null,
+                    cursoIds: $this->cursosEspecificosIds !== [] ? array_map('intval', $this->cursosEspecificosIds) : null,
                 ));
 
                 $this->crearCronogramaSiCorresponde($matricula, $planPagoService);
@@ -596,6 +638,7 @@ new class extends Component
                     observaciones: $this->observacionesMatricula ?: null,
                     registradoPor: auth()->id(),
                     fechaMatricula: $this->fechaMatricula !== '' ? $this->fechaMatricula : null,
+                    cursoIds: $this->cursosEspecificosIds !== [] ? array_map('intval', $this->cursosEspecificosIds) : null,
                 ));
 
                 $this->crearCronogramaSiCorresponde($matricula, $planPagoService);
@@ -1030,6 +1073,26 @@ new class extends Component
                         />
                         <x-input-error :messages="$errors->get('gradoId')" class="mt-1" />
                     </div>
+
+                    @if ($gradoId !== '' && $this->cursosDelSemestre->isNotEmpty())
+                        <div class="sm:col-span-2" wire:key="tipo-instituto-cursos-especificos">
+                            <x-input-label value="Cursos específicos (opcional)" />
+                            <p class="mt-1 text-xs text-ink-faint">Déjalo sin marcar para matricular en todos los cursos del semestre. Marca solo algunos para matricular únicamente en esos.</p>
+                            <div class="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-md border border-border bg-surface p-2">
+                                @foreach ($this->cursosDelSemestre as $cursoDisponible)
+                                    <label class="flex items-center gap-2 text-sm text-ink">
+                                        <input
+                                            type="checkbox"
+                                            value="{{ $cursoDisponible->id }}"
+                                            wire:model="cursosEspecificosIds"
+                                            class="rounded border-border text-accent focus:ring-accent"
+                                        >
+                                        {{ $cursoDisponible->nombre }}
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 @else
                     <div class="sm:col-span-2" wire:key="tipo-curso-corto-cursos">
                         <x-input-label value="Cursos" />

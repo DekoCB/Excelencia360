@@ -3,9 +3,13 @@
 namespace Tests\Feature\Matricula;
 
 use App\Modules\Academico\Models\Ciclo;
+use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
+use App\Modules\Academico\Models\Horario;
+use App\Modules\Academico\Models\ProgramaEstudio;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Models\Estudiante;
+use App\Modules\Matricula\Models\Matricula;
 use App\Modules\Matricula\Services\MatriculaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
@@ -140,14 +144,15 @@ class MatriculaMasivaServiceTest extends TestCase
         $this->assertDatabaseHas('estudiantes', ['dni' => '55667788']);
     }
 
-    public function test_matricula_masivamente_estudiantes_existentes_por_dni_y_grado(): void
+    public function test_matricula_masivamente_estudiantes_existentes_por_dni_carrera_y_semestre(): void
     {
         $ciclo = $this->cicloConPeriodoAbierto();
-        $grado = Grado::factory()->create(['nombre' => '1ro de Secundaria']);
+        $programa = ProgramaEstudio::factory()->create(['nombre' => 'Administración de Empresas']);
+        $grado = Grado::factory()->create(['programa_estudio_id' => $programa->id, 'nombre' => 'Semestre 1']);
         $estudiante = Estudiante::factory()->create(['dni' => '44556677', 'es_menor_edad' => false]);
 
         $resultado = $this->service()->matricularDesdeFilas($ciclo->id, $this->filas([
-            ['dni' => '44556677', 'grado' => '1ro de Secundaria'],
+            ['dni' => '44556677', 'carrera' => 'Administración de Empresas', 'semestre' => 'Semestre 1'],
         ]), null);
 
         $this->assertSame(1, $resultado['exitosos']);
@@ -159,16 +164,88 @@ class MatriculaMasivaServiceTest extends TestCase
         ]);
     }
 
+    /**
+     * Dos carreras pueden tener un semestre con el mismo nombre -- sin la
+     * columna "carrera", buscar el grado solo por nombre podía chocar con
+     * el de la otra carrera.
+     */
+    public function test_matricula_masiva_no_confunde_semestres_del_mismo_nombre_en_carreras_distintas(): void
+    {
+        $ciclo = $this->cicloConPeriodoAbierto();
+        $programaA = ProgramaEstudio::factory()->create(['nombre' => 'Administración de Empresas']);
+        $programaB = ProgramaEstudio::factory()->create(['nombre' => 'Contabilidad']);
+        Grado::factory()->create(['programa_estudio_id' => $programaA->id, 'nombre' => 'Semestre 1']);
+        $gradoB = Grado::factory()->create(['programa_estudio_id' => $programaB->id, 'nombre' => 'Semestre 1']);
+        $estudiante = Estudiante::factory()->create(['dni' => '44556677', 'es_menor_edad' => false]);
+
+        $resultado = $this->service()->matricularDesdeFilas($ciclo->id, $this->filas([
+            ['dni' => '44556677', 'carrera' => 'Contabilidad', 'semestre' => 'Semestre 1'],
+        ]), null);
+
+        $this->assertSame(1, $resultado['exitosos']);
+        $this->assertDatabaseHas('matriculas', ['estudiante_id' => $estudiante->id, 'grado_id' => $gradoB->id]);
+    }
+
+    public function test_matricula_masiva_con_columna_curso_matricula_solo_en_ese_curso(): void
+    {
+        $ciclo = $this->cicloConPeriodoAbierto();
+        $programa = ProgramaEstudio::factory()->create();
+        $grado = Grado::factory()->create(['programa_estudio_id' => $programa->id, 'nombre' => 'Semestre 1']);
+        $cursoElegido = Curso::factory()->hasAttached($grado)->create(['nombre' => 'Contabilidad General']);
+        $otroCurso = Curso::factory()->hasAttached($grado)->create(['nombre' => 'Matemática Financiera']);
+        $horarioElegido = Horario::factory()->create(['curso_id' => $cursoElegido->id, 'grado_id' => $grado->id, 'ciclo_id' => $ciclo->id]);
+        Horario::factory()->create(['curso_id' => $otroCurso->id, 'grado_id' => $grado->id, 'ciclo_id' => $ciclo->id]);
+        $estudiante = Estudiante::factory()->create(['dni' => '44556677', 'es_menor_edad' => false]);
+
+        $resultado = $this->service()->matricularDesdeFilas($ciclo->id, $this->filas([
+            ['dni' => '44556677', 'carrera' => $programa->nombre, 'semestre' => 'Semestre 1', 'curso' => 'Contabilidad General'],
+        ]), null);
+
+        $this->assertSame(1, $resultado['exitosos']);
+        $matricula = Matricula::query()->where('estudiante_id', $estudiante->id)->firstOrFail();
+        $this->assertSame([$horarioElegido->id], $matricula->horarios()->pluck('horarios.id')->all());
+    }
+
     public function test_matricula_masiva_reporta_un_dni_inexistente_como_error(): void
     {
         $ciclo = $this->cicloConPeriodoAbierto();
-        Grado::factory()->create(['nombre' => '1ro de Secundaria']);
+        $programa = ProgramaEstudio::factory()->create();
+        Grado::factory()->create(['programa_estudio_id' => $programa->id, 'nombre' => 'Semestre 1']);
 
         $resultado = $this->service()->matricularDesdeFilas($ciclo->id, $this->filas([
-            ['dni' => '00000000', 'grado' => '1ro de Secundaria'],
+            ['dni' => '00000000', 'carrera' => $programa->nombre, 'semestre' => 'Semestre 1'],
         ]), null);
 
         $this->assertSame(0, $resultado['exitosos']);
         $this->assertStringContainsString('00000000', $resultado['errores'][0]['mensaje']);
+    }
+
+    public function test_matricula_masiva_de_curso_corto_por_dni_y_curso(): void
+    {
+        $curso = Curso::factory()->capacitacion()->create(['nombre' => 'Ofimática Básica']);
+        $estudiante = Estudiante::factory()->create(['dni' => '44556677']);
+
+        $resultado = $this->service()->matricularCursoCortoDesdeFilas($this->filas([
+            ['dni' => '44556677', 'curso' => 'Ofimática Básica'],
+        ]), null);
+
+        $this->assertSame(1, $resultado['exitosos']);
+        $this->assertDatabaseHas('matriculas_curso_corto', [
+            'estudiante_id' => $estudiante->id,
+            'curso_id' => $curso->id,
+            'estado' => 'activo',
+        ]);
+    }
+
+    public function test_matricula_masiva_de_curso_corto_reporta_curso_inexistente(): void
+    {
+        Estudiante::factory()->create(['dni' => '44556677']);
+
+        $resultado = $this->service()->matricularCursoCortoDesdeFilas($this->filas([
+            ['dni' => '44556677', 'curso' => 'Curso Que No Existe'],
+        ]), null);
+
+        $this->assertSame(0, $resultado['exitosos']);
+        $this->assertStringContainsString('Curso Que No Existe', $resultado['errores'][0]['mensaje']);
     }
 }

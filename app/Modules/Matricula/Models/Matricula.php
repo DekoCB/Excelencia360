@@ -85,9 +85,8 @@ class Matricula extends Model implements HasMedia
     }
 
     /**
-     * Los horarios específicos (uno por curso, como máximo) que se le
-     * asignaron explícitamente a esta matrícula -- solo hace falta usarlo
-     * cuando un curso tiene varias secciones/paralelos; ver
+     * Los horarios (cursos) específicos que se le asignaron explícitamente
+     * a esta matrícula -- ver MatriculaService::asignarHorarioDeCurso() y
      * scopeDelHorario() para cómo se usa esto en la práctica.
      *
      * @return BelongsToMany<Horario, $this>
@@ -104,33 +103,27 @@ class Matricula extends Model implements HasMedia
 
     /**
      * Las matrículas que cuentan para un horario dado: mismo grado y
-     * ciclo, aprobadas. El aula (Grupo A/B) ya no hace falta compararla
-     * aparte -- la determina el grado (ver Grado::letraAula()), siempre
-     * igual dentro de un mismo grado y ciclo, así que coincidir por
-     * grado_id ya basta.
+     * ciclo, aprobadas.
      *
-     * Cuando el curso de este horario tiene paralelos (otro Horario con el
-     * mismo curso_id+grado_id+ciclo_id), esa coincidencia por grado+ciclo
-     * ya no basta para saber a cuál sección pertenece cada estudiante: ahí
-     * además se exige la asignación explícita en matricula_horario. Si el
-     * curso no tiene paralelos, nadie necesita asignación (sigue siendo
-     * automático, como antes).
+     * Por defecto, matricularse en un semestre matricula automáticamente
+     * en TODOS sus cursos (coincidir por grado+ciclo ya basta). Pero en
+     * cuanto una matrícula tiene AL MENOS UNA asignación explícita en
+     * matricula_horario (ver MatriculaService::asignarHorarioDeCurso()),
+     * deja de ser "todo el semestre" y pasa a ser "solo estos cursos": ya
+     * no cuenta para ningún horario que no esté entre sus asignaciones,
+     * aunque sea del mismo grado y ciclo. Esto también cubre el caso
+     * anterior de cursos con paralelos (dos Horario del mismo
+     * curso_id+grado_id+ciclo_id): ahí la asignación explícita decide a
+     * cuál sección pertenece cada estudiante.
      */
     public function scopeDelHorario(Builder $query, Horario $horario): Builder
     {
-        $tieneParalelos = Horario::query()
-            ->where('curso_id', $horario->curso_id)
-            ->where('grado_id', $horario->grado_id)
-            ->where('ciclo_id', $horario->ciclo_id)
-            ->where('id', '!=', $horario->id)
-            ->exists();
-
         return $query->where('grado_id', $horario->grado_id)
             ->where('ciclo_id', $horario->ciclo_id)
             ->where('estado', 'aprobada')
-            ->when(
-                $tieneParalelos,
-                fn (Builder $q) => $q->whereHas('horarios', fn (Builder $qq) => $qq->where('horarios.id', $horario->id)),
-            );
+            ->where(function (Builder $q) use ($horario) {
+                $q->whereDoesntHave('horarios')
+                    ->orWhereHas('horarios', fn (Builder $qq) => $qq->where('horarios.id', $horario->id));
+            });
     }
 }

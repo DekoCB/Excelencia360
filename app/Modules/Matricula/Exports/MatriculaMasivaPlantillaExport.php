@@ -11,14 +11,14 @@ class MatriculaMasivaPlantillaExport implements FromArray, WithHeadings
 {
     public function headings(): array
     {
-        return ['dni', 'grado', 'observaciones'];
+        return ['dni', 'carrera', 'semestre', 'curso', 'observaciones'];
     }
 
     public function array(): array
     {
         return [
-            ['87654321', '1ro de Secundaria', ''],
-            ['76543210', '2do de Secundaria', ''],
+            ['87654321', 'Administración de Empresas', 'Semestre 1', '', ''],
+            ['76543210', 'Administración de Empresas', 'Semestre 1', 'Contabilidad General', ''],
         ];
     }
 }
