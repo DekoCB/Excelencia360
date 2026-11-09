@@ -225,7 +225,7 @@ class HistorialEstudiantePermisosTest extends TestCase
             ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->assertSet('cicloLibretaId', $matriculaReciente->ciclo_id)
             ->assertSee('Libreta de notas')
-            ->assertSee('Exportar libreta (PDF)');
+            ->assertSee('Exportar boleta de notas (PDF)');
     }
 
     public function test_cambiar_el_ciclo_de_la_libreta_filtra_las_notas_mostradas(): void

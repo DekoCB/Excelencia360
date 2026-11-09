@@ -24,6 +24,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property list<string>|null $franjas_permitidas
  * @property string|null $documento_autorizacion
  * @property int $horas
+ * @property int|null $creditos
  * @property int|null $docente_id
  */
 class Curso extends Model implements HasMedia
@@ -37,6 +38,7 @@ class Curso extends Model implements HasMedia
         'tipo',
         'franjas_permitidas',
         'horas',
+        'creditos',
         'documento_autorizacion',
         'docente_id',
         'activo',

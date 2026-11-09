@@ -36,6 +36,8 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $horas = '';
 
+    public string $creditos = '';
+
     public string $documentoAutorizacion = '';
 
     public string $docenteId = '';
@@ -72,11 +74,12 @@ new #[Layout('layouts.app')] class extends Component
             $this->gradoIds = $curso->grados->pluck('id')->all();
             $this->franjasPermitidas = $curso->franjas_permitidas ?? [];
             $this->horas = (string) $curso->horas;
+            $this->creditos = $curso->creditos !== null ? (string) $curso->creditos : '';
             $this->documentoAutorizacion = $curso->documento_autorizacion ?? '';
             $this->docenteId = $curso->docente_id !== null ? (string) $curso->docente_id : '';
             $this->activo = $curso->activo;
         } else {
-            $this->reset(['nombre', 'codigo', 'gradoIds', 'franjasPermitidas', 'horas', 'documentoAutorizacion', 'docenteId']);
+            $this->reset(['nombre', 'codigo', 'gradoIds', 'franjasPermitidas', 'horas', 'creditos', 'documentoAutorizacion', 'docenteId']);
             $this->tipo = $this->tipoFiltro !== 'todos' ? $this->tipoFiltro : TipoCursoEnum::ACADEMICO->value;
             $this->activo = true;
         }
@@ -173,6 +176,7 @@ new #[Layout('layouts.app')] class extends Component
             'franjasPermitidas' => 'array',
             'franjasPermitidas.*' => 'string|in:'.implode(',', array_column(FranjaHorarioEnum::cases(), 'value')),
             'horas' => 'required|integer|min:1|max:'.($esCapacitacion ? 2000 : 500),
+            'creditos' => 'nullable|integer|min:1|max:20',
             'documentoAutorizacion' => 'nullable|string|max:150',
             'docenteId' => $esCapacitacion ? 'nullable|integer|exists:users,id' : 'prohibited',
         ]);
@@ -190,6 +194,7 @@ new #[Layout('layouts.app')] class extends Component
             'grado_ids' => $esCapacitacion ? [] : array_map('intval', $this->gradoIds),
             'franjas_permitidas' => ! $esCapacitacion && $this->franjasPermitidas !== [] ? $this->franjasPermitidas : null,
             'horas' => (int) $this->horas,
+            'creditos' => $this->creditos !== '' ? (int) $this->creditos : null,
             'documento_autorizacion' => $esCapacitacion ? ($this->documentoAutorizacion ?: null) : null,
             'docente_id' => $esCapacitacion && $this->docenteId !== '' ? (int) $this->docenteId : null,
         ];
@@ -291,6 +296,7 @@ new #[Layout('layouts.app')] class extends Component
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Semestres</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Docente</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Horas</th>
+                    <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Créditos</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Estado</th>
                     <th class="px-4 py-3"></th>
                 </tr>
@@ -318,6 +324,7 @@ new #[Layout('layouts.app')] class extends Component
                         <td class="px-4 py-3 text-ink-dim">{{ $curso->grados->pluck('nombre')->implode(', ') ?: '—' }}</td>
                         <td class="px-4 py-3 text-ink-dim">{{ $docentes->isNotEmpty() ? $docentes->implode(', ') : '—' }}</td>
                         <td class="px-4 py-3 text-ink-dim">{{ $curso->horas }}</td>
+                        <td class="px-4 py-3 text-ink-dim">{{ $curso->creditos ?? '—' }}</td>
                         <td class="px-4 py-3">
                             <span @class(['rounded-full px-2 py-0.5 text-xs font-medium', 'bg-ok/10 text-ok' => $curso->activo, 'bg-ink-faint/10 text-ink-faint' => ! $curso->activo])>
                                 {{ $curso->activo ? 'Activo' : 'Inactivo' }}
@@ -330,7 +337,7 @@ new #[Layout('layouts.app')] class extends Component
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="px-4 py-8 text-center text-sm text-ink-faint">No hay cursos registrados.</td></tr>
+                    <tr><td colspan="9" class="px-4 py-8 text-center text-sm text-ink-faint">No hay cursos registrados.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -461,6 +468,13 @@ new #[Layout('layouts.app')] class extends Component
                             <x-text-input wire:model="horas" id="horas" type="number" min="1" class="mt-1 block w-full" />
                             <x-input-error :messages="$errors->get('horas')" class="mt-1" />
                         </div>
+                    </div>
+
+                    <div>
+                        <x-input-label for="creditos" value="Créditos (opcional)" />
+                        <x-text-input wire:model="creditos" id="creditos" type="number" min="1" max="20" class="mt-1 block w-full" />
+                        <p class="mt-1 text-xs text-ink-faint">Se usa para el promedio ponderado de la boleta de notas.</p>
+                        <x-input-error :messages="$errors->get('creditos')" class="mt-1" />
                     </div>
 
                     @if ($editandoId)

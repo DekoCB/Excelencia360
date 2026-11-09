@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Evaluaciones\Providers;
 
+use App\Modules\Evaluaciones\Policies\HorarioNotaFinalPolicy;
 use App\Shared\Providers\ModuleServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 class EvaluacionesServiceProvider extends ModuleServiceProvider
 {
@@ -12,5 +14,7 @@ class EvaluacionesServiceProvider extends ModuleServiceProvider
     {
         $this->loadMigrationsFrom(__DIR__.'/../Database/Migrations');
         $this->loadWebRoutesFrom(__DIR__.'/../Routes/web.php');
+
+        Gate::define('evaluaciones.editar-nota-final', [HorarioNotaFinalPolicy::class, 'editar']);
     }
 }

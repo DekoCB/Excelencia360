@@ -96,19 +96,15 @@ new #[Layout('layouts.app')] class extends Component
                 && ($this->modoDirectorio() || in_array($this->estudianteSeleccionadoId, $this->idsPermitidos(), true)),
             403
         );
-        abort_if($this->cicloLibretaId === null, 404);
 
         $historial = $servicio->porId($this->estudianteSeleccionadoId);
         abort_if($historial === null, 404);
 
-        $ciclo = $historial['matriculas']->first(fn ($matricula) => $matricula->ciclo_id === $this->cicloLibretaId)?->ciclo;
-        abort_if($ciclo === null, 404);
-
         $estudiante = $historial['estudiante'];
 
         return response()->streamDownload(
-            fn () => print (Pdf::loadView('pdf.libreta', $libretas->datosParaPdf($estudiante, $ciclo))->output()),
-            "libreta-{$estudiante->dni}-{$ciclo->anio}.pdf",
+            fn () => print (Pdf::loadView('pdf.libreta', $libretas->datosParaPdf($estudiante))->output()),
+            "boleta-{$estudiante->dni}.pdf",
             ['Content-Type' => 'application/pdf'],
         );
     }

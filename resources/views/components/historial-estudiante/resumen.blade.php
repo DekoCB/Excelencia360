@@ -216,7 +216,7 @@
                 />
             </div>
             @if ($cicloLibreta && $puedeExportar)
-                <x-secondary-button type="button" wire:click="exportarLibretaPdf">Exportar libreta (PDF)</x-secondary-button>
+                <x-secondary-button type="button" wire:click="exportarLibretaPdf">Exportar boleta de notas (PDF)</x-secondary-button>
             @endif
         </div>
 

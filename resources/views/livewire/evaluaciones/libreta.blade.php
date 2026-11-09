@@ -1,11 +1,13 @@
 <?php
 
 use App\Modules\Academico\Models\Ciclo;
+use App\Modules\Academico\Models\Horario;
 use App\Modules\Evaluaciones\Models\Libreta;
 use App\Modules\Evaluaciones\Services\LibretaService;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Pagos\Services\BloqueoAccesoService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 
@@ -16,6 +18,9 @@ new #[Layout('layouts.app')] class extends Component
     public Ciclo $ciclo;
 
     public bool $estaBloqueado = false;
+
+    /** @var array<int, string> */
+    public array $notasEditadas = [];
 
     public function mount(Estudiante $estudiante, Ciclo $ciclo, BloqueoAccesoService $bloqueos): void
     {
@@ -44,6 +49,30 @@ new #[Layout('layouts.app')] class extends Component
         abort_if($this->estaBloqueado, 403);
 
         $service->generar($this->estudiante, $this->ciclo);
+    }
+
+    /**
+     * Guarda las notas finales editadas a mano, una por horario -- solo
+     * las que el usuario puede editar (evaluaciones.editar-nota-final) y
+     * que vinieron con un valor no vacío.
+     */
+    public function guardarNotasFinales(LibretaService $service): void
+    {
+        $user = Auth::user();
+
+        foreach ($this->notasEditadas as $horarioId => $nota) {
+            if ($nota === '' || $nota === null) {
+                continue;
+            }
+
+            $horario = Horario::query()->findOrFail($horarioId);
+
+            abort_unless(Gate::allows('evaluaciones.editar-nota-final', $horario), 403);
+
+            $service->guardarNotaFinal($this->estudiante, $horario, (float) $nota, $user);
+        }
+
+        $this->notasEditadas = [];
     }
 
     public function with(LibretaService $service): array
@@ -101,7 +130,7 @@ new #[Layout('layouts.app')] class extends Component
         </div>
 
         <div class="mt-6">
-            <x-evaluaciones.resumen-libreta :cursos="$cursos" :situacion-final="$situacionFinal" />
+            <x-evaluaciones.resumen-libreta :cursos="$cursos" :situacion-final="$situacionFinal" :puede-editar="true" />
         </div>
     @endif
 </div>

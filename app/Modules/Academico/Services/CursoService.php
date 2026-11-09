@@ -48,7 +48,7 @@ class CursoService
     }
 
     /**
-     * @param  array{nombre: string, codigo: string, grado_ids: list<int>, franjas_permitidas: ?list<string>, horas: int}  $datos
+     * @param  array{nombre: string, codigo: string, grado_ids: list<int>, franjas_permitidas: ?list<string>, horas: int, creditos: ?int}  $datos
      */
     public function crear(array $datos): Curso
     {
@@ -64,7 +64,7 @@ class CursoService
     }
 
     /**
-     * @param  array{nombre: string, codigo: string, grado_ids: list<int>, franjas_permitidas: ?list<string>, horas: int, activo: bool}  $datos
+     * @param  array{nombre: string, codigo: string, grado_ids: list<int>, franjas_permitidas: ?list<string>, horas: int, creditos: ?int, activo: bool}  $datos
      */
     public function actualizar(Curso $curso, array $datos): Curso
     {

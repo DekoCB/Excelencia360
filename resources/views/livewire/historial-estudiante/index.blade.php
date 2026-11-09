@@ -87,8 +87,8 @@ new #[Layout('layouts.app')] class extends Component
     }
 
     /**
-     * Aparte del PDF general de historial: solo la libreta del ciclo
-     * elegido en el selector, misma plantilla que ya usa
+     * Aparte del PDF general de historial: la boleta de notas completa
+     * (todos los períodos cursados), misma plantilla que ya usa
      * LibretaService::generar() para "Mi libreta"/la libreta que ve el
      * personal -- pero sin persistir un registro Libreta, ya que esto es
      * solo un export de lectura, no la generación oficial.
@@ -96,20 +96,17 @@ new #[Layout('layouts.app')] class extends Component
     public function exportarLibretaPdf(HistorialEstudianteService $servicio, LibretaService $libretas)
     {
         abort_unless(Auth::user()->hasPermissionTo('reportes.exportar'), 403);
-        abort_if($this->estudianteSeleccionadoId === null || $this->cicloLibretaId === null, 404);
+        abort_if($this->estudianteSeleccionadoId === null, 404);
         abort_unless($this->puedeVer($this->estudianteSeleccionadoId), 403);
 
         $historial = $servicio->porId($this->estudianteSeleccionadoId);
         abort_if($historial === null, 404);
 
-        $ciclo = $historial['matriculas']->first(fn ($matricula) => $matricula->ciclo_id === $this->cicloLibretaId)?->ciclo;
-        abort_if($ciclo === null, 404);
-
         $estudiante = $historial['estudiante'];
 
         return response()->streamDownload(
-            fn () => print (Pdf::loadView('pdf.libreta', $libretas->datosParaPdf($estudiante, $ciclo))->output()),
-            "libreta-{$estudiante->dni}-{$ciclo->anio}.pdf",
+            fn () => print (Pdf::loadView('pdf.libreta', $libretas->datosParaPdf($estudiante))->output()),
+            "boleta-{$estudiante->dni}.pdf",
             ['Content-Type' => 'application/pdf'],
         );
     }

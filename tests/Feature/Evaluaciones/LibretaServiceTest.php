@@ -3,6 +3,7 @@
 namespace Tests\Feature\Evaluaciones;
 
 use App\Modules\Academico\Models\Ciclo;
+use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
 use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
@@ -199,7 +200,7 @@ class LibretaServiceTest extends TestCase
         $this->assertSame('2026-2', $this->libretaService()->periodoPromocional($ciclo));
     }
 
-    public function test_datos_para_pdf_incluye_situacion_final_y_periodo_promocional(): void
+    public function test_datos_para_pdf_incluye_todos_los_periodos_del_estudiante(): void
     {
         $ciclo = Ciclo::factory()->create(['anio' => 2026]);
         $estudiante = Estudiante::factory()->create();
@@ -215,13 +216,106 @@ class LibretaServiceTest extends TestCase
         $evaluacionService->calificar($evaluacion, $estudiante, 18.0, null, null);
         $evaluacionService->publicar($evaluacion);
 
-        $datos = $this->libretaService()->datosParaPdf($estudiante, $ciclo);
+        $datos = $this->libretaService()->datosParaPdf($estudiante);
 
-        $this->assertSame('APROBADO', $datos['situacionFinal']);
-        $this->assertSame('2026-1', $datos['periodoPromocional']);
         $this->assertSame($estudiante->id, $datos['estudiante']->id);
-        $this->assertSame($ciclo->id, $datos['ciclo']->id);
-        $this->assertNotNull($datos['matricula']);
-        $this->assertCount(1, $datos['cursos']);
+        $this->assertCount(1, $datos['periodos']);
+        $this->assertSame($ciclo->id, $datos['periodos']->first()['ciclo']->id);
+        $this->assertCount(1, $datos['periodos']->first()['cursos']);
+    }
+
+    public function test_datos_boleta_completa_trae_las_matriculas_en_orden_cronologico(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+
+        $cicloViejo = Ciclo::factory()->create(['anio' => 2025]);
+        $horarioViejo = Horario::factory()->create(['ciclo_id' => $cicloViejo->id]);
+        Matricula::factory()->create([
+            'estudiante_id' => $estudiante->id,
+            'ciclo_id' => $cicloViejo->id,
+            'grado_id' => $horarioViejo->grado_id,
+            'fecha_matricula' => '2025-01-10',
+        ]);
+
+        $cicloNuevo = Ciclo::factory()->create(['anio' => 2026]);
+        $horarioNuevo = Horario::factory()->create(['ciclo_id' => $cicloNuevo->id]);
+        Matricula::factory()->create([
+            'estudiante_id' => $estudiante->id,
+            'ciclo_id' => $cicloNuevo->id,
+            'grado_id' => $horarioNuevo->grado_id,
+            'fecha_matricula' => '2026-01-10',
+        ]);
+
+        $periodos = $this->libretaService()->datosBoletaCompleta($estudiante);
+
+        $this->assertCount(2, $periodos);
+        $this->assertSame($cicloViejo->id, $periodos->first()['ciclo']->id);
+        $this->assertSame($cicloNuevo->id, $periodos->last()['ciclo']->id);
+    }
+
+    public function test_datos_boleta_completa_marca_vacio_un_periodo_sin_cursos(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $ciclo = Ciclo::factory()->create();
+        Matricula::factory()->create([
+            'estudiante_id' => $estudiante->id,
+            'ciclo_id' => $ciclo->id,
+        ]);
+
+        $periodos = $this->libretaService()->datosBoletaCompleta($estudiante);
+
+        $this->assertCount(1, $periodos);
+        $this->assertTrue($periodos->first()['cursos']->isEmpty());
+        $this->assertNull($periodos->first()['promedioPonderado']);
+    }
+
+    public function test_datos_boleta_completa_calcula_el_promedio_ponderado_por_creditos(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $ciclo = Ciclo::factory()->create();
+        $matricula = Matricula::factory()->create([
+            'estudiante_id' => $estudiante->id,
+            'ciclo_id' => $ciclo->id,
+        ]);
+
+        $cursoA = Curso::factory()->create(['creditos' => 4]);
+        $horarioA = Horario::factory()->create(['ciclo_id' => $ciclo->id, 'grado_id' => $matricula->grado_id, 'curso_id' => $cursoA->id]);
+        $cursoB = Curso::factory()->create(['creditos' => 2]);
+        $horarioB = Horario::factory()->create(['ciclo_id' => $ciclo->id, 'grado_id' => $matricula->grado_id, 'curso_id' => $cursoB->id]);
+
+        $this->libretaService()->guardarNotaFinal($estudiante, $horarioA, 16.0, $horarioA->docente);
+        $this->libretaService()->guardarNotaFinal($estudiante, $horarioB, 10.0, $horarioB->docente);
+
+        $periodo = $this->libretaService()->datosBoletaCompleta($estudiante)->first();
+
+        // (16*4 + 10*2) / 6 = 14.0
+        $this->assertSame(14.0, $periodo['promedioPonderado']);
+        $this->assertSame(6, $periodo['totalCreditos']);
+        $this->assertSame(1, $periodo['cursosAprobados']);
+    }
+
+    public function test_guardar_nota_final_gana_sobre_el_promedio_calculado(): void
+    {
+        $ciclo = Ciclo::factory()->create();
+        $estudiante = Estudiante::factory()->create();
+        $horario = Horario::factory()->create(['ciclo_id' => $ciclo->id]);
+        Matricula::factory()->create([
+            'estudiante_id' => $estudiante->id,
+            'ciclo_id' => $ciclo->id,
+            'grado_id' => $horario->grado_id,
+        ]);
+
+        $evaluacionService = $this->app->make(EvaluacionService::class);
+        $evaluacion = $evaluacionService->crear($this->cursoVirtualDe($horario), 'Evaluación', '2026-07-15', TipoEvaluacionEnum::FISICO);
+        $evaluacionService->calificar($evaluacion, $estudiante, 10.0, null, null);
+        $evaluacionService->publicar($evaluacion);
+
+        $this->libretaService()->guardarNotaFinal($estudiante, $horario, 17.5, $horario->docente);
+
+        $resumen = $this->libretaService()->resumenPorCursos($estudiante, $ciclo);
+
+        $this->assertSame(17.5, $resumen->first()['promedio']);
+        $this->assertTrue($resumen->first()['editadaManualmente']);
+        $this->assertSame('APROBADO', $resumen->first()['estado']);
     }
 }

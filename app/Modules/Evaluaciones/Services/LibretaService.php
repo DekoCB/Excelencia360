@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Evaluaciones\Services;
 
+use App\Models\User;
 use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Evaluaciones\Enums\NotaLetraEnum;
 use App\Modules\Evaluaciones\Models\Libreta;
+use App\Modules\Evaluaciones\Models\NotaFinalCurso;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -24,6 +26,12 @@ class LibretaService
      */
     private const MODALIDAD_EBA = 'Educación Básica Alternativa – Ciclo Avanzado';
 
+    /**
+     * Nota mínima aprobatoria (escala vigesimal) -- mismo corte que ya usa
+     * NotaLetraEnum::C para "En inicio"/desaprobado.
+     */
+    private const NOTA_MINIMA_APROBATORIA = 11;
+
     public function __construct(
         private readonly EvaluacionService $evaluaciones,
     ) {}
@@ -34,13 +42,6 @@ class LibretaService
      * vacía si no tiene una matrícula aprobada en ese ciclo, en vez de
      * lanzar una excepción: a diferencia de generar(), esto solo se usa
      * para mostrar contenido, no para disparar una acción.
-     *
-     * Cada elemento es un array con las claves "nombre" (string), "promedio"
-     * (?float), "letra" (?string) y "porMes" (el desglose mes a mes, ver
-     * EvaluacionService::promedioMensualDelEstudiante()). Sin generics en el
-     * tipo de retorno: el TValue de Collection no es covariante (ver
-     * https://phpstan.org/blog/whats-up-with-template-covariant), así que
-     * ninguna anotación de forma de array sobrevive a un ->map().
      */
     public function resumenPorCursos(Estudiante $estudiante, Ciclo $ciclo): SupportCollection
     {
@@ -54,21 +55,71 @@ class LibretaService
             return collect();
         }
 
+        return $this->resumenPorCursosDeLaMatricula($estudiante, $matricula);
+    }
+
+    /**
+     * Cada elemento es un array con las claves "horario" (Horario, para
+     * poder editar su nota final), "nombre"/"codigo"/"creditos" (del
+     * curso), "cnd" (siempre "M": matriculado), "promedio" (la nota final
+     * -- la editada a mano en NotaFinalCurso gana sobre el promedio
+     * calculado de las evaluaciones en cuanto existe), "editadaManualmente"
+     * (bool), "letra" (?string), "estado" ("APROBADO"/"DESAPROBADO"/null
+     * mientras no haya nota) y "porMes" (el desglose mes a mes, ver
+     * EvaluacionService::promedioMensualDelEstudiante()). Sin generics en
+     * el tipo de retorno: el TValue de Collection no es covariante (ver
+     * https://phpstan.org/blog/whats-up-with-template-covariant), así que
+     * ninguna anotación de forma de array sobrevive a un ->map().
+     */
+    private function resumenPorCursosDeLaMatricula(Estudiante $estudiante, Matricula $matricula): SupportCollection
+    {
         $horarios = Horario::query()
             ->deLaMatricula($matricula)
             ->with(['curso', 'ciclo'])
             ->get();
 
-        return $horarios->map(function (Horario $horario) use ($estudiante) {
-            $promedio = $this->evaluaciones->promedioDelEstudiante($estudiante, $horario);
+        $notasFinales = NotaFinalCurso::query()
+            ->where('estudiante_id', $estudiante->id)
+            ->whereIn('horario_id', $horarios->pluck('id'))
+            ->get()
+            ->keyBy('horario_id');
+
+        return $horarios->map(function (Horario $horario) use ($estudiante, $notasFinales) {
+            $notaFinal = $notasFinales->get($horario->id);
+            $promedio = $notaFinal !== null
+                ? (float) $notaFinal->nota
+                : $this->evaluaciones->promedioDelEstudiante($estudiante, $horario);
 
             return [
+                'horario' => $horario,
                 'nombre' => $horario->curso->nombre,
+                'codigo' => $horario->curso->codigo,
+                'creditos' => $horario->curso->creditos,
+                'cnd' => 'M',
                 'promedio' => $promedio,
+                'editadaManualmente' => $notaFinal !== null,
                 'letra' => $promedio !== null ? NotaLetraEnum::desde($promedio)->value : null,
+                'estado' => $promedio !== null
+                    ? ($promedio >= self::NOTA_MINIMA_APROBATORIA ? 'APROBADO' : 'DESAPROBADO')
+                    : null,
                 'porMes' => $this->evaluaciones->promedioMensualDelEstudiante($estudiante, $horario),
             ];
         });
+    }
+
+    /**
+     * Guarda (o reemplaza) la nota final que el docente edita a mano para
+     * un estudiante en un horario -- gana sobre el promedio calculado de
+     * las evaluaciones en resumenPorCursos()/datosBoletaCompleta(). La
+     * autorización ("¿puede $editor editar la nota de este horario?") la
+     * resuelve el llamador vía Gate::allows('evaluaciones.editar-nota-final', $horario).
+     */
+    public function guardarNotaFinal(Estudiante $estudiante, Horario $horario, float $nota, User $editor): NotaFinalCurso
+    {
+        return NotaFinalCurso::query()->updateOrCreate(
+            ['estudiante_id' => $estudiante->id, 'horario_id' => $horario->id],
+            ['nota' => $nota, 'editado_por' => $editor->id],
+        );
     }
 
     /**
@@ -105,33 +156,73 @@ class LibretaService
     }
 
     /**
+     * Todo el historial del estudiante (un bloque por cada matrícula
+     * aprobada, en orden cronológico), para la boleta de notas completa.
+     * Cada elemento es un array con las claves "matricula", "ciclo",
+     * "grado", "programaEstudio", "periodoAcademicoRomano", "cursos" (ver
+     * resumenPorCursosDeLaMatricula()), "totalCreditos" (solo cursos con
+     * créditos y nota cargados), "cursosAprobados" y "promedioPonderado"
+     * (?float, null si ningún curso tiene créditos+nota cargados).
+     */
+    public function datosBoletaCompleta(Estudiante $estudiante): SupportCollection
+    {
+        $matriculas = Matricula::query()
+            ->where('estudiante_id', $estudiante->id)
+            ->where('estado', 'aprobada')
+            ->with(['ciclo', 'grado.programaEstudio'])
+            ->orderBy('fecha_matricula')
+            ->get();
+
+        return $matriculas->map(function (Matricula $matricula) use ($estudiante) {
+            $cursos = $this->resumenPorCursosDeLaMatricula($estudiante, $matricula);
+
+            $cursosConCreditos = $cursos->filter(
+                fn (array $curso) => $curso['creditos'] !== null && $curso['promedio'] !== null,
+            );
+            $totalCreditos = $cursosConCreditos->sum('creditos');
+            $sumaPonderada = $cursosConCreditos->sum(fn (array $curso) => $curso['creditos'] * $curso['promedio']);
+
+            return [
+                'matricula' => $matricula,
+                'ciclo' => $matricula->ciclo,
+                'grado' => $matricula->grado,
+                'programaEstudio' => $matricula->grado->programaEstudio,
+                'periodoAcademicoRomano' => $this->numeroRomano($matricula->grado->orden),
+                'cursos' => $cursos,
+                'totalCreditos' => $totalCreditos,
+                'cursosAprobados' => $cursos->filter(fn (array $curso) => $curso['estado'] === 'APROBADO')->count(),
+                'promedioPonderado' => $totalCreditos > 0 ? round($sumaPonderada / $totalCreditos, 2) : null,
+            ];
+        });
+    }
+
+    /**
      * Todo lo que necesita la plantilla pdf.libreta -- separado de
      * generar() para que exportarLibretaPdf() en historial-estudiante (que
      * exporta sin persistir un registro Libreta) arme exactamente los
-     * mismos datos, sin duplicar el cálculo de situación final/periodo.
+     * mismos datos. La boleta siempre muestra el historial completo del
+     * estudiante, no un ciclo a la vez.
      *
-     * @return array{estudiante: Estudiante, ciclo: Ciclo, matricula: ?Matricula, cursos: SupportCollection, situacionFinal: string, periodoPromocional: string, modalidadTexto: string}
+     * @return array{estudiante: Estudiante, periodos: SupportCollection, modalidadTexto: string}
      */
-    public function datosParaPdf(Estudiante $estudiante, Ciclo $ciclo): array
+    public function datosParaPdf(Estudiante $estudiante): array
     {
-        $matricula = Matricula::query()
-            ->where('estudiante_id', $estudiante->id)
-            ->where('ciclo_id', $ciclo->id)
-            ->where('estado', 'aprobada')
-            ->with('grado')
-            ->first();
-
-        $cursos = $this->resumenPorCursos($estudiante, $ciclo);
-
         return [
             'estudiante' => $estudiante,
-            'ciclo' => $ciclo,
-            'matricula' => $matricula,
-            'cursos' => $cursos,
-            'situacionFinal' => $this->calcularSituacionFinal($cursos),
-            'periodoPromocional' => $this->periodoPromocional($ciclo),
+            'periodos' => $this->datosBoletaCompleta($estudiante),
             'modalidadTexto' => self::MODALIDAD_EBA,
         ];
+    }
+
+    /**
+     * Número romano de un periodo académico (orden del Grado/Semestre),
+     * suficiente para el rango de semestres que maneja el sistema.
+     */
+    private function numeroRomano(int $numero): string
+    {
+        $romanos = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+
+        return $romanos[$numero - 1] ?? (string) $numero;
     }
 
     public function generar(Estudiante $estudiante, Ciclo $ciclo): Libreta
@@ -148,7 +239,7 @@ class LibretaService
             ]);
         }
 
-        $pdf = Pdf::loadView('pdf.libreta', $this->datosParaPdf($estudiante, $ciclo));
+        $pdf = Pdf::loadView('pdf.libreta', $this->datosParaPdf($estudiante));
 
         /** @var Libreta $libreta */
         $libreta = Libreta::query()->updateOrCreate(
