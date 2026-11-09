@@ -1,10 +1,12 @@
 <?php
 
+use App\Models\User;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Evaluaciones\Models\Libreta;
 use App\Modules\Evaluaciones\Services\LibretaService;
 use App\Modules\Matricula\Models\Estudiante;
+use App\Modules\Matricula\Models\Matricula;
 use App\Modules\Pagos\Services\BloqueoAccesoService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -19,6 +21,8 @@ new #[Layout('layouts.app')] class extends Component
 
     public bool $estaBloqueado = false;
 
+    public bool $puedeGenerarLibreta = false;
+
     /** @var array<int, string> */
     public array $notasEditadas = [];
 
@@ -27,17 +31,54 @@ new #[Layout('layouts.app')] class extends Component
         $user = Auth::user();
 
         $esElMismoEstudiante = $user->estudiante && $user->estudiante->id === $estudiante->id;
+        $puedeVerTodo = $user->hasPermissionTo('evaluaciones.ver');
 
-        abort_unless($esElMismoEstudiante || $user->hasPermissionTo('evaluaciones.ver'), 403);
+        abort_unless(
+            $esElMismoEstudiante || $puedeVerTodo || $this->esDocenteDeAlgunCurso($user, $estudiante, $ciclo),
+            403,
+        );
 
         $this->estudiante = $estudiante;
         $this->ciclo = $ciclo;
+        // Generar/descargar la libreta oficial sigue limitado al propio
+        // estudiante y a quien tiene evaluaciones.ver (Dirección/
+        // Coordinación) -- un docente que solo entra a editar la nota de
+        // su curso no ve este botón.
+        $this->puedeGenerarLibreta = $esElMismoEstudiante || $puedeVerTodo;
 
         // Solo se bloquea la vista al propio estudiante; el personal con
-        // evaluaciones.ver sigue pudiendo consultar/generar la libreta
-        // para gestionar la cobranza.
+        // evaluaciones.ver (o el docente de alguno de sus cursos) sigue
+        // pudiendo consultar/editar la libreta sin que la cobranza se lo
+        // impida.
         $this->estaBloqueado = $esElMismoEstudiante
             && ($bloqueos->estaBloqueado($estudiante) || $bloqueos->tieneCuotasVencidasEnCicloActual($estudiante));
+    }
+
+    /**
+     * Un docente sin "evaluaciones.ver" (que solo cubre a Dirección y
+     * Coordinación) igual puede abrir la libreta de un estudiante suyo
+     * para editar la nota final de su curso -- mismo criterio de
+     * autorización que Gate::allows('evaluaciones.editar-nota-final', ...),
+     * visto aquí para al menos un horario de la matrícula del estudiante
+     * en este ciclo.
+     */
+    private function esDocenteDeAlgunCurso(User $user, Estudiante $estudiante, Ciclo $ciclo): bool
+    {
+        if (! $user->hasPermissionTo('evaluaciones.registrar')) {
+            return false;
+        }
+
+        $matricula = Matricula::query()
+            ->where('estudiante_id', $estudiante->id)
+            ->where('ciclo_id', $ciclo->id)
+            ->where('estado', 'aprobada')
+            ->first();
+
+        if (! $matricula) {
+            return false;
+        }
+
+        return Horario::query()->deLaMatricula($matricula)->where('docente_id', $user->id)->exists();
     }
 
     public function generar(LibretaService $service): void
@@ -107,27 +148,29 @@ new #[Layout('layouts.app')] class extends Component
                 o comunícate con Cobranza para un compromiso de pago.</p>
         </div>
     @else
-        <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
-            @if ($libreta && $libreta->generado_en)
-                <p class="text-sm text-ink-dim">
-                    Última libreta generada el {{ $libreta->generado_en->format('d/m/Y H:i') }}.
-                </p>
+        @if ($puedeGenerarLibreta)
+            <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
+                @if ($libreta && $libreta->generado_en)
+                    <p class="text-sm text-ink-dim">
+                        Última libreta generada el {{ $libreta->generado_en->format('d/m/Y H:i') }}.
+                    </p>
 
-                @if ($urlPdf)
-                    <a href="{{ $urlPdf }}" target="_blank" class="mt-3 inline-block text-sm font-medium text-accent hover:underline">
-                        Descargar PDF →
-                    </a>
+                    @if ($urlPdf)
+                        <a href="{{ $urlPdf }}" target="_blank" class="mt-3 inline-block text-sm font-medium text-accent hover:underline">
+                            Descargar PDF →
+                        </a>
+                    @endif
+                @else
+                    <p class="text-sm text-ink-faint">Todavía no se ha generado una libreta para este ciclo.</p>
                 @endif
-            @else
-                <p class="text-sm text-ink-faint">Todavía no se ha generado una libreta para este ciclo.</p>
-            @endif
 
-            <div class="mt-4">
-                <x-primary-button type="button" wire:click="generar" wire:loading.attr="disabled">
-                    {{ $libreta ? 'Actualizar libreta' : 'Generar libreta' }}
-                </x-primary-button>
+                <div class="mt-4">
+                    <x-primary-button type="button" wire:click="generar" wire:loading.attr="disabled">
+                        {{ $libreta ? 'Actualizar libreta' : 'Generar libreta' }}
+                    </x-primary-button>
+                </div>
             </div>
-        </div>
+        @endif
 
         <div class="mt-6">
             <x-evaluaciones.resumen-libreta :cursos="$cursos" :situacion-final="$situacionFinal" :puede-editar="true" />

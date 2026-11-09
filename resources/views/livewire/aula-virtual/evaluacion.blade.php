@@ -415,7 +415,18 @@ new #[Layout('layouts.app')] class extends Component
             <div class="divide-y divide-border rounded-2xl border border-border bg-surface shadow-sm">
                 @forelse ($estudiantes as $estudiante)
                     <div class="flex items-center justify-between gap-4 px-4 py-3 text-sm">
-                        <p class="text-ink">{{ $estudiante->nombreCompleto() }}</p>
+                        <div>
+                            <p class="text-ink">{{ $estudiante->nombreCompleto() }}</p>
+                            @unless ($curso->esDeCursoCorto())
+                                <a
+                                    href="{{ route('evaluaciones.libreta', ['estudiante' => $estudiante->id, 'ciclo' => $curso->horario->ciclo_id]) }}"
+                                    wire:navigate
+                                    class="text-xs text-accent hover:underline"
+                                >
+                                    Ver boleta / editar nota final →
+                                </a>
+                            @endunless
+                        </div>
                         <div class="flex items-center gap-2">
                             <input
                                 type="number"
