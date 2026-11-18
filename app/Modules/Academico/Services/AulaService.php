@@ -23,7 +23,7 @@ class AulaService
     }
 
     /**
-     * @param  array{nombre: string, capacidad: int, ubicacion: ?string, ciclo_id: ?int, letra: ?string}  $datos
+     * @param  array{nombre: string, capacidad: int, ubicacion: ?string, ciclo_id: ?int, letra: ?string, sede_id: ?int}  $datos
      */
     public function crear(array $datos): Aula
     {
@@ -31,7 +31,7 @@ class AulaService
     }
 
     /**
-     * @param  array{nombre: string, capacidad: int, ubicacion: ?string, ciclo_id: ?int, letra: ?string, activa: bool}  $datos
+     * @param  array{nombre: string, capacidad: int, ubicacion: ?string, ciclo_id: ?int, letra: ?string, sede_id: ?int, activa: bool}  $datos
      */
     public function actualizar(Aula $aula, array $datos): Aula
     {

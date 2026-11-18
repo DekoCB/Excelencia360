@@ -14,6 +14,10 @@ Route::middleware(['auth'])->prefix('academico')->name('academico.')->group(func
         ->middleware('can:academico.ver')
         ->name('grados.index');
 
+    Volt::route('secciones', 'academico.secciones.index')
+        ->middleware('can:academico.ver')
+        ->name('secciones.index');
+
     Volt::route('aulas', 'academico.aulas.index')
         ->middleware('can:academico.ver')
         ->name('aulas.index');

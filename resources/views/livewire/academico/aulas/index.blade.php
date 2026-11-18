@@ -2,7 +2,9 @@
 
 use App\Modules\Academico\Models\Aula;
 use App\Modules\Academico\Models\Ciclo;
+use App\Modules\Academico\Models\Sede;
 use App\Modules\Academico\Services\AulaService;
+use App\Modules\Academico\Services\SedeService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
@@ -26,7 +28,19 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $letra = '';
 
+    public string $sedeId = '';
+
     public string $cicloFiltro = '';
+
+    public bool $mostrarModalSede = false;
+
+    public ?int $editandoSedeId = null;
+
+    public string $sedeNombre = '';
+
+    public string $sedeDireccion = '';
+
+    public bool $sedeActiva = true;
 
     public function mount(): void
     {
@@ -51,12 +65,54 @@ new #[Layout('layouts.app')] class extends Component
             $this->activa = $aula->activa;
             $this->cicloId = $aula->ciclo_id !== null ? (string) $aula->ciclo_id : '';
             $this->letra = $aula->letra ?? '';
+            $this->sedeId = $aula->sede_id !== null ? (string) $aula->sede_id : '';
         } else {
-            $this->reset(['nombre', 'capacidad', 'ubicacion', 'cicloId', 'letra']);
+            $this->reset(['nombre', 'capacidad', 'ubicacion', 'cicloId', 'letra', 'sedeId']);
             $this->activa = true;
         }
 
         $this->mostrarModal = true;
+    }
+
+    public function abrirModalSede(?int $sedeId = null): void
+    {
+        Gate::authorize('academico.gestionar');
+
+        $this->resetValidation();
+        $this->editandoSedeId = $sedeId;
+
+        if ($sedeId) {
+            $sede = Sede::query()->findOrFail($sedeId);
+            $this->sedeNombre = $sede->nombre;
+            $this->sedeDireccion = (string) $sede->direccion;
+            $this->sedeActiva = $sede->activa;
+        } else {
+            $this->reset(['sedeNombre', 'sedeDireccion']);
+            $this->sedeActiva = true;
+        }
+
+        $this->mostrarModalSede = true;
+    }
+
+    public function guardarSede(SedeService $service): void
+    {
+        Gate::authorize('academico.gestionar');
+
+        $this->validate([
+            'sedeNombre' => 'required|string|max:150',
+            'sedeDireccion' => 'nullable|string|max:255',
+        ]);
+
+        $datos = ['nombre' => $this->sedeNombre, 'direccion' => $this->sedeDireccion ?: null];
+
+        if ($this->editandoSedeId) {
+            $service->actualizar(Sede::query()->findOrFail($this->editandoSedeId), [...$datos, 'activa' => $this->sedeActiva]);
+        } else {
+            $service->crear($datos);
+        }
+
+        $this->mostrarModalSede = false;
+        session()->flash('status', 'Sede guardada correctamente.');
     }
 
     /**
@@ -96,6 +152,7 @@ new #[Layout('layouts.app')] class extends Component
             'ubicacion' => 'nullable|string|max:100',
             'cicloId' => 'nullable|integer|exists:ciclos,id',
             'letra' => 'nullable|string|in:A,B',
+            'sedeId' => 'nullable|integer|exists:sedes,id',
         ]);
 
         $datos = [
@@ -104,6 +161,7 @@ new #[Layout('layouts.app')] class extends Component
             'ubicacion' => $this->ubicacion ?: null,
             'ciclo_id' => $this->cicloId !== '' ? (int) $this->cicloId : null,
             'letra' => $this->letra ?: null,
+            'sede_id' => $this->sedeId !== '' ? (int) $this->sedeId : null,
         ];
 
         if ($this->editandoId) {
@@ -128,10 +186,13 @@ new #[Layout('layouts.app')] class extends Component
         }
     }
 
-    public function with(AulaService $service): array
+    public function with(AulaService $service, SedeService $sedes): array
     {
+        $aulas = $service->todas();
+
         return [
-            'aulas' => $service->todas(),
+            'sedes' => $sedes->todas(),
+            'aulasPorSede' => $aulas->groupBy('sede_id'),
             'ciclos' => Ciclo::query()->orderByDesc('fecha_inicio')->get(),
             'ocupacion' => $this->cicloFiltro ? $service->ocupacion((int) $this->cicloFiltro) : collect(),
         ];
@@ -140,13 +201,17 @@ new #[Layout('layouts.app')] class extends Component
 
 <div>
     <x-slot name="header">
-        <h1 class="font-display text-2xl text-ink">Aulas</h1>
-        <p class="mt-1 text-sm text-ink-dim">Espacios físicos disponibles para dictar clases.</p>
+        <h1 class="font-display text-2xl text-ink">Sedes</h1>
+        <p class="mt-1 text-sm text-ink-dim">Las sedes físicas del instituto y las aulas que tiene cada una.</p>
     </x-slot>
 
     {{-- Ver academico/grados/index.blade.php: el botón no puede vivir en x-slot="header". --}}
     @can('academico.gestionar')
-        <div class="mb-4 flex justify-end">
+        <div class="mb-4 flex justify-end gap-3">
+            <x-secondary-button type="button" wire:click="abrirModalSede" class="gap-2">
+                <x-heroicon-o-plus class="h-4 w-4" />
+                Nueva sede
+            </x-secondary-button>
             <x-primary-button type="button" wire:click="abrirModal" class="gap-2">
                 <x-heroicon-o-plus class="h-4 w-4" />
                 Nueva aula
@@ -220,36 +285,78 @@ new #[Layout('layouts.app')] class extends Component
         @endif
     </div>
 
-    <h2 class="mb-3 font-display text-lg text-ink">Aulas registradas</h2>
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        @forelse ($aulas as $aula)
-            <div wire:key="aula-{{ $aula->id }}" class="rounded-2xl border border-border bg-surface shadow-sm p-4">
-                <div class="flex items-start justify-between">
+    <h2 class="mb-3 font-display text-lg text-ink">Sedes y sus aulas</h2>
+    <div class="space-y-6">
+        @forelse ($sedes as $sede)
+            <div wire:key="sede-{{ $sede->id }}" class="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+                <div class="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-3">
                     <div>
-                        <p class="font-display text-lg text-ink">{{ $aula->nombre }}</p>
-                        <p class="text-sm text-ink-dim">{{ $aula->ubicacion ?? 'Sin ubicación' }}</p>
+                        <p class="font-display text-base text-ink">{{ $sede->nombre }}</p>
+                        <p class="text-xs text-ink-faint">{{ $sede->direccion ?? 'Sin dirección' }} · {{ $sede->aulas_count }} aula{{ $sede->aulas_count === 1 ? '' : 's' }}</p>
                     </div>
-                    <span @class(['rounded-full px-2 py-0.5 text-xs font-medium', 'bg-ok/10 text-ok' => $aula->activa, 'bg-ink-faint/10 text-ink-faint' => ! $aula->activa])>
-                        {{ $aula->activa ? 'Activa' : 'Inactiva' }}
-                    </span>
+                    <div class="flex items-center gap-3">
+                        <span @class(['rounded-full px-2 py-0.5 text-xs font-medium', 'bg-ok/10 text-ok' => $sede->activa, 'bg-ink-faint/10 text-ink-faint' => ! $sede->activa])>
+                            {{ $sede->activa ? 'Activa' : 'Inactiva' }}
+                        </span>
+                        @can('academico.gestionar')
+                            <button wire:click="abrirModalSede({{ $sede->id }})" class="text-sm font-medium text-accent hover:underline">Editar</button>
+                        @endcan
+                    </div>
                 </div>
-                <p class="mt-3 text-sm text-ink-faint">Capacidad: <span class="text-ink">{{ $aula->capacidad }}</span> estudiantes</p>
-                @can('academico.gestionar')
-                    <div class="mt-3 flex items-center gap-3">
-                        <button wire:click="abrirModal({{ $aula->id }})" class="text-sm font-medium text-accent hover:underline">Editar</button>
-                        <button
-                            type="button"
-                            x-on:click="$store.confirm.preguntar(@js('¿Eliminar «'.$aula->nombre.'»? Esta acción no se puede deshacer.'), () => $wire.eliminar({{ $aula->id }}), { peligro: true, etiquetaConfirmar: 'Eliminar' })"
-                            class="text-sm font-medium text-danger hover:underline"
-                        >
-                            Eliminar
-                        </button>
-                    </div>
-                @endcan
+
+                <div class="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                    @forelse ($aulasPorSede->get($sede->id, collect()) as $aula)
+                        <div wire:key="aula-{{ $aula->id }}" class="rounded-xl border border-border bg-surface-2 p-4">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <p class="font-display text-base text-ink">{{ $aula->nombre }}</p>
+                                    <p class="text-sm text-ink-dim">{{ $aula->ubicacion ?? 'Sin ubicación' }}</p>
+                                </div>
+                                <span @class(['rounded-full px-2 py-0.5 text-xs font-medium', 'bg-ok/10 text-ok' => $aula->activa, 'bg-ink-faint/10 text-ink-faint' => ! $aula->activa])>
+                                    {{ $aula->activa ? 'Activa' : 'Inactiva' }}
+                                </span>
+                            </div>
+                            <p class="mt-3 text-sm text-ink-faint">Capacidad: <span class="text-ink">{{ $aula->capacidad }}</span> estudiantes</p>
+                            @can('academico.gestionar')
+                                <div class="mt-3 flex items-center gap-3">
+                                    <button wire:click="abrirModal({{ $aula->id }})" class="text-sm font-medium text-accent hover:underline">Editar</button>
+                                    <button
+                                        type="button"
+                                        x-on:click="$store.confirm.preguntar(@js('¿Eliminar «'.$aula->nombre.'»? Esta acción no se puede deshacer.'), () => $wire.eliminar({{ $aula->id }}), { peligro: true, etiquetaConfirmar: 'Eliminar' })"
+                                        class="text-sm font-medium text-danger hover:underline"
+                                    >
+                                        Eliminar
+                                    </button>
+                                </div>
+                            @endcan
+                        </div>
+                    @empty
+                        <p class="col-span-full py-4 text-center text-sm text-ink-faint">Esta sede todavía no tiene aulas.</p>
+                    @endforelse
+                </div>
             </div>
         @empty
-            <p class="col-span-full py-8 text-center text-sm text-ink-faint">No hay aulas registradas.</p>
+            <p class="py-8 text-center text-sm text-ink-faint">No hay sedes registradas.</p>
         @endforelse
+
+        @if ($aulasPorSede->has(''))
+            <div class="overflow-hidden rounded-2xl border border-dashed border-border bg-surface shadow-sm">
+                <div class="border-b border-border bg-surface-2 px-4 py-3">
+                    <p class="font-display text-base text-ink-dim">Sin sede asignada</p>
+                </div>
+                <div class="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                    @foreach ($aulasPorSede->get('') as $aula)
+                        <div wire:key="aula-sinsede-{{ $aula->id }}" class="rounded-xl border border-border bg-surface-2 p-4">
+                            <p class="font-display text-base text-ink">{{ $aula->nombre }}</p>
+                            <p class="mt-1 text-sm text-ink-faint">Capacidad: <span class="text-ink">{{ $aula->capacidad }}</span> estudiantes</p>
+                            @can('academico.gestionar')
+                                <button wire:click="abrirModal({{ $aula->id }})" class="mt-3 text-sm font-medium text-accent hover:underline">Editar</button>
+                            @endcan
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
     </div>
 
     <div
@@ -277,6 +384,18 @@ new #[Layout('layouts.app')] class extends Component
                 <h2 class="font-display text-lg text-ink">{{ $editandoId ? 'Editar aula' : 'Nueva aula' }}</h2>
 
                 <form wire:submit="guardar" class="mt-4 space-y-4">
+                    <div>
+                        <x-input-label for="sedeId" value="Sede" />
+                        <x-select-input
+                            wire:model="sedeId"
+                            id="sedeId"
+                            class="mt-1 block w-full"
+                            placeholder="Sin sede"
+                            :options="collect($sedes)->mapWithKeys(fn ($sede) => [$sede->id => $sede->nombre])"
+                        />
+                        <x-input-error :messages="$errors->get('sedeId')" class="mt-1" />
+                    </div>
+
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <x-input-label for="cicloId" value="Período de matrícula (opcional)" />
@@ -334,6 +453,57 @@ new #[Layout('layouts.app')] class extends Component
                     </div>
                 </form>
             </div>
+        </div>
+
+    <div
+        x-show="$wire.mostrarModalSede"
+        x-cloak
+        class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4"
+        wire:click.self="$set('mostrarModalSede', false)"
+        x-transition:enter="ease-out duration-300"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="ease-in duration-200"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+    >
+        <div
+            x-show="$wire.mostrarModalSede"
+            class="w-full max-w-md rounded-2xl border border-border bg-surface-elevated p-6 shadow-lg"
+            x-transition:enter="ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+            x-transition:leave="ease-in duration-200"
+            x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+            x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+        >
+            <h2 class="font-display text-lg text-ink">{{ $editandoSedeId ? 'Editar sede' : 'Nueva sede' }}</h2>
+
+            <form wire:submit="guardarSede" class="mt-4 space-y-4">
+                <div>
+                    <x-input-label for="sedeNombre" value="Nombre" />
+                    <x-text-input wire:model="sedeNombre" id="sedeNombre" class="mt-1 block w-full" placeholder="Ej. Sede Huancayo" />
+                    <x-input-error :messages="$errors->get('sedeNombre')" class="mt-1" />
+                </div>
+
+                <div>
+                    <x-input-label for="sedeDireccion" value="Dirección (opcional)" />
+                    <x-text-input wire:model="sedeDireccion" id="sedeDireccion" class="mt-1 block w-full" />
+                    <x-input-error :messages="$errors->get('sedeDireccion')" class="mt-1" />
+                </div>
+
+                @if ($editandoSedeId)
+                    <label class="flex items-center gap-2 text-sm text-ink-dim">
+                        <input type="checkbox" wire:model="sedeActiva" class="rounded border-border text-accent focus:ring-accent">
+                        Sede activa
+                    </label>
+                @endif
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <x-secondary-button type="button" wire:click="$set('mostrarModalSede', false)">Cancelar</x-secondary-button>
+                    <x-primary-button type="submit">Guardar</x-primary-button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

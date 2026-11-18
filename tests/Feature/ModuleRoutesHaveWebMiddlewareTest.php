@@ -28,6 +28,7 @@ class ModuleRoutesHaveWebMiddlewareTest extends TestCase
             'roles.index' => ['roles.index'],
             'auditoria.index' => ['auditoria.index'],
             'academico.grados.index' => ['academico.grados.index'],
+            'academico.secciones.index' => ['academico.secciones.index'],
             'academico.aulas.index' => ['academico.aulas.index'],
             'academico.cursos.index' => ['academico.cursos.index'],
             'academico.ciclos.index' => ['academico.ciclos.index'],

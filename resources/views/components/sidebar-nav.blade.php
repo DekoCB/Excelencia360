@@ -425,8 +425,9 @@
             ['route' => 'academico.ciclos.index', 'prefix' => 'academico.ciclos.*', 'label' => 'Periodo Académico', 'icon' => 'arrow-path'],
             ['route' => 'academico.programas-estudio.index', 'prefix' => 'academico.programas-estudio.*', 'label' => 'Programa de Estudio', 'icon' => 'academic-cap'],
             ['route' => 'academico.grados.index', 'prefix' => 'academico.grados.*', 'label' => 'Semestres', 'icon' => 'bookmark'],
+            ['route' => 'academico.secciones.index', 'prefix' => 'academico.secciones.*', 'label' => 'Secciones', 'icon' => 'squares-2x2'],
             ['route' => 'academico.cursos.index', 'prefix' => 'academico.cursos.*', 'label' => 'Unidades Didácticas', 'icon' => 'book-open'],
-            ['route' => 'academico.aulas.index', 'prefix' => 'academico.aulas.*', 'label' => 'Aulas', 'icon' => 'building-office-2'],
+            ['route' => 'academico.aulas.index', 'prefix' => 'academico.aulas.*', 'label' => 'Sedes', 'icon' => 'building-office-2'],
             ['route' => 'academico.horarios.index', 'prefix' => 'academico.horarios.*', 'label' => 'Horarios', 'icon' => 'clock'],
         ] as $enlace)
             <a
