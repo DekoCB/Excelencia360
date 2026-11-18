@@ -121,7 +121,11 @@ class HorarioService
      */
     private function validarDias(array $dias, int $aulaId, int $docenteId, ?int $cicloId, ?int $exceptoHorarioId = null): void
     {
-        if ($dias === []) {
+        // Un curso corto puede quedar sin ningún día ni hora ("horario
+        // libre"): el formulario ya exige al menos un día salvo que se
+        // marque esa opción explícitamente, así que si llega vacío aquí
+        // para un curso académico (ciclo_id no nulo) es un error real.
+        if ($dias === [] && $cicloId !== null) {
             throw ValidationException::withMessages([
                 'dias' => 'Elige al menos un día de clase.',
             ]);

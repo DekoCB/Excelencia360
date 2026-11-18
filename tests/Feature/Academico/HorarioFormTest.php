@@ -76,6 +76,78 @@ class HorarioFormTest extends TestCase
         $this->assertSame('11:00:00', $domingo->hora_fin);
     }
 
+    public function test_instituto_puede_crearse_sin_horas_definidas(): void
+    {
+        $this->actingAs($this->actorCoordinador());
+
+        $grado = Grado::factory()->create();
+        $curso = Curso::factory()->hasAttached($grado)->create();
+        $docente = User::factory()->create();
+        $aula = Aula::factory()->create();
+        $ciclo = Ciclo::factory()->create();
+
+        Volt::test('academico.horarios.index')
+            ->call('abrirModal')
+            ->set('cicloId', (string) $ciclo->id)
+            ->set('gradoId', (string) $grado->id)
+            ->set('cursoId', (string) $curso->id)
+            ->set('docenteId', (string) $docente->id)
+            ->set('aulaId', (string) $aula->id)
+            ->set('franjasSeleccionadas', ['sabados_domingos'])
+            ->set('conHoraDefinida', false)
+            ->call('guardar')
+            ->assertHasNoErrors();
+
+        $horario = Horario::query()->where('curso_id', $curso->id)->firstOrFail();
+        $this->assertCount(2, $horario->dias);
+        $this->assertNull($horario->dias->first()->hora_inicio);
+        $this->assertFalse($horario->fresh()->tieneHorasDefinidas());
+    }
+
+    public function test_instituto_sigue_exigiendo_al_menos_un_dia_aunque_no_tenga_horas(): void
+    {
+        $this->actingAs($this->actorCoordinador());
+
+        $grado = Grado::factory()->create();
+        $curso = Curso::factory()->hasAttached($grado)->create();
+        $docente = User::factory()->create();
+        $aula = Aula::factory()->create();
+        $ciclo = Ciclo::factory()->create();
+
+        Volt::test('academico.horarios.index')
+            ->call('abrirModal')
+            ->set('cicloId', (string) $ciclo->id)
+            ->set('gradoId', (string) $grado->id)
+            ->set('cursoId', (string) $curso->id)
+            ->set('docenteId', (string) $docente->id)
+            ->set('aulaId', (string) $aula->id)
+            ->set('conHoraDefinida', false)
+            ->call('guardar')
+            ->assertHasErrors('franjasSeleccionadas');
+    }
+
+    public function test_curso_corto_con_horario_libre_no_pide_dias_ni_horas(): void
+    {
+        $this->actingAs($this->actorCoordinador());
+
+        $curso = Curso::factory()->capacitacion()->create();
+        $docente = User::factory()->create();
+        $aula = Aula::factory()->create();
+
+        Volt::test('academico.horarios.index')
+            ->call('abrirModal')
+            ->set('tipo', 'curso_corto')
+            ->set('cursoId', (string) $curso->id)
+            ->set('docenteId', (string) $docente->id)
+            ->set('aulaId', (string) $aula->id)
+            ->set('horarioLibre', true)
+            ->call('guardar')
+            ->assertHasNoErrors();
+
+        $horario = Horario::query()->where('curso_id', $curso->id)->firstOrFail();
+        $this->assertCount(0, $horario->dias);
+    }
+
     public function test_muestra_el_mensaje_de_choque_de_aula_al_guardar(): void
     {
         $this->actingAs($this->actorCoordinador());

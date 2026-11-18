@@ -107,6 +107,17 @@ class Horario extends Model
     }
 
     /**
+     * Para Instituto, las horas ahora son opcionales al crear el horario
+     * (se puede completar después) -- Asistencia se apoya en esto para
+     * bloquear el registro con un aviso mientras tanto. No aplica a curso
+     * corto, que siempre pudo quedar sin horas por diseño.
+     */
+    public function tieneHorasDefinidas(): bool
+    {
+        return $this->dias->contains(fn (HorarioDia $dia) => $dia->hora_inicio !== null);
+    }
+
+    /**
      * Los horarios que corresponden a una matrícula: si tiene asignaciones
      * explícitas (ver Matricula::horarios()), solo esos; si no, todos los
      * del mismo grado y ciclo. Complementa a Matricula::scopeDelHorario(),

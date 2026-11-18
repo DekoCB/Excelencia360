@@ -43,9 +43,15 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $gradoId = '';
 
-    // Curso corto: las horas de clase son opcionales -- este interruptor
-    // decide si se piden o no. Para Instituto siempre son obligatorias.
-    public bool $conHoraDefinida = false;
+    // Las horas de clase son opcionales en ambos tipos -- este interruptor
+    // decide si se piden o no. Por defecto viene activado para Instituto
+    // (para no romper el comportamiento previo, donde eran obligatorias) y
+    // desactivado para curso corto.
+    public bool $conHoraDefinida = true;
+
+    // Solo para curso corto: ni días ni horas -- directamente "sin
+    // programación", el docente coordina las clases por su cuenta.
+    public bool $horarioLibre = false;
 
     /**
      * Al crear: las franjas institucionales marcadas (pueden combinarse
@@ -207,7 +213,7 @@ new #[Layout('layouts.app')] class extends Component
 
         $this->resetValidation();
         $this->reset([
-            'editandoId', 'tipo', 'cursoId', 'docenteId', 'aulaId', 'gradoId', 'conHoraDefinida',
+            'editandoId', 'tipo', 'cursoId', 'docenteId', 'aulaId', 'gradoId', 'conHoraDefinida', 'horarioLibre',
             'franjasSeleccionadas', 'diasSueltosSeleccionados',
             'horaInicioHoraPorDia', 'horaInicioMinutoPorDia', 'horaFinHoraPorDia', 'horaFinMinutoPorDia',
             'horaInicioHora12PorDia', 'horaInicioAmPmPorDia', 'horaFinHora12PorDia', 'horaFinAmPmPorDia',
@@ -226,13 +232,24 @@ new #[Layout('layouts.app')] class extends Component
     {
         $this->cursoId = '';
         $this->franjasSeleccionadas = [];
+        $this->horarioLibre = false;
 
         if ($this->tipo === 'curso_corto') {
             $this->cicloId = '';
             $this->gradoId = '';
+            $this->conHoraDefinida = false;
         } else {
             $this->cicloId = $this->cicloFiltro;
+            $this->conHoraDefinida = true;
+        }
+    }
+
+    public function updatedHorarioLibre(): void
+    {
+        if ($this->horarioLibre) {
             $this->conHoraDefinida = false;
+            $this->franjasSeleccionadas = [];
+            $this->diasSueltosSeleccionados = [];
         }
     }
 
@@ -258,6 +275,7 @@ new #[Layout('layouts.app')] class extends Component
         $this->aulaId = (string) $horario->aula_id;
         $this->franjasSeleccionadas = [];
         $this->diasSueltosSeleccionados = $horario->dias->pluck('dia_semana.value')->all();
+        $this->horarioLibre = $horario->esDeCursoCorto() && $horario->dias->isEmpty();
 
         $this->horaInicioHoraPorDia = [];
         $this->horaInicioMinutoPorDia = [];
@@ -297,6 +315,10 @@ new #[Layout('layouts.app')] class extends Component
      */
     private function diasEfectivos(): array
     {
+        if ($this->tipo === 'curso_corto' && $this->horarioLibre) {
+            return [];
+        }
+
         if ($this->editandoId !== null) {
             return array_map(fn (string $valor) => DiaSemanaEnum::from($valor), $this->diasSueltosSeleccionados);
         }
@@ -314,7 +336,8 @@ new #[Layout('layouts.app')] class extends Component
 
         $dias = $this->diasEfectivos();
         $esCursoCorto = $this->tipo === 'curso_corto';
-        $pideHoras = ! $esCursoCorto || $this->conHoraDefinida;
+        $horarioLibre = $esCursoCorto && $this->horarioLibre;
+        $pideHoras = ! $horarioLibre && $this->conHoraDefinida;
 
         $reglas = [
             'cursoId' => 'required|integer|exists:cursos,id',
@@ -330,12 +353,14 @@ new #[Layout('layouts.app')] class extends Component
             $reglas['gradoId'] = 'required|integer|exists:grados,id';
         }
 
-        if ($this->editandoId === null) {
-            $reglas['franjasSeleccionadas'] = 'required|array|min:1';
-            $reglas['franjasSeleccionadas.*'] = 'string|in:'.implode(',', array_keys($this->franjasDisponibles()));
-        } else {
-            $reglas['diasSueltosSeleccionados'] = 'required|array|min:1';
-            $reglas['diasSueltosSeleccionados.*'] = 'string|in:'.implode(',', array_map(fn (DiaSemanaEnum $dia) => $dia->value, DiaSemanaEnum::cases()));
+        if (! $horarioLibre) {
+            if ($this->editandoId === null) {
+                $reglas['franjasSeleccionadas'] = 'required|array|min:1';
+                $reglas['franjasSeleccionadas.*'] = 'string|in:'.implode(',', array_keys($this->franjasDisponibles()));
+            } else {
+                $reglas['diasSueltosSeleccionados'] = 'required|array|min:1';
+                $reglas['diasSueltosSeleccionados.*'] = 'string|in:'.implode(',', array_map(fn (DiaSemanaEnum $dia) => $dia->value, DiaSemanaEnum::cases()));
+            }
         }
 
         if ($pideHoras) {
@@ -765,62 +790,70 @@ new #[Layout('layouts.app')] class extends Component
                         </div>
                     </div>
 
-                    @if ($editandoId === null)
-                        <div>
-                            <x-input-label value="Días de clase" />
-                            <p class="mt-1 text-xs text-ink-faint">Ningún curso se dicta en un día suelto: elige una o varias franjas.</p>
-                            @if ($cursoTieneFranjasRestringidas)
-                                <p class="mt-1 text-xs text-ink-faint">Solo se muestran las franjas permitidas para este curso.</p>
-                            @endif
-
-                            <div class="mt-2 space-y-2">
-                                @foreach ($franjas as $valor => $etiqueta)
-                                    <label class="flex items-center gap-2 rounded-md border border-border p-3 text-sm text-ink">
-                                        <input
-                                            type="checkbox"
-                                            value="{{ $valor }}"
-                                            wire:model.live="franjasSeleccionadas"
-                                            class="rounded border-border text-accent focus:ring-accent"
-                                        >
-                                        {{ $etiqueta }}
-                                    </label>
-                                @endforeach
-                            </div>
-
-                            <x-input-error :messages="$errors->get('franjasSeleccionadas')" class="mt-1" />
-                        </div>
-                    @else
-                        <div>
-                            <x-input-label value="Días de clase" />
-                            <p class="mt-1 text-xs text-ink-faint">Los días reales de este horario -- puedes agregar o quitar días sueltos aquí.</p>
-
-                            <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                                @foreach ($diasSemana as $dia)
-                                    <label class="flex items-center gap-2 rounded-md border border-border p-2 text-sm text-ink">
-                                        <input
-                                            type="checkbox"
-                                            value="{{ $dia->value }}"
-                                            wire:model.live="diasSueltosSeleccionados"
-                                            class="rounded border-border text-accent focus:ring-accent"
-                                        >
-                                        {{ $dia->label() }}
-                                    </label>
-                                @endforeach
-                            </div>
-
-                            <x-input-error :messages="$errors->get('diasSueltosSeleccionados')" class="mt-1" />
-                        </div>
+                    @if ($tipo === 'curso_corto')
+                        <label class="flex items-center gap-2 text-sm text-ink">
+                            <input type="checkbox" wire:model.live="horarioLibre" class="rounded border-border text-accent focus:ring-accent">
+                            Horario libre
+                        </label>
+                        <p class="-mt-2 text-xs text-ink-faint">Sin días ni horas fijas: el docente coordina las clases por su cuenta.</p>
                     @endif
 
-                    @if ($tipo === 'curso_corto')
+                    @unless ($tipo === 'curso_corto' && $horarioLibre)
+                        @if ($editandoId === null)
+                            <div>
+                                <x-input-label value="Días de clase" />
+                                <p class="mt-1 text-xs text-ink-faint">Ningún curso se dicta en un día suelto: elige una o varias franjas.</p>
+                                @if ($cursoTieneFranjasRestringidas)
+                                    <p class="mt-1 text-xs text-ink-faint">Solo se muestran las franjas permitidas para este curso.</p>
+                                @endif
+
+                                <div class="mt-2 space-y-2">
+                                    @foreach ($franjas as $valor => $etiqueta)
+                                        <label class="flex items-center gap-2 rounded-md border border-border p-3 text-sm text-ink">
+                                            <input
+                                                type="checkbox"
+                                                value="{{ $valor }}"
+                                                wire:model.live="franjasSeleccionadas"
+                                                class="rounded border-border text-accent focus:ring-accent"
+                                            >
+                                            {{ $etiqueta }}
+                                        </label>
+                                    @endforeach
+                                </div>
+
+                                <x-input-error :messages="$errors->get('franjasSeleccionadas')" class="mt-1" />
+                            </div>
+                        @else
+                            <div>
+                                <x-input-label value="Días de clase" />
+                                <p class="mt-1 text-xs text-ink-faint">Los días reales de este horario -- puedes agregar o quitar días sueltos aquí.</p>
+
+                                <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                    @foreach ($diasSemana as $dia)
+                                        <label class="flex items-center gap-2 rounded-md border border-border p-2 text-sm text-ink">
+                                            <input
+                                                type="checkbox"
+                                                value="{{ $dia->value }}"
+                                                wire:model.live="diasSueltosSeleccionados"
+                                                class="rounded border-border text-accent focus:ring-accent"
+                                            >
+                                            {{ $dia->label() }}
+                                        </label>
+                                    @endforeach
+                                </div>
+
+                                <x-input-error :messages="$errors->get('diasSueltosSeleccionados')" class="mt-1" />
+                            </div>
+                        @endif
+
                         <label class="flex items-center gap-2 text-sm text-ink">
                             <input type="checkbox" wire:model.live="conHoraDefinida" class="rounded border-border text-accent focus:ring-accent">
                             Definir hora de clase
                         </label>
-                        <p class="-mt-2 text-xs text-ink-faint">Opcional: un curso corto puede quedar solo con sus días marcados, sin hora fija.</p>
-                    @endif
+                        <p class="-mt-2 text-xs text-ink-faint">Opcional: el horario puede quedar solo con sus días marcados, sin hora fija -- se puede completar después (mientras tanto, Asistencia queda bloqueada con un aviso).</p>
+                    @endunless
 
-                    @if ($diasParaHoras !== [] && ($tipo === 'instituto' || $conHoraDefinida))
+                    @if ($diasParaHoras !== [] && $conHoraDefinida)
                         <div class="space-y-3" wire:key="horas-{{ implode('-', array_map(fn ($d) => $d->value, $diasParaHoras)) }}">
                             @foreach ($diasParaHoras as $dia)
                                 <div class="rounded-md border border-border p-3">

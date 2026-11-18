@@ -112,6 +112,7 @@ new #[Layout('layouts.app')] class extends Component
     public function guardar(AsistenciaService $service): void
     {
         Gate::authorize('asistencia.registrar-horario', $this->horario);
+        abort_if(! $this->horario->esDeCursoCorto() && ! $this->horario->tieneHorasDefinidas(), 403);
 
         $valores = implode(',', array_column(EstadoAsistenciaEnum::cases(), 'value'));
         $rules = [];
@@ -142,6 +143,7 @@ new #[Layout('layouts.app')] class extends Component
     {
         Gate::authorize('asistencia.registrar-horario', $this->horario);
         abort_unless($this->fecha === now()->format('Y-m-d'), 403);
+        abort_if(! $this->horario->esDeCursoCorto() && ! $this->horario->tieneHorasDefinidas(), 403);
 
         $this->ultimoEscaneado = null;
         $estudiante = $service->estudianteParaQrToken($codigo);
@@ -251,6 +253,7 @@ new #[Layout('layouts.app')] class extends Component
         return [
             'puedeRegistrar' => $puedeRegistrar,
             'puedeSupervisar' => $puedeSupervisar,
+            'sinHorarioAsignado' => ! $this->horario->esDeCursoCorto() && ! $this->horario->tieneHorasDefinidas(),
             'estudiantes' => ($puedeRegistrar || $puedeSupervisar) ? $service->estudiantesDelHorario($this->horario) : collect(),
             'fechasRegistradas' => $service->fechasRegistradas($this->horario),
             'fechasClase' => ($puedeRegistrar || $puedeSupervisar) ? $service->fechasDeClase($this->horario) : collect(),
@@ -365,14 +368,25 @@ new #[Layout('layouts.app')] class extends Component
             </div>
         @endif
 
-        @if ($puedeRegistrar && $fecha === now()->format('Y-m-d'))
-            <div class="mb-4">
-                <x-qr-scanner metodo="escanearQr" />
+        @if ($sinHorarioAsignado)
+            <div class="rounded-lg border border-warn/30 bg-warn/10 px-4 py-6 text-sm text-warn">
+                <p class="font-medium">Este curso no tiene horario asignado.</p>
+                <p class="mt-1">
+                    Todavía no se definieron las horas de clase.
+                    @if ($puedeRegistrar)
+                        Complétalas desde <a href="{{ route('academico.horarios.index') }}" wire:navigate class="underline">Horarios</a> para poder registrar asistencia.
+                    @endif
+                </p>
             </div>
-        @endif
+        @else
+            @if ($puedeRegistrar && $fecha === now()->format('Y-m-d'))
+                <div class="mb-4">
+                    <x-qr-scanner metodo="escanearQr" />
+                </div>
+            @endif
 
-        <div class="divide-y divide-border rounded-2xl border border-border bg-surface shadow-sm">
-            @forelse ($estudiantes as $estudiante)
+            <div class="divide-y divide-border rounded-2xl border border-border bg-surface shadow-sm">
+                @forelse ($estudiantes as $estudiante)
                 <div class="px-4 py-3 text-sm" x-data="{ estado: @entangle('estados.'.$estudiante->id) }">
                     <div class="flex items-center justify-between gap-4">
                         <p class="text-ink">{{ $estudiante->nombreCompleto() }}</p>
@@ -435,10 +449,11 @@ new #[Layout('layouts.app')] class extends Component
             @endforelse
         </div>
 
-        @if ($puedeRegistrar && $estudiantes->isNotEmpty())
-            <div class="mt-4 flex justify-end">
-                <x-primary-button type="button" wire:click="guardar">Guardar asistencia</x-primary-button>
-            </div>
+            @if ($puedeRegistrar && $estudiantes->isNotEmpty())
+                <div class="mt-4 flex justify-end">
+                    <x-primary-button type="button" wire:click="guardar">Guardar asistencia</x-primary-button>
+                </div>
+            @endif
         @endif
     @elseif ($miResumen)
         <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
