@@ -2,21 +2,21 @@
 
 use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Models\Ciclo;
+use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Academico\Services\CicloService;
 use App\Modules\Academico\Services\CursoService;
+use App\Modules\Academico\Services\SeccionService;
 use App\Modules\Matricula\DTOs\RegistrarApoderadoData;
 use App\Modules\Matricula\DTOs\RegistrarEstudianteData;
 use App\Modules\Matricula\DTOs\RegistrarMatriculaData;
-use App\Modules\Academico\Models\SeccionAcademica;
 use App\Modules\Matricula\Enums\EstadoCivilEnum;
 use App\Modules\Matricula\Enums\ModalidadEstudioEnum;
 use App\Modules\Matricula\Enums\TipoDocumentoEnum;
 use App\Modules\Matricula\Enums\TipoMatriculaEnum;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
-use App\Modules\Academico\Services\SeccionService;
 use App\Modules\Matricula\Services\DocumentoEstudianteService;
 use App\Modules\Matricula\Services\ExamenUbicacionService;
 use App\Modules\Matricula\Services\MatriculaService;
@@ -26,6 +26,7 @@ use App\Modules\Pagos\Models\CargoAdicional;
 use App\Modules\Pagos\Services\PlanPagoService;
 use App\Shared\ValueObjects\Dni;
 use App\Shared\ValueObjects\Telefono;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -210,10 +211,10 @@ new class extends Component
      * específicos" -- dejarlo vacío matricula en todos (comportamiento por
      * defecto, ver RegistrarMatriculaData::$cursoIds).
      *
-     * @return \Illuminate\Support\Collection<int, \App\Modules\Academico\Models\Curso>
+     * @return Collection<int, Curso>
      */
     #[Computed]
-    public function cursosDelSemestre(): \Illuminate\Support\Collection
+    public function cursosDelSemestre(): Collection
     {
         if ($this->cicloId === '' || $this->gradoId === '') {
             return collect();
@@ -840,6 +841,7 @@ new class extends Component
                 <div>
                     <x-input-label for="email" value="Correo personal" />
                     <x-text-input wire:model="email" id="email" type="email" class="mt-1 block w-full" placeholder="correo@ejemplo.com" />
+                    <p class="mt-1 text-xs text-ink-faint">Con este correo ingresará al sistema (la contraseña inicial es su DNI).</p>
                     <x-input-error :messages="$errors->get('email')" class="mt-1" />
                 </div>
                 <div>
@@ -883,13 +885,6 @@ new class extends Component
                     <x-input-label for="direccion" value="Dirección" />
                     <x-text-input wire:model="direccion" id="direccion" class="mt-1 block w-full" />
                     <x-input-error :messages="$errors->get('direccion')" class="mt-1" />
-                </div>
-                <div class="sm:col-span-2">
-                    <x-input-label value="Correo" />
-                    <div class="mt-1 rounded-md border border-border bg-surface-2 px-3 py-2 font-mono text-sm text-ink-dim">
-                        {{ trim($dni) !== '' ? strtolower(trim($dni)).'@excelencia360.com' : '—' }}
-                    </div>
-                    <p class="mt-1 text-xs text-ink-faint">Se asigna automáticamente a partir del DNI, junto con su cuenta de acceso al sistema.</p>
                 </div>
                 <div class="sm:col-span-2">
                     <x-input-label for="foto" value="Fotografía (opcional)" />
