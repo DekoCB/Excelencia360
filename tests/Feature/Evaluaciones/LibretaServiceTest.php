@@ -5,6 +5,7 @@ namespace Tests\Feature\Evaluaciones;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\Academico\Models\SeccionAcademica;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
 use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
@@ -267,6 +268,37 @@ class LibretaServiceTest extends TestCase
         $this->assertCount(1, $periodos);
         $this->assertTrue($periodos->first()['cursos']->isEmpty());
         $this->assertNull($periodos->first()['promedioPonderado']);
+    }
+
+    public function test_datos_boleta_completa_trae_la_letra_de_la_seccion_de_la_matricula(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $ciclo = Ciclo::factory()->create();
+        $seccion = SeccionAcademica::query()->where('letra', 'B')->first();
+        Matricula::factory()->create([
+            'estudiante_id' => $estudiante->id,
+            'ciclo_id' => $ciclo->id,
+            'seccion_academica_id' => $seccion->id,
+        ]);
+
+        $periodo = $this->libretaService()->datosBoletaCompleta($estudiante)->first();
+
+        $this->assertSame('B', $periodo['seccion']);
+    }
+
+    public function test_datos_boleta_completa_sin_seccion_asignada_devuelve_null(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $ciclo = Ciclo::factory()->create();
+        Matricula::factory()->create([
+            'estudiante_id' => $estudiante->id,
+            'ciclo_id' => $ciclo->id,
+            'seccion_academica_id' => null,
+        ]);
+
+        $periodo = $this->libretaService()->datosBoletaCompleta($estudiante)->first();
+
+        $this->assertNull($periodo['seccion']);
     }
 
     public function test_datos_boleta_completa_calcula_el_promedio_ponderado_por_creditos(): void

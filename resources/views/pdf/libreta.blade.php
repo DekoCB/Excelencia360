@@ -122,7 +122,7 @@
                                 <td>{{ $curso['codigo'] }}</td>
                                 <td class="col-unidad">{{ $curso['nombre'] }}</td>
                                 <td>{{ $curso['cnd'] }}</td>
-                                <td></td>
+                                <td>{{ $periodo['seccion'] ?? '—' }}</td>
                                 <td>{{ $curso['creditos'] ?? '—' }}</td>
                                 <td class="pf">{{ $curso['promedio'] !== null ? number_format($curso['promedio'], 2) : '—' }}</td>
                                 <td>

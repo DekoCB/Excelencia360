@@ -159,17 +159,19 @@ class LibretaService
      * Todo el historial del estudiante (un bloque por cada matrícula
      * aprobada, en orden cronológico), para la boleta de notas completa.
      * Cada elemento es un array con las claves "matricula", "ciclo",
-     * "grado", "programaEstudio", "periodoAcademicoRomano", "cursos" (ver
-     * resumenPorCursosDeLaMatricula()), "totalCreditos" (solo cursos con
-     * créditos y nota cargados), "cursosAprobados" y "promedioPonderado"
-     * (?float, null si ningún curso tiene créditos+nota cargados).
+     * "grado", "programaEstudio", "seccion" (?string, la letra de la
+     * Sección de esa matrícula -- ver SeccionAcademica), "periodoAcademicoRomano",
+     * "cursos" (ver resumenPorCursosDeLaMatricula()), "totalCreditos"
+     * (solo cursos con créditos y nota cargados), "cursosAprobados" y
+     * "promedioPonderado" (?float, null si ningún curso tiene
+     * créditos+nota cargados).
      */
     public function datosBoletaCompleta(Estudiante $estudiante): SupportCollection
     {
         $matriculas = Matricula::query()
             ->where('estudiante_id', $estudiante->id)
             ->where('estado', 'aprobada')
-            ->with(['ciclo', 'grado.programaEstudio'])
+            ->with(['ciclo', 'grado.programaEstudio', 'seccionAcademica'])
             ->orderBy('fecha_matricula')
             ->get();
 
@@ -187,6 +189,7 @@ class LibretaService
                 'ciclo' => $matricula->ciclo,
                 'grado' => $matricula->grado,
                 'programaEstudio' => $matricula->grado->programaEstudio,
+                'seccion' => $matricula->seccionAcademica?->letra,
                 'periodoAcademicoRomano' => $this->numeroRomano($matricula->grado->orden),
                 'cursos' => $cursos,
                 'totalCreditos' => $totalCreditos,
