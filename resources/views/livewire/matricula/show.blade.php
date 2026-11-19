@@ -1,7 +1,10 @@
 <?php
 
+use App\Modules\Academico\Enums\ModalidadCicloEnum;
+use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\Academico\Models\ProgramaEstudio;
 use App\Modules\Academico\Services\CursoService;
 use App\Modules\Matricula\Enums\EstadoCivilEnum;
 use App\Modules\Matricula\Enums\EstadoEstudianteEnum;
@@ -11,6 +14,7 @@ use App\Modules\Matricula\Enums\TipoDocumentoEnum;
 use App\Modules\Matricula\Models\CertificadoSubido;
 use App\Modules\Matricula\Models\DocumentoEstudiante;
 use App\Modules\Matricula\Models\Estudiante;
+use App\Modules\Matricula\DTOs\RegistrarMatriculaData;
 use App\Modules\Matricula\Models\Matricula;
 use App\Modules\Matricula\Models\MatriculaCursoCorto;
 use App\Modules\Matricula\Services\CertificadoSubidoService;
@@ -91,6 +95,10 @@ new #[Layout('layouts.app')] class extends Component
     public string $cursoCortoNuevoId = '';
 
     public string $fechaInicioCursoCortoNuevo = '';
+
+    public bool $mostrandoFormNuevaMatricula = false;
+
+    public string $nuevaMatriculaProgramaId = '';
 
     public bool $mostrandoFormCertificado = false;
 
@@ -331,6 +339,75 @@ new #[Layout('layouts.app')] class extends Component
 
         $this->cancelarFormCursoCorto();
         session()->flash('status', 'Curso corto registrado.');
+    }
+
+    public function mostrarFormNuevaMatricula(): void
+    {
+        Gate::authorize('matricula.editar');
+
+        $this->resetValidation();
+        $this->nuevaMatriculaProgramaId = '';
+        $this->mostrandoFormNuevaMatricula = true;
+    }
+
+    public function cancelarFormNuevaMatricula(): void
+    {
+        $this->mostrandoFormNuevaMatricula = false;
+        $this->nuevaMatriculaProgramaId = '';
+    }
+
+    /**
+     * Atajo desde la ficha: solo se elige el Programa de Estudio, el
+     * Semestre y el Período de matrícula se resuelven solos (ver
+     * MatriculaService::gradoSiguienteParaPrograma()) -- mismo camino que
+     * usa el wizard, sin repetir sus 6 pasos para un estudiante que ya
+     * tiene ficha.
+     */
+    public function guardarNuevaMatricula(MatriculaService $service): void
+    {
+        Gate::authorize('matricula.editar');
+
+        $this->validate([
+            'nuevaMatriculaProgramaId' => 'required|integer|exists:programas_estudio,id',
+        ]);
+
+        $programa = ProgramaEstudio::query()->findOrFail($this->nuevaMatriculaProgramaId);
+
+        $ciclo = Ciclo::query()
+            ->where('modalidad', ModalidadCicloEnum::SEIS_MESES)
+            ->where('estado_matricula', 'abierto')
+            ->where('fecha_inicio_matricula', '<=', now())
+            ->where('fecha_fin_matricula', '>=', now())
+            ->orderByDesc('fecha_inicio')
+            ->first() ?? Ciclo::query()
+                ->where('modalidad', ModalidadCicloEnum::ANUAL)
+                ->where('estado', 'activo')
+                ->orderByDesc('fecha_inicio')
+                ->first();
+
+        if (! $ciclo) {
+            $this->addError('nuevaMatriculaProgramaId', 'No hay ningún período de matrícula abierto en este momento.');
+
+            return;
+        }
+
+        $grado = $service->gradoSiguienteParaPrograma($this->estudiante, $programa);
+
+        if (! $grado) {
+            $this->addError('nuevaMatriculaProgramaId', 'Este programa de estudio todavía no tiene semestres activos.');
+
+            return;
+        }
+
+        $service->matricular($this->estudiante, new RegistrarMatriculaData(
+            cicloId: $ciclo->id,
+            gradoId: $grado->id,
+            observaciones: null,
+            registradoPor: Auth::id(),
+        ));
+
+        $this->cancelarFormNuevaMatricula();
+        session()->flash('status', 'Matrícula registrada.');
     }
 
     public function mostrarFormCertificado(): void
@@ -580,6 +657,7 @@ new #[Layout('layouts.app')] class extends Component
             'matriculas' => $matriculas,
             'cursosCortos' => $this->estudiante->cursosCortos()->with('curso')->latest('fecha_inicio')->get(),
             'cursosCortosDisponibles' => $cursos->deCapacitacion(),
+            'programasDisponibles' => ProgramaEstudio::query()->where('activo', true)->orderBy('nombre')->get(),
             'certificadosSubidos' => $this->estudiante->certificadosSubidos()->with(['curso', 'media'])->latest()->get(),
             'cursosConHorarios' => $matriculas->mapWithKeys(fn (Matricula $matricula) => [$matricula->id => $this->cursosConHorarios($matricula)]),
             'planesPorMatricula' => Auth::user()->hasPermissionTo('pagos.ver')
@@ -625,6 +703,9 @@ new #[Layout('layouts.app')] class extends Component
         :mostrando-form-curso-corto="$mostrandoFormCursoCorto"
         :curso-corto-nuevo-id="$cursoCortoNuevoId"
         :fecha-inicio-curso-corto-nuevo="$fechaInicioCursoCortoNuevo"
+        :mostrando-form-nueva-matricula="$mostrandoFormNuevaMatricula"
+        :nueva-matricula-programa-id="$nuevaMatriculaProgramaId"
+        :programas-disponibles="$programasDisponibles"
         :certificados-subidos="$certificadosSubidos"
         :mostrando-form-certificado="$mostrandoFormCertificado"
         :certificado-tipo-nuevo="$certificadoTipoNuevo"

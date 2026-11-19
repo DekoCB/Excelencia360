@@ -8,6 +8,9 @@
     'mostrandoFormCursoCorto' => false,
     'cursoCortoNuevoId' => '',
     'fechaInicioCursoCortoNuevo' => '',
+    'mostrandoFormNuevaMatricula' => false,
+    'nuevaMatriculaProgramaId' => '',
+    'programasDisponibles' => [],
     'certificadosSubidos' => [],
     'mostrandoFormCertificado' => false,
     'certificadoTipoNuevo' => '',
@@ -474,7 +477,38 @@
     @endif
 
     <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
-        <h2 class="text-sm font-semibold text-ink">Matrículas</h2>
+        <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-ink">Matrículas</h2>
+            @can('matricula.editar')
+                @if (! $mostrandoFormNuevaMatricula)
+                    <button type="button" wire:click="mostrarFormNuevaMatricula" class="text-xs font-medium text-accent hover:underline">+ Nueva matrícula</button>
+                @endif
+            @endcan
+        </div>
+
+        @can('matricula.editar')
+            @if ($mostrandoFormNuevaMatricula)
+                <form wire:submit="guardarNuevaMatricula" class="mt-4 space-y-3 rounded-xl border border-border bg-surface-2 p-4">
+                    <div>
+                        <x-input-label for="nuevaMatriculaProgramaId" value="Programa de estudio" />
+                        <x-select-input
+                            wire:model="nuevaMatriculaProgramaId"
+                            id="nuevaMatriculaProgramaId"
+                            class="mt-1 block w-full"
+                            placeholder="Selecciona un programa…"
+                            :options="collect($programasDisponibles)->mapWithKeys(fn ($programa) => [$programa->id => $programa->nombre])"
+                        />
+                        <p class="mt-1 text-xs text-ink-faint">El semestre y el periodo académico se resuelven automáticamente: el siguiente que le corresponde según lo que ya cursó en este programa.</p>
+                        <x-input-error :messages="$errors->get('nuevaMatriculaProgramaId')" class="mt-1" />
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <x-secondary-button type="button" wire:click="cancelarFormNuevaMatricula">Cancelar</x-secondary-button>
+                        <x-primary-button type="submit">Matricular</x-primary-button>
+                    </div>
+                </form>
+            @endif
+        @endcan
+
         <div class="mt-4 divide-y divide-border">
             @forelse ($matriculas as $matricula)
                 <div class="py-3 text-sm">

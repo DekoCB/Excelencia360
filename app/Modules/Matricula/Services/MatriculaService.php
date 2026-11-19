@@ -323,6 +323,31 @@ class MatriculaService
     }
 
     /**
+     * Para el atajo "+ Nueva matrícula" de la ficha del estudiante (elige
+     * solo el Programa de Estudio): el siguiente Semestre de ese programa
+     * que el estudiante todavía no cursó (el de menor orden entre los que
+     * aún no tiene ninguna matrícula), o el de orden 1 si es la primera
+     * vez que se matricula en este programa. Null solo si el programa no
+     * tiene ningún semestre activo todavía.
+     */
+    public function gradoSiguienteParaPrograma(Estudiante $estudiante, ProgramaEstudio $programa): ?Grado
+    {
+        $grados = Grado::query()
+            ->where('programa_estudio_id', $programa->id)
+            ->where('activo', true)
+            ->orderBy('orden')
+            ->get();
+
+        $yaCursados = Matricula::query()
+            ->where('estudiante_id', $estudiante->id)
+            ->whereIn('grado_id', $grados->pluck('id'))
+            ->pluck('grado_id')
+            ->all();
+
+        return $grados->first(fn (Grado $grado) => ! in_array($grado->id, $yaCursados, true)) ?? $grados->first();
+    }
+
+    /**
      * Variante de asignarHorarioDeCurso() que resuelve el horario a partir
      * del curso en vez de pedirlo explícito -- para cuando solo hay un
      * Horario para ese curso+grado+ciclo (el caso normal). Si hay varios

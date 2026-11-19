@@ -9,6 +9,7 @@ use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Academico\Models\ProgramaEstudio;
 use App\Modules\Academico\Services\CursoService;
+use App\Modules\Matricula\Models\MatriculaCursoCorto;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
@@ -49,9 +50,17 @@ new #[Layout('layouts.app')] class extends Component
     // muestran en pestañas separadas en vez de mezclados por defecto.
     public string $tipoFiltro = 'academico';
 
+    // Curso corto cuyo roster de matriculados se está mostrando (modal).
+    public ?int $estudiantesCursoCortoId = null;
+
     public function mount(): void
     {
         Gate::authorize('academico.ver');
+    }
+
+    public function verEstudiantes(int $cursoId): void
+    {
+        $this->estudiantesCursoCortoId = $cursoId;
     }
 
     public function updatedTipoFiltro(): void
@@ -228,6 +237,13 @@ new #[Layout('layouts.app')] class extends Component
                 ->groupBy('curso_id')
             : collect();
 
+        $matriculasCursoCortoPorCurso = MatriculaCursoCorto::query()
+            ->whereIn('curso_id', $cursos->pluck('id'))
+            ->where('estado', 'activo')
+            ->with('estudiante')
+            ->get()
+            ->groupBy('curso_id');
+
         return [
             'cursos' => $cursos,
             'programas' => ProgramaEstudio::query()
@@ -238,6 +254,8 @@ new #[Layout('layouts.app')] class extends Component
             'ciclo' => $ciclo,
             'horariosPorCurso' => $horariosPorCurso,
             'docentesDisponibles' => User::role('docente')->orderBy('name')->get(),
+            'matriculasCursoCortoPorCurso' => $matriculasCursoCortoPorCurso,
+            'cursoConEstudiantes' => $this->estudiantesCursoCortoId ? Curso::query()->find($this->estudiantesCursoCortoId) : null,
         ];
     }
 }; ?>
@@ -293,6 +311,7 @@ new #[Layout('layouts.app')] class extends Component
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Código</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Nombre</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Tipo</th>
+                    <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Programa de estudio</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Semestres</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Docente</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Horas</th>
@@ -321,6 +340,7 @@ new #[Layout('layouts.app')] class extends Component
                                 {{ $curso->tipo->label() }}
                             </span>
                         </td>
+                        <td class="px-4 py-3 text-ink-dim">{{ $curso->grados->pluck('programaEstudio.nombre')->filter()->unique()->implode(', ') ?: '—' }}</td>
                         <td class="px-4 py-3 text-ink-dim">{{ $curso->grados->pluck('nombre')->implode(', ') ?: '—' }}</td>
                         <td class="px-4 py-3 text-ink-dim">{{ $docentes->isNotEmpty() ? $docentes->implode(', ') : '—' }}</td>
                         <td class="px-4 py-3 text-ink-dim">{{ $curso->horas }}</td>
@@ -331,13 +351,19 @@ new #[Layout('layouts.app')] class extends Component
                             </span>
                         </td>
                         <td class="px-4 py-3 text-right">
+                            @if ($curso->tipo->value === 'capacitacion')
+                                @php $matriculadosDelCurso = $matriculasCursoCortoPorCurso[$curso->id] ?? collect(); @endphp
+                                <button wire:click="verEstudiantes({{ $curso->id }})" class="text-sm font-medium text-accent hover:underline">
+                                    Ver estudiantes ({{ $matriculadosDelCurso->count() }})
+                                </button>
+                            @endif
                             @can('academico.gestionar')
-                                <button wire:click="abrirModal({{ $curso->id }})" class="text-sm font-medium text-accent hover:underline">Editar</button>
+                                <button wire:click="abrirModal({{ $curso->id }})" class="ml-3 text-sm font-medium text-accent hover:underline">Editar</button>
                             @endcan
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="9" class="px-4 py-8 text-center text-sm text-ink-faint">No hay cursos registrados.</td></tr>
+                    <tr><td colspan="10" class="px-4 py-8 text-center text-sm text-ink-faint">No hay cursos registrados.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -489,6 +515,47 @@ new #[Layout('layouts.app')] class extends Component
                         <x-primary-button type="submit">Guardar</x-primary-button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <div
+            x-show="$wire.estudiantesCursoCortoId"
+            x-cloak
+            class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4"
+            wire:click.self="$set('estudiantesCursoCortoId', null)"
+            x-transition:enter="ease-out duration-300"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="ease-in duration-200"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+        >
+            <div
+                x-show="$wire.estudiantesCursoCortoId"
+                class="w-full max-w-md rounded-2xl border border-border bg-surface-elevated p-6 shadow-lg"
+                x-transition:enter="ease-out duration-300"
+                x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                x-transition:leave="ease-in duration-200"
+                x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            >
+                <h2 class="font-display text-lg text-ink">Estudiantes matriculados{{ $cursoConEstudiantes ? ' — '.$cursoConEstudiantes->nombre : '' }}</h2>
+
+                <div class="mt-4 max-h-80 divide-y divide-border overflow-y-auto">
+                    @forelse (($matriculasCursoCortoPorCurso[$estudiantesCursoCortoId] ?? collect()) as $matricula)
+                        <div class="py-2 text-sm">
+                            <p class="text-ink">{{ $matricula->estudiante->nombreCompleto() }}</p>
+                            <p class="text-xs text-ink-faint">DNI {{ $matricula->estudiante->dni }}</p>
+                        </div>
+                    @empty
+                        <p class="py-4 text-center text-sm text-ink-faint">No hay estudiantes matriculados activos en este curso.</p>
+                    @endforelse
+                </div>
+
+                <div class="mt-4 flex justify-end">
+                    <x-secondary-button type="button" wire:click="$set('estudiantesCursoCortoId', null)">Cerrar</x-secondary-button>
+                </div>
             </div>
         </div>
     </div>

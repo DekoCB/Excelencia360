@@ -1,5 +1,7 @@
 <?php
 
+use App\Modules\Academico\Enums\TipoCursoEnum;
+use App\Modules\Academico\Models\Curso;
 use App\Modules\AulaVirtual\Services\CursoVirtualService;
 use App\Shared\Enums\RolEnum;
 use Illuminate\Support\Facades\Auth;
@@ -95,6 +97,7 @@ new #[Layout('layouts.app')] class extends Component
 
         $gradosDisponibles = collect();
         $grupos = collect();
+        $cursosPendientes = collect();
 
         if ($this->programaEstudioId) {
             $delPrograma = $cursosInstituto->filter(fn ($curso) => $curso->horario->grado->programa_estudio_id === $this->programaEstudioId);
@@ -110,6 +113,25 @@ new #[Layout('layouts.app')] class extends Component
                 // toparse con dos tarjetas casi idénticas sin ninguna
                 // pista de cuál es cuál.
                 $grupos = $delGrado->groupBy(fn ($curso) => $curso->horario->curso_id);
+
+                // Cursos del semestre que todavía no tienen ningún Horario
+                // (y por lo tanto ninguna Aula Virtual real) -- se muestran
+                // aparte, solo informativos, para que el curso "exista" en
+                // el listado desde que se crea, sin esperar a que alguien
+                // le arme un Horario. Solo quien supervisa (no el docente
+                // ni el estudiante, que no tendrían nada que abrir ahí)
+                // los ve.
+                if ($rol === 'supervisor') {
+                    $cursosConHorario = $grupos->keys();
+
+                    $cursosPendientes = Curso::query()
+                        ->where('tipo', TipoCursoEnum::ACADEMICO)
+                        ->whereHas('grados', fn ($query) => $query->where('grados.id', $this->gradoId))
+                        ->whereDoesntHave('horarios')
+                        ->whereNotIn('id', $cursosConHorario)
+                        ->orderBy('nombre')
+                        ->get();
+                }
             }
         }
 
@@ -118,6 +140,7 @@ new #[Layout('layouts.app')] class extends Component
             'programasDisponibles' => $programasDisponibles,
             'gradosDisponibles' => $gradosDisponibles,
             'grupos' => $grupos,
+            'cursosPendientes' => $cursosPendientes,
             'rol' => $rol,
         ];
     }
@@ -267,8 +290,18 @@ new #[Layout('layouts.app')] class extends Component
                     </div>
                 @endif
             @empty
-                <p class="col-span-full py-8 text-center text-sm text-ink-faint">Este semestre no tiene cursos virtuales todavía.</p>
+                @if ($cursosPendientes->isEmpty())
+                    <p class="col-span-full py-8 text-center text-sm text-ink-faint">Este semestre no tiene cursos virtuales todavía.</p>
+                @endif
             @endforelse
+
+            @foreach ($cursosPendientes as $curso)
+                <div class="rounded-2xl border border-dashed border-border bg-surface-2 p-4 opacity-75" wire:key="pendiente-{{ $curso->id }}">
+                    <x-curso-portada :curso="$curso" class="mb-3" />
+                    <p class="font-display text-lg text-ink-dim">{{ $curso->nombre }}</p>
+                    <p class="mt-3 text-xs text-ink-faint">Todavía no tiene horario asignado.</p>
+                </div>
+            @endforeach
         </div>
     @endif
 </div>

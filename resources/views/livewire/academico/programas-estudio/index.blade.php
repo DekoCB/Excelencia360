@@ -16,9 +16,16 @@ new #[Layout('layouts.app')] class extends Component
 
     public bool $activo = true;
 
+    public ?int $programaExpandidoId = null;
+
     public function mount(): void
     {
         Gate::authorize('academico.ver');
+    }
+
+    public function alternarDetalle(int $programaId): void
+    {
+        $this->programaExpandidoId = $this->programaExpandidoId === $programaId ? null : $programaId;
     }
 
     public function abrirModal(?int $programaId = null): void
@@ -63,8 +70,13 @@ new #[Layout('layouts.app')] class extends Component
 
     public function with(ProgramaEstudioService $service): array
     {
+        $programaExpandido = $this->programaExpandidoId ? ProgramaEstudio::query()->find($this->programaExpandidoId) : null;
+
         return [
             'programas' => $service->todos(),
+            'seccionesDelExpandido' => $programaExpandido ? $service->seccionesConEstudiantes($programaExpandido) : collect(),
+            'cursosDelExpandido' => $programaExpandido ? $service->cursosDe($programaExpandido) : collect(),
+            'estudiantesDelExpandido' => $programaExpandido ? $service->estudiantesDe($programaExpandido) : collect(),
         ];
     }
 }; ?>
@@ -110,11 +122,60 @@ new #[Layout('layouts.app')] class extends Component
                             </span>
                         </td>
                         <td class="px-4 py-3 text-right">
+                            <button wire:click="alternarDetalle({{ $programa->id }})" class="text-sm font-medium text-accent hover:underline">
+                                {{ $programaExpandidoId === $programa->id ? 'Ocultar detalle' : 'Ver detalle' }}
+                            </button>
                             @can('academico.gestionar')
-                                <button wire:click="abrirModal({{ $programa->id }})" class="text-sm font-medium text-accent hover:underline">Editar</button>
+                                <button wire:click="abrirModal({{ $programa->id }})" class="ml-3 text-sm font-medium text-accent hover:underline">Editar</button>
                             @endcan
                         </td>
                     </tr>
+                    @if ($programaExpandidoId === $programa->id)
+                        <tr wire:key="programa-detalle-{{ $programa->id }}" class="bg-surface-2">
+                            <td colspan="4" class="px-4 py-4">
+                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                                    <div>
+                                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Secciones con estudiantes</p>
+                                        @forelse ($seccionesDelExpandido as $seccion)
+                                            <div class="flex items-center justify-between border-b border-border py-1 text-sm last:border-b-0">
+                                                <span class="text-ink">Sección {{ $seccion['letra'] }}</span>
+                                                <span class="text-ink-faint">{{ $seccion['estudiantes'] }}</span>
+                                            </div>
+                                        @empty
+                                            <p class="text-sm text-ink-faint">Sin estudiantes con sección asignada.</p>
+                                        @endforelse
+                                    </div>
+                                    <div>
+                                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Unidades didácticas</p>
+                                        @forelse ($cursosDelExpandido as $curso)
+                                            <p class="border-b border-border py-1 text-sm text-ink last:border-b-0">{{ $curso->nombre }}</p>
+                                        @empty
+                                            <p class="text-sm text-ink-faint">Sin cursos registrados.</p>
+                                        @endforelse
+                                    </div>
+                                    <div>
+                                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Estudiantes matriculados ({{ $estudiantesDelExpandido->count() }})</p>
+                                        <div class="max-h-48 overflow-y-auto">
+                                            @forelse ($estudiantesDelExpandido as $estudiante)
+                                                @php $matricula = $estudiante->matriculas->first(); @endphp
+                                                <div class="border-b border-border py-1 text-sm last:border-b-0">
+                                                    <p class="text-ink">{{ $estudiante->nombreCompleto() }}</p>
+                                                    <p class="text-xs text-ink-faint">
+                                                        {{ $matricula?->grado?->nombre ?? '—' }}
+                                                        @if ($matricula?->seccionAcademica)
+                                                            · Sección {{ $matricula->seccionAcademica->letra }}
+                                                        @endif
+                                                    </p>
+                                                </div>
+                                            @empty
+                                                <p class="text-sm text-ink-faint">Sin estudiantes matriculados.</p>
+                                            @endforelse
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    @endif
                 @empty
                     <tr><td colspan="4" class="px-4 py-8 text-center text-sm text-ink-faint">No hay programas de estudio registrados.</td></tr>
                 @endforelse

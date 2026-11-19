@@ -21,9 +21,16 @@ new #[Layout('layouts.app')] class extends Component
 
     public bool $activo = true;
 
+    public ?int $gradoExpandidoId = null;
+
     public function mount(): void
     {
         Gate::authorize('academico.ver');
+    }
+
+    public function alternarPeriodos(int $gradoId): void
+    {
+        $this->gradoExpandidoId = $this->gradoExpandidoId === $gradoId ? null : $gradoId;
     }
 
     public function abrirModal(?int $gradoId = null): void
@@ -81,9 +88,12 @@ new #[Layout('layouts.app')] class extends Component
 
     public function with(GradoService $service): array
     {
+        $gradoExpandido = $this->gradoExpandidoId ? Grado::query()->find($this->gradoExpandidoId) : null;
+
         return [
             'grados' => $service->todos()->load('programaEstudio'),
             'programas' => ProgramaEstudio::query()->where('activo', true)->orderBy('nombre')->get(),
+            'periodosDelGradoExpandido' => $gradoExpandido ? $service->periodosHistoricos($gradoExpandido) : collect(),
         ];
     }
 }; ?>
@@ -136,13 +146,31 @@ new #[Layout('layouts.app')] class extends Component
                             </span>
                         </td>
                         <td class="px-4 py-3 text-right">
+                            <button wire:click="alternarPeriodos({{ $grado->id }})" class="text-sm font-medium text-accent hover:underline">
+                                {{ $gradoExpandidoId === $grado->id ? 'Ocultar periodos' : 'Ver periodos' }}
+                            </button>
                             @can('academico.gestionar')
-                                <button wire:click="abrirModal({{ $grado->id }})" class="text-sm font-medium text-accent hover:underline">Editar</button>
+                                <button wire:click="abrirModal({{ $grado->id }})" class="ml-3 text-sm font-medium text-accent hover:underline">Editar</button>
                             @endcan
                         </td>
                     </tr>
+                    @if ($gradoExpandidoId === $grado->id)
+                        <tr wire:key="grado-periodos-{{ $grado->id }}" class="bg-surface-2">
+                            <td colspan="5" class="px-4 py-3">
+                                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Periodos académicos en que se dictó</p>
+                                @forelse ($periodosDelGradoExpandido as $periodo)
+                                    <div class="flex items-center justify-between border-b border-border py-1.5 text-sm last:border-b-0">
+                                        <span class="text-ink">{{ $periodo['ciclo']->nombre }}</span>
+                                        <span class="text-ink-faint">{{ $periodo['matriculados'] }} matriculado{{ $periodo['matriculados'] === 1 ? '' : 's' }}</span>
+                                    </div>
+                                @empty
+                                    <p class="text-sm text-ink-faint">Todavía no tuvo matrículas en ningún periodo.</p>
+                                @endforelse
+                            </td>
+                        </tr>
+                    @endif
                 @empty
-                    <tr><td colspan="6" class="px-4 py-8 text-center text-sm text-ink-faint">No hay semestres registrados.</td></tr>
+                    <tr><td colspan="5" class="px-4 py-8 text-center text-sm text-ink-faint">No hay semestres registrados.</td></tr>
                 @endforelse
             </tbody>
         </table>
