@@ -111,7 +111,7 @@ new #[Layout('layouts.app')] class extends Component
             <thead class="bg-surface-2">
                 <tr>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Nombre</th>
-                    <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Modalidad</th>
+                    <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Duración del periodo</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Fechas</th>
                     <th class="px-4 py-3 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Estado</th>
                     <th class="px-4 py-3"></th>
@@ -183,7 +183,7 @@ new #[Layout('layouts.app')] class extends Component
                 </div>
 
                 <div>
-                    <x-input-label for="modalidad" value="Modalidad" />
+                    <x-input-label for="modalidad" value="Duración del periodo" />
                     <x-select-input
                         wire:model.live="modalidad"
                         id="modalidad"

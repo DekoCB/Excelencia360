@@ -359,12 +359,12 @@ class MatriculaServiceTest extends TestCase
             observaciones: null,
             registradoPor: null,
             tipoMatricula: TipoMatriculaEnum::CONVALIDACION,
-            modalidadEstudio: ModalidadEstudioEnum::DISTANCIA,
+            modalidadEstudio: ModalidadEstudioEnum::VIRTUAL,
             seccionAcademicaId: $seccion->id,
         ));
 
         $this->assertSame(TipoMatriculaEnum::CONVALIDACION, $matricula->tipo_matricula);
-        $this->assertSame(ModalidadEstudioEnum::DISTANCIA, $matricula->modalidad_estudio);
+        $this->assertSame(ModalidadEstudioEnum::VIRTUAL, $matricula->modalidad_estudio);
         $this->assertSame($seccion->id, $matricula->seccion_academica_id);
     }
 

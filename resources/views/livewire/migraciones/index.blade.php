@@ -234,7 +234,7 @@ new #[Layout('layouts.app')] class extends Component
 <div>
     <x-slot name="header">
         <h1 class="font-display text-2xl text-ink">Migraciones</h1>
-        <p class="mt-1 text-sm text-ink-dim">Pasar de semestre a un estudiante, o a varios a la vez filtrados por Modalidad/Período de Matrícula/Carrera/Semestre.</p>
+        <p class="mt-1 text-sm text-ink-dim">Pasar de semestre a un estudiante, o a varios a la vez filtrados por Duración del periodo/Período de Matrícula/Carrera/Semestre.</p>
     </x-slot>
 
     @if (session('status'))
@@ -329,7 +329,7 @@ new #[Layout('layouts.app')] class extends Component
                 <p class="mt-1 text-xs text-ink-faint">Primero elige la modalidad — el de 6 meses se filtra por Período de Matrícula, el periodo académico anual no tiene Períodos de Matrícula (no rota).</p>
                 <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <div>
-                        <x-input-label for="modalidadOrigen" value="Modalidad" />
+                        <x-input-label for="modalidadOrigen" value="Duración del periodo" />
                         <x-select-input
                             wire:model.live="modalidadOrigen"
                             id="modalidadOrigen"

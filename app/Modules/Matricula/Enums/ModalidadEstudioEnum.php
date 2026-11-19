@@ -11,14 +11,14 @@ namespace App\Modules\Matricula\Enums;
  */
 enum ModalidadEstudioEnum: string
 {
-    case DISTANCIA = 'distancia';
+    case VIRTUAL = 'virtual';
     case PRESENCIAL = 'presencial';
     case SEMIPRESENCIAL = 'semipresencial';
 
     public function label(): string
     {
         return match ($this) {
-            self::DISTANCIA => 'Distancia',
+            self::VIRTUAL => 'Virtual',
             self::PRESENCIAL => 'Presencial',
             self::SEMIPRESENCIAL => 'Semipresencial',
         };

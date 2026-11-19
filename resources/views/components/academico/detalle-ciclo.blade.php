@@ -39,7 +39,7 @@
         @if (! $editando)
             <dl class="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                 <div><dt class="text-ink-faint">Nombre</dt><dd class="text-ink">{{ $ciclo->nombre }}</dd></div>
-                <div><dt class="text-ink-faint">Modalidad</dt><dd class="text-ink">{{ $ciclo->modalidad->label() }}{{ $ciclo->tipo ? ' · '.$ciclo->tipo->label() : '' }}</dd></div>
+                <div><dt class="text-ink-faint">Duración del periodo</dt><dd class="text-ink">{{ $ciclo->modalidad->label() }}{{ $ciclo->tipo ? ' · '.$ciclo->tipo->label() : '' }}</dd></div>
                 <div><dt class="text-ink-faint">Fechas del ciclo</dt><dd class="text-ink">{{ $ciclo->fecha_inicio->format('d/m/Y') }} – {{ $ciclo->fecha_fin->format('d/m/Y') }}</dd></div>
                 <div><dt class="text-ink-faint">Estado</dt><dd class="text-ink">{{ $ciclo->estado->label() }}</dd></div>
             </dl>
@@ -73,7 +73,7 @@
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                        <x-input-label value="Modalidad" />
+                        <x-input-label value="Duración del periodo" />
                         <p class="mt-1 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-ink-dim">{{ $ciclo->modalidad->label() }}</p>
                         <p class="mt-1 text-xs text-ink-faint">La modalidad no se puede cambiar después de creado.</p>
                     </div>

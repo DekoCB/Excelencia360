@@ -30,7 +30,7 @@
     <div class="seccion">Semestres cursados</div>
     <table>
         <thead>
-            <tr><th>Semestre</th><th>Período de matrícula</th><th>Modalidad</th><th>Fecha de matrícula</th><th>Fin de estudios</th><th>Estado</th></tr>
+            <tr><th>Semestre</th><th>Período de matrícula</th><th>Duración del periodo</th><th>Fecha de matrícula</th><th>Fin de estudios</th><th>Estado</th></tr>
         </thead>
         <tbody>
             @forelse ($matriculas as $matricula)

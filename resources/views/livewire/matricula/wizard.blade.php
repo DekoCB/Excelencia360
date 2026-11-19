@@ -1063,7 +1063,7 @@ new class extends Component
             <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 @if ($tipoMatricula === 'instituto')
                     <div class="sm:col-span-2" wire:key="tipo-instituto-modalidad">
-                        <x-input-label for="modalidadCiclo" value="Modalidad" />
+                        <x-input-label for="modalidadCiclo" value="Duración del periodo" />
                         <x-select-input
                             wire:model.live="modalidadCiclo"
                             id="modalidadCiclo"
