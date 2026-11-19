@@ -62,13 +62,19 @@ class MatriculaService
         ?int $cursoId = null,
         ?int $docenteId = null,
         ?string $modalidad = null,
+        ?string $tipoMatricula = null,
     ): LengthAwarePaginator {
-        return $this->estudiantes->buscar($termino, $estado, $perPage, $cicloId, $gradoId, $cursoId, $docenteId, $modalidad);
+        return $this->estudiantes->buscar($termino, $estado, $perPage, $cicloId, $gradoId, $cursoId, $docenteId, $modalidad, $tipoMatricula);
     }
 
     public function dniDisponible(string $dni, ?int $exceptoId = null): bool
     {
         return ! $this->estudiantes->existeDni($dni, $exceptoId);
+    }
+
+    public function emailDisponible(string $email, ?int $exceptoUserId = null): bool
+    {
+        return $this->usuarios->emailDisponible($email, $exceptoUserId);
     }
 
     /**
@@ -130,14 +136,14 @@ class MatriculaService
     /**
      * Además de la ficha del estudiante, esto le crea (o reutiliza, si ya
      * existe una con el mismo DNI) su cuenta de acceso al sistema: correo
-     * {dni}@excelencia360.com y contraseña inicial igual a su DNI -- el estudiante
-     * puede cambiarla después desde su perfil. No hay ningún paso de
-     * formulario para esto: se calcula siempre a partir del DNI.
+     * personal real del estudiante (igual que DocenteService::registrar())
+     * y contraseña inicial igual a su DNI -- el estudiante puede cambiarla
+     * después desde su perfil.
      */
     public function registrarEstudiante(RegistrarEstudianteData $data): Estudiante
     {
         return DB::transaction(function () use ($data) {
-            $email = $data->dni->correoInstitucional();
+            $email = $data->email;
 
             $usuario = User::query()->where('dni', $data->dni->valor())->first();
 
@@ -297,6 +303,9 @@ class MatriculaService
                 'fecha_matricula' => $fechaMatricula,
                 'fecha_fin_estudio' => $fechaFinEstudio,
                 'estado' => EstadoMatriculaEnum::APROBADA,
+                'tipo_matricula' => $data->tipoMatricula,
+                'modalidad_estudio' => $data->modalidadEstudio,
+                'seccion_academica_id' => $data->seccionAcademicaId,
                 'observaciones' => $data->observaciones,
                 'registrado_por' => $data->registradoPor,
             ]);
@@ -485,6 +494,7 @@ class MatriculaService
                     $nombres = $this->celdaObligatoria($fila, 'nombres');
                     $apellidos = $this->celdaObligatoria($fila, 'apellidos');
                     $dniTexto = $this->celdaObligatoria($fila, 'dni');
+                    $emailTexto = $this->celdaObligatoria($fila, 'email');
                     $fechaNacimientoValor = $fila->get('fecha_nacimiento');
                     $fechaNacimientoTexto = $fechaNacimientoValor !== null && trim((string) $fechaNacimientoValor) !== ''
                         ? $this->parsearFecha($fechaNacimientoValor)
@@ -492,6 +502,10 @@ class MatriculaService
 
                     if (! $this->dniDisponible($dniTexto)) {
                         throw new InvalidArgumentException("Ya existe un estudiante registrado con el DNI {$dniTexto}.");
+                    }
+
+                    if (! $this->emailDisponible($emailTexto)) {
+                        throw new InvalidArgumentException("Ya existe otro usuario con el correo {$emailTexto}.");
                     }
 
                     $estadoCivilTexto = $this->celdaOpcional($fila, 'estado_civil');
@@ -509,6 +523,7 @@ class MatriculaService
                         nombres: $nombres,
                         apellidos: $apellidos,
                         dni: new Dni($dniTexto),
+                        email: $emailTexto,
                         fechaNacimiento: $fechaNacimientoTexto,
                         estadoCivil: $estadoCivil,
                         direccion: $this->celdaOpcional($fila, 'direccion'),

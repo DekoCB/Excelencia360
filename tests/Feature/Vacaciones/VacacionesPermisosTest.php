@@ -47,6 +47,7 @@ class VacacionesPermisosTest extends TestCase
             nombres: 'Verónica',
             apellidos: 'Quispe Paredes',
             dni: new Dni($dni),
+            email: uniqid('estudiante').'@example.com',
             fechaNacimiento: now()->subYears(25)->format('Y-m-d'),
             estadoCivil: null,
             direccion: null,

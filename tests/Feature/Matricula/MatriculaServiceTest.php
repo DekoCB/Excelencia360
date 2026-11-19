@@ -7,10 +7,13 @@ use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\Academico\Models\SeccionAcademica;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\DTOs\RegistrarApoderadoData;
 use App\Modules\Matricula\DTOs\RegistrarEstudianteData;
 use App\Modules\Matricula\DTOs\RegistrarMatriculaData;
+use App\Modules\Matricula\Enums\ModalidadEstudioEnum;
+use App\Modules\Matricula\Enums\TipoMatriculaEnum;
 use App\Modules\Matricula\Events\EstudianteMatriculado;
 use App\Modules\Matricula\Models\Apoderado;
 use App\Modules\Matricula\Models\Estudiante;
@@ -47,6 +50,7 @@ class MatriculaServiceTest extends TestCase
             nombres: 'Ana',
             apellidos: 'García Pérez',
             dni: new Dni('12345678'),
+            email: 'estudiante12345678@example.com',
             fechaNacimiento: now()->subYears(30)->format('Y-m-d'),
             estadoCivil: null,
             direccion: 'Av. Siempre Viva 123',
@@ -61,6 +65,7 @@ class MatriculaServiceTest extends TestCase
             nombres: 'Diego',
             apellidos: 'Torres Huamán',
             dni: new Dni('78912345'),
+            email: 'estudiante78912345@example.com',
             fechaNacimiento: now()->subYears(15)->format('Y-m-d'),
             estadoCivil: null,
             direccion: 'Av. Las Flores 512',
@@ -105,15 +110,15 @@ class MatriculaServiceTest extends TestCase
         $this->assertSame('Ana García Pérez', $estudiante->nombreCompleto());
     }
 
-    public function test_registrar_estudiante_le_crea_su_cuenta_de_acceso_con_correo_y_password_autoasignados(): void
+    public function test_registrar_estudiante_le_crea_su_cuenta_de_acceso_con_su_correo_real_y_password_autoasignado(): void
     {
         $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMayor());
 
-        $this->assertSame('12345678@excelencia360.com', $estudiante->email);
+        $this->assertSame('estudiante12345678@example.com', $estudiante->email);
         $this->assertNotNull($estudiante->user_id);
 
         $usuario = $estudiante->user;
-        $this->assertSame('12345678@excelencia360.com', $usuario->email);
+        $this->assertSame('estudiante12345678@example.com', $usuario->email);
         $this->assertSame('12345678', $usuario->dni);
         $this->assertTrue($usuario->hasRole(RolEnum::ESTUDIANTE->value));
         $this->assertTrue(Hash::check('12345678', $usuario->password));
@@ -127,6 +132,14 @@ class MatriculaServiceTest extends TestCase
 
         $this->assertSame($usuarioExistente->id, $estudiante->user_id);
         $this->assertTrue($usuarioExistente->fresh()->hasRole(RolEnum::ESTUDIANTE->value));
+    }
+
+    public function test_email_disponible_es_falso_si_ya_lo_usa_otro_usuario(): void
+    {
+        User::factory()->create(['email' => 'ocupado@example.com']);
+
+        $this->assertFalse($this->service()->emailDisponible('ocupado@example.com'));
+        $this->assertTrue($this->service()->emailDisponible('libre@example.com'));
     }
 
     public function test_no_permite_registrar_apoderado_para_estudiante_mayor_de_edad(): void
@@ -179,6 +192,7 @@ class MatriculaServiceTest extends TestCase
             nombres: 'Rosa',
             apellidos: 'Torres Huamán',
             dni: new Dni('78912346'),
+            email: 'estudiante78912346@example.com',
             fechaNacimiento: now()->subYears(13)->format('Y-m-d'),
             estadoCivil: null,
             direccion: 'Av. Las Flores 512',
@@ -227,6 +241,7 @@ class MatriculaServiceTest extends TestCase
             nombres: 'Rosa',
             apellidos: 'Quispe Mamani',
             dni: new Dni('78912346'),
+            email: 'estudiante78912346@example.com',
             fechaNacimiento: now()->subYears(13)->format('Y-m-d'),
             estadoCivil: null,
             direccion: null,
@@ -257,6 +272,7 @@ class MatriculaServiceTest extends TestCase
             nombres: 'Rosa',
             apellidos: 'Quispe Mamani',
             dni: new Dni('78912346'),
+            email: 'estudiante78912346@example.com',
             fechaNacimiento: now()->subYears(13)->format('Y-m-d'),
             estadoCivil: null,
             direccion: null,
@@ -328,6 +344,41 @@ class MatriculaServiceTest extends TestCase
         $this->service()->matricular($estudiante, new RegistrarMatriculaData($ciclo->id, $grado->id, null, null));
 
         $this->assertSame($grado->id, $estudiante->fresh()->grado_actual_id);
+    }
+
+    public function test_matricular_persiste_tipo_modalidad_y_seccion(): void
+    {
+        $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMayor());
+        $ciclo = $this->cicloConPeriodoAbierto();
+        $grado = Grado::factory()->create();
+        $seccion = SeccionAcademica::query()->first();
+
+        $matricula = $this->service()->matricular($estudiante, new RegistrarMatriculaData(
+            cicloId: $ciclo->id,
+            gradoId: $grado->id,
+            observaciones: null,
+            registradoPor: null,
+            tipoMatricula: TipoMatriculaEnum::CONVALIDACION,
+            modalidadEstudio: ModalidadEstudioEnum::DISTANCIA,
+            seccionAcademicaId: $seccion->id,
+        ));
+
+        $this->assertSame(TipoMatriculaEnum::CONVALIDACION, $matricula->tipo_matricula);
+        $this->assertSame(ModalidadEstudioEnum::DISTANCIA, $matricula->modalidad_estudio);
+        $this->assertSame($seccion->id, $matricula->seccion_academica_id);
+    }
+
+    public function test_matricular_sin_tipo_ni_modalidad_usa_regular_por_defecto(): void
+    {
+        $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMayor());
+        $ciclo = $this->cicloConPeriodoAbierto();
+        $grado = Grado::factory()->create();
+
+        $matricula = $this->service()->matricular($estudiante, new RegistrarMatriculaData($ciclo->id, $grado->id, null, null));
+
+        $this->assertSame(TipoMatriculaEnum::REGULAR, $matricula->tipo_matricula);
+        $this->assertNull($matricula->modalidad_estudio);
+        $this->assertNull($matricula->seccion_academica_id);
     }
 
     public function test_matricular_en_un_grado_sin_horarios_deja_la_matricula_sin_horarios_asignados(): void

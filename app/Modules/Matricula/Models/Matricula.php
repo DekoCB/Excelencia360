@@ -8,9 +8,12 @@ use App\Models\User;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\Academico\Models\SeccionAcademica;
 use App\Modules\Identidad\Support\Auditable;
 use App\Modules\Matricula\Database\Factories\MatriculaFactory;
 use App\Modules\Matricula\Enums\EstadoMatriculaEnum;
+use App\Modules\Matricula\Enums\ModalidadEstudioEnum;
+use App\Modules\Matricula\Enums\TipoMatriculaEnum;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -29,9 +32,13 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property Carbon $fecha_matricula
  * @property Carbon|null $fecha_fin_estudio
  * @property EstadoMatriculaEnum $estado
+ * @property TipoMatriculaEnum $tipo_matricula
+ * @property ModalidadEstudioEnum|null $modalidad_estudio
+ * @property int|null $seccion_academica_id
  * @property-read Estudiante|null $estudiante
  * @property-read Ciclo $ciclo
  * @property-read Grado $grado
+ * @property-read SeccionAcademica|null $seccionAcademica
  */
 class Matricula extends Model implements HasMedia
 {
@@ -45,6 +52,9 @@ class Matricula extends Model implements HasMedia
         'fecha_matricula',
         'fecha_fin_estudio',
         'estado',
+        'tipo_matricula',
+        'modalidad_estudio',
+        'seccion_academica_id',
         'observaciones',
         'registrado_por',
     ];
@@ -55,6 +65,8 @@ class Matricula extends Model implements HasMedia
             'fecha_matricula' => 'date',
             'fecha_fin_estudio' => 'date',
             'estado' => EstadoMatriculaEnum::class,
+            'tipo_matricula' => TipoMatriculaEnum::class,
+            'modalidad_estudio' => ModalidadEstudioEnum::class,
         ];
     }
 
@@ -99,6 +111,11 @@ class Matricula extends Model implements HasMedia
     public function registradoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'registrado_por');
+    }
+
+    public function seccionAcademica(): BelongsTo
+    {
+        return $this->belongsTo(SeccionAcademica::class);
     }
 
     /**

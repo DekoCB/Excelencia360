@@ -9,10 +9,14 @@ use App\Modules\Academico\Services\CursoService;
 use App\Modules\Matricula\DTOs\RegistrarApoderadoData;
 use App\Modules\Matricula\DTOs\RegistrarEstudianteData;
 use App\Modules\Matricula\DTOs\RegistrarMatriculaData;
+use App\Modules\Academico\Models\SeccionAcademica;
 use App\Modules\Matricula\Enums\EstadoCivilEnum;
+use App\Modules\Matricula\Enums\ModalidadEstudioEnum;
 use App\Modules\Matricula\Enums\TipoDocumentoEnum;
+use App\Modules\Matricula\Enums\TipoMatriculaEnum;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
+use App\Modules\Academico\Services\SeccionService;
 use App\Modules\Matricula\Services\DocumentoEstudianteService;
 use App\Modules\Matricula\Services\ExamenUbicacionService;
 use App\Modules\Matricula\Services\MatriculaService;
@@ -41,6 +45,8 @@ new class extends Component
     public string $apellidos = '';
 
     public string $dni = '';
+
+    public string $email = '';
 
     public string $fechaNacimiento = '';
 
@@ -117,6 +123,15 @@ new class extends Component
 
     // Paso 5 — matrícula
     public string $tipoMatricula = 'instituto';
+
+    // Regular/Convalidación (ver TipoMatriculaEnum) -- nombrado distinto a
+    // $tipoMatricula para no confundirlo con el selector de arriba
+    // (Instituto/Curso corto), que es un concepto completamente distinto.
+    public string $claseMatricula = 'regular';
+
+    public string $modalidadEstudio = 'presencial';
+
+    public string $seccionAcademicaId = '';
 
     public string $modalidadCiclo = 'seis_meses';
 
@@ -299,6 +314,7 @@ new class extends Component
                 'nombres' => 'required|string|max:100',
                 'apellidos' => 'required|string|max:100',
                 'dni' => 'required|string|min:8|max:12',
+                'email' => 'required|email|max:150',
                 'fechaNacimiento' => 'nullable|date|before:today',
                 'estadoCivil' => 'nullable|string|in:'.implode(',', array_column(EstadoCivilEnum::cases(), 'value')),
                 'direccion' => 'nullable|string|max:150',
@@ -308,6 +324,12 @@ new class extends Component
 
             if (! $service->dniDisponible($this->dni)) {
                 $this->addError('dni', 'Ya existe un estudiante registrado con este DNI. Usa el botón de rematrícula de abajo para continuar con su ficha.');
+
+                return;
+            }
+
+            if (! $service->emailDisponible($this->email)) {
+                $this->addError('email', 'Ya existe otro usuario con este correo.');
 
                 return;
             }
@@ -387,6 +409,9 @@ new class extends Component
                     'cicloId' => 'required|integer|exists:ciclos,id',
                     'gradoId' => 'required|integer|exists:grados,id',
                     'fechaMatricula' => 'required|date',
+                    'claseMatricula' => 'required|string|in:'.implode(',', array_column(TipoMatriculaEnum::cases(), 'value')),
+                    'modalidadEstudio' => 'required|string|in:'.implode(',', array_column(ModalidadEstudioEnum::cases(), 'value')),
+                    'seccionAcademicaId' => 'nullable|integer|exists:secciones_academicas,id',
                 ]);
             }
 
@@ -535,6 +560,9 @@ new class extends Component
                     registradoPor: auth()->id(),
                     fechaMatricula: $this->fechaMatricula !== '' ? $this->fechaMatricula : null,
                     cursoIds: $this->cursosEspecificosIds !== [] ? array_map('intval', $this->cursosEspecificosIds) : null,
+                    tipoMatricula: TipoMatriculaEnum::from($this->claseMatricula),
+                    modalidadEstudio: ModalidadEstudioEnum::from($this->modalidadEstudio),
+                    seccionAcademicaId: $this->seccionAcademicaId !== '' ? (int) $this->seccionAcademicaId : null,
                 ));
 
                 $this->crearCronogramaSiCorresponde($matricula, $planPagoService);
@@ -560,6 +588,7 @@ new class extends Component
                 nombres: $this->nombres,
                 apellidos: $this->apellidos,
                 dni: new Dni($this->dni),
+                email: $this->email,
                 fechaNacimiento: $this->fechaNacimiento !== '' ? $this->fechaNacimiento : null,
                 estadoCivil: $this->estadoCivil !== '' ? EstadoCivilEnum::from($this->estadoCivil) : null,
                 direccion: $this->direccion ?: null,
@@ -639,6 +668,9 @@ new class extends Component
                     registradoPor: auth()->id(),
                     fechaMatricula: $this->fechaMatricula !== '' ? $this->fechaMatricula : null,
                     cursoIds: $this->cursosEspecificosIds !== [] ? array_map('intval', $this->cursosEspecificosIds) : null,
+                    tipoMatricula: TipoMatriculaEnum::from($this->claseMatricula),
+                    modalidadEstudio: ModalidadEstudioEnum::from($this->modalidadEstudio),
+                    seccionAcademicaId: $this->seccionAcademicaId !== '' ? (int) $this->seccionAcademicaId : null,
                 ));
 
                 $this->crearCronogramaSiCorresponde($matricula, $planPagoService);
@@ -691,7 +723,7 @@ new class extends Component
         }
     }
 
-    public function with(CicloService $ciclos, CursoService $cursos): array
+    public function with(CicloService $ciclos, CursoService $cursos, SeccionService $secciones): array
     {
         $grados = Grado::query()->where('activo', true)->with('programaEstudio')->orderBy('orden')->get();
 
@@ -712,6 +744,9 @@ new class extends Component
             'cicloAnualVigente' => $ciclos->cicloAnualVigente(),
             'numerosCuotas' => NumeroCuotasEnum::cases(),
             'cursosCortosDisponibles' => $cursos->deCapacitacion(),
+            'tiposMatricula' => TipoMatriculaEnum::cases(),
+            'modalidadesEstudio' => ModalidadEstudioEnum::cases(),
+            'seccionesAcademicas' => $secciones->activas(),
         ];
     }
 }; ?>
@@ -726,7 +761,6 @@ new class extends Component
         'items-center' => $esRematricula,
         'items-start' => ! $esRematricula,
     ])
-    x-on:click.self="mostrar = false; setTimeout(() => $wire.cancelar(), 200)"
     x-transition:enter="ease-out duration-300"
     x-transition:enter-start="opacity-0"
     x-transition:enter-end="opacity-100"
@@ -803,6 +837,11 @@ new class extends Component
                         </x-secondary-button>
                     </div>
                 @endif
+                <div>
+                    <x-input-label for="email" value="Correo personal" />
+                    <x-text-input wire:model="email" id="email" type="email" class="mt-1 block w-full" placeholder="correo@ejemplo.com" />
+                    <x-input-error :messages="$errors->get('email')" class="mt-1" />
+                </div>
                 <div>
                     <x-input-label for="fechaNacimiento" value="Fecha de nacimiento (opcional)" />
                     <x-date-input wire:model.live="fechaNacimiento" id="fechaNacimiento" class="mt-1 block w-full" />
@@ -1093,6 +1132,40 @@ new class extends Component
                             </div>
                         </div>
                     @endif
+
+                    <div wire:key="tipo-instituto-clase">
+                        <x-input-label for="claseMatricula" value="Tipo de matrícula" />
+                        <x-select-input
+                            wire:model="claseMatricula"
+                            id="claseMatricula"
+                            class="mt-1 block w-full"
+                            :options="collect($tiposMatricula)->mapWithKeys(fn ($tipo) => [$tipo->value => $tipo->label()])"
+                        />
+                        <p class="mt-1 text-xs text-ink-faint">Convalidación: estudiante con estudios truncos que retoma directamente en este semestre.</p>
+                        <x-input-error :messages="$errors->get('claseMatricula')" class="mt-1" />
+                    </div>
+                    <div wire:key="tipo-instituto-modalidad-estudio">
+                        <x-input-label for="modalidadEstudio" value="Modalidad de estudio" />
+                        <x-select-input
+                            wire:model="modalidadEstudio"
+                            id="modalidadEstudio"
+                            class="mt-1 block w-full"
+                            placeholder="Selecciona…"
+                            :options="collect($modalidadesEstudio)->mapWithKeys(fn ($modalidad) => [$modalidad->value => $modalidad->label()])"
+                        />
+                        <x-input-error :messages="$errors->get('modalidadEstudio')" class="mt-1" />
+                    </div>
+                    <div wire:key="tipo-instituto-seccion">
+                        <x-input-label for="seccionAcademicaId" value="Sección (opcional)" />
+                        <x-select-input
+                            wire:model="seccionAcademicaId"
+                            id="seccionAcademicaId"
+                            class="mt-1 block w-full"
+                            placeholder="Sin sección"
+                            :options="collect($seccionesAcademicas)->mapWithKeys(fn ($seccion) => [$seccion->id => $seccion->letra])"
+                        />
+                        <x-input-error :messages="$errors->get('seccionAcademicaId')" class="mt-1" />
+                    </div>
                 @else
                     <div class="sm:col-span-2" wire:key="tipo-curso-corto-cursos">
                         <x-input-label value="Cursos" />

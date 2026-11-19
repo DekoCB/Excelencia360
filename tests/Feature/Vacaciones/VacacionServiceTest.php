@@ -58,6 +58,7 @@ class VacacionServiceTest extends TestCase
             nombres: 'Fiorella',
             apellidos: 'Aquino Ramírez',
             dni: new Dni((string) random_int(10000000, 99999999)),
+            email: uniqid('estudiante').'@example.com',
             fechaNacimiento: now()->subYears(25)->format('Y-m-d'),
             estadoCivil: null,
             direccion: null,

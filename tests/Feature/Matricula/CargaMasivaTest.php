@@ -58,8 +58,8 @@ class CargaMasivaTest extends TestCase
         $coordinador->assignRole(RolEnum::COORDINADOR->value);
 
         $archivo = $this->archivoExcel(
-            ['nombres', 'apellidos', 'dni', 'fecha_nacimiento'],
-            [['Mario', 'Rojas Díaz', '65432109', '10/05/1988']]
+            ['nombres', 'apellidos', 'dni', 'email', 'fecha_nacimiento'],
+            [['Mario', 'Rojas Díaz', '65432109', 'mario.rojas@example.com', '10/05/1988']]
         );
 
         $this->actingAs($coordinador);

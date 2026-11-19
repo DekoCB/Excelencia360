@@ -6,6 +6,7 @@ use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\ProgramaEstudio;
 use App\Modules\Docentes\Models\Docente;
 use App\Modules\Matricula\Enums\EstadoEstudianteEnum;
+use App\Modules\Matricula\Enums\TipoMatriculaEnum;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Services\MatriculaService;
 use Illuminate\Support\Collection;
@@ -22,6 +23,8 @@ new #[Layout('layouts.app')] class extends Component
     public string $termino = '';
 
     public string $estadoFiltro = '';
+
+    public string $tipoMatriculaFiltro = '';
 
     public bool $mostrarWizard = false;
 
@@ -151,6 +154,7 @@ new #[Layout('layouts.app')] class extends Component
             cursoId: $this->cursoFiltro !== '' ? (int) $this->cursoFiltro : null,
             docenteId: $this->docenteFiltro !== '' ? (int) $this->docenteFiltro : null,
             modalidad: auth()->user()->modalidadMatriculaRestringida(),
+            tipoMatricula: $this->tipoMatriculaFiltro ?: null,
         );
 
         $this->idsPaginaActual = $estudiantes->pluck('id')->all();
@@ -162,6 +166,7 @@ new #[Layout('layouts.app')] class extends Component
                 'label' => $estudiante->nombreCompleto(),
             ])->values()->all(),
             'estados' => EstadoEstudianteEnum::cases(),
+            'tiposMatricula' => TipoMatriculaEnum::cases(),
             'ciclosDisponibles' => Ciclo::query()->orderByDesc('fecha_inicio')->get(),
             'programasDisponibles' => ProgramaEstudio::query()->where('activo', true)->orderBy('nombre')->get(),
             'gradosDisponibles' => $this->gradosDisponibles(),
@@ -251,6 +256,11 @@ new #[Layout('layouts.app')] class extends Component
             wire:model.live="estadoFiltro"
             class="w-full sm:max-w-xs"
             :options="collect($estados)->mapWithKeys(fn ($estado) => [$estado->value => $estado->label()])->prepend('Todos los estados', '')"
+        />
+        <x-select-input
+            wire:model.live="tipoMatriculaFiltro"
+            class="w-full sm:max-w-xs"
+            :options="collect($tiposMatricula)->mapWithKeys(fn ($tipo) => [$tipo->value => $tipo->label()])->prepend('Regular y Convalidación', '')"
         />
         <button type="button" wire:click="$toggle('mostrarFiltrosAvanzados')" class="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-accent hover:underline">
             <x-heroicon-o-adjustments-horizontal class="h-4 w-4" />

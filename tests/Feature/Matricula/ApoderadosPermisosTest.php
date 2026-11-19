@@ -39,6 +39,7 @@ class ApoderadosPermisosTest extends TestCase
             nombres: $nombres,
             apellidos: 'Torres Huamán',
             dni: new Dni($dni),
+            email: uniqid('estudiante').'@example.com',
             fechaNacimiento: now()->subYears(15)->format('Y-m-d'),
             estadoCivil: null,
             direccion: null,

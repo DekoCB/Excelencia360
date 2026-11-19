@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Matricula\DTOs;
 
+use App\Modules\Matricula\Enums\ModalidadEstudioEnum;
+use App\Modules\Matricula\Enums\TipoMatriculaEnum;
+
 final readonly class RegistrarMatriculaData
 {
     /**
@@ -18,5 +21,8 @@ final readonly class RegistrarMatriculaData
         public ?int $registradoPor,
         public ?string $fechaMatricula = null,
         public ?array $cursoIds = null,
+        public TipoMatriculaEnum $tipoMatricula = TipoMatriculaEnum::REGULAR,
+        public ?ModalidadEstudioEnum $modalidadEstudio = null,
+        public ?int $seccionAcademicaId = null,
     ) {}
 }

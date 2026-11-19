@@ -22,6 +22,7 @@ interface EstudianteRepositoryInterface extends RepositoryInterface
         ?int $cursoId = null,
         ?int $docenteId = null,
         ?string $modalidad = null,
+        ?string $tipoMatricula = null,
     ): LengthAwarePaginator;
 
     public function existeDni(string $dni, ?int $exceptoId = null): bool;

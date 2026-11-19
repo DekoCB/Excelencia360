@@ -555,10 +555,19 @@ class CertificadoService
                             throw new InvalidArgumentException('Nombres y apellidos son obligatorios para crear al estudiante.');
                         }
 
+                        // Esta importación (certificados de capacitación en formato
+                        // cliente) no recoge un correo real del estudiante -- a
+                        // diferencia del registro formal (wizard/carga masiva de
+                        // Matrícula), que sí lo exige -- así que, para este alta
+                        // de emergencia, se mantiene el correo institucional
+                        // derivado del DNI como antes.
+                        $dniValor = new Dni($dni);
+
                         $estudiante = $this->matricula->registrarEstudiante(new RegistrarEstudianteData(
                             nombres: $nombres,
                             apellidos: $apellidos,
-                            dni: new Dni($dni),
+                            dni: $dniValor,
+                            email: $dniValor->correoInstitucional(),
                             fechaNacimiento: null,
                             estadoCivil: null,
                             direccion: null,

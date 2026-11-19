@@ -177,6 +177,7 @@ class SecretariaModalidadTest extends TestCase
             ->set('nombres', 'Rosa')
             ->set('apellidos', 'Medina Luna')
             ->set('dni', '55667988')
+            ->set('email', 'estudiante'.uniqid().'@example.com')
             ->set('fechaNacimiento', now()->subYears(25)->format('Y-m-d'))
             ->call('avanzar')
             ->assertSet('paso', 3)

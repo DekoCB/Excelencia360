@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Matricula;
 
+use App\Models\User;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
@@ -76,6 +77,7 @@ class MatriculaMasivaServiceTest extends TestCase
         $resultado = $this->service()->registrarEstudiantesDesdeFilas($this->filas([
             [
                 'nombres' => 'Carlos', 'apellidos' => 'Gómez Luna', 'dni' => '76543210',
+                'email' => 'carlos@example.com',
             ],
         ]));
 
@@ -94,6 +96,7 @@ class MatriculaMasivaServiceTest extends TestCase
         $resultado = $this->service()->registrarEstudiantesDesdeFilas($this->filas([
             [
                 'nombres' => 'Juana', 'apellidos' => 'Pérez Ríos', 'dni' => '87654321',
+                'email' => 'juana@example.com',
                 'fecha_nacimiento' => now()->subYears(15)->format('d/m/Y'),
                 'apoderado_nombres' => 'Rosa Ríos Gómez', 'apoderado_dni' => '12345678',
                 'apoderado_celular' => '912345678', 'apoderado_parentesco' => 'Madre',
@@ -134,7 +137,7 @@ class MatriculaMasivaServiceTest extends TestCase
             ],
             [
                 'nombres' => 'Válido', 'apellidos' => 'Correcto', 'dni' => '55667788',
-                'fecha_nacimiento' => '01/01/1995',
+                'email' => 'valido@example.com', 'fecha_nacimiento' => '01/01/1995',
             ],
         ]));
 
@@ -142,6 +145,27 @@ class MatriculaMasivaServiceTest extends TestCase
         $this->assertCount(1, $resultado['errores']);
         $this->assertSame(2, $resultado['errores'][0]['fila']);
         $this->assertDatabaseHas('estudiantes', ['dni' => '55667788']);
+    }
+
+    public function test_una_fila_con_email_duplicado_no_afecta_a_las_demas_filas_validas(): void
+    {
+        User::factory()->create(['email' => 'ocupado@example.com']);
+
+        $resultado = $this->service()->registrarEstudiantesDesdeFilas($this->filas([
+            [
+                'nombres' => 'Repetido', 'apellidos' => 'Duplicado', 'dni' => '99999998',
+                'email' => 'ocupado@example.com',
+            ],
+            [
+                'nombres' => 'Válido', 'apellidos' => 'Correcto', 'dni' => '55667799',
+                'email' => 'valido2@example.com',
+            ],
+        ]));
+
+        $this->assertSame(1, $resultado['exitosos']);
+        $this->assertCount(1, $resultado['errores']);
+        $this->assertDatabaseHas('estudiantes', ['dni' => '55667799']);
+        $this->assertDatabaseMissing('estudiantes', ['dni' => '99999998']);
     }
 
     public function test_matricula_masivamente_estudiantes_existentes_por_dni_carrera_y_semestre(): void

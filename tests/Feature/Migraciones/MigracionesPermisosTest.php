@@ -66,6 +66,7 @@ class MigracionesPermisosTest extends TestCase
             nombres: 'Diego',
             apellidos: 'Torres Huamán',
             dni: new Dni($dni),
+            email: uniqid('estudiante').'@example.com',
             fechaNacimiento: now()->subYears(25)->format('Y-m-d'),
             estadoCivil: null,
             direccion: null,
