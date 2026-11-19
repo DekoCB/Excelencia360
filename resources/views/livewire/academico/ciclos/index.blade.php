@@ -97,7 +97,7 @@ new #[Layout('layouts.app')] class extends Component
         <div class="mb-4 flex justify-end">
             <x-primary-button type="button" wire:click="abrirModal" class="gap-2">
                 <x-heroicon-o-plus class="h-4 w-4" />
-                Nuevo ciclo
+                Nuevo periodo
             </x-primary-button>
         </div>
     @endcan
@@ -173,7 +173,7 @@ new #[Layout('layouts.app')] class extends Component
             x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
             x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
         >
-            <h2 class="font-display text-lg text-ink">Nuevo ciclo</h2>
+            <h2 class="font-display text-lg text-ink">Nuevo periodo</h2>
 
             <form wire:submit="guardar" class="mt-4 space-y-4">
                 <div>
