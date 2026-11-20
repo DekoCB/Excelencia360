@@ -160,6 +160,18 @@
         @endif
     </div>
 
+    <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
+        <h2 class="text-sm font-semibold text-ink">Código QR</h2>
+        <p class="mt-1 text-xs text-ink-faint">Lo usa el docente/personal de oficina para registrar la asistencia del estudiante al escanearlo.</p>
+        <div class="mt-4 inline-block rounded-xl border border-border bg-white p-3">
+            <img
+                src="{{ \App\Shared\Support\QrCode::pngBase64($estudiante->obtenerOCrearQrToken(), 220) }}"
+                alt="Código QR de asistencia"
+                class="h-44 w-44"
+            >
+        </div>
+    </div>
+
     @php
         $matriculaActual = $matriculas->first(fn ($matricula) => $matricula->estado->value !== 'anulada');
         $cursosActuales = $matriculaActual ? ($cursosConHorarios[$matriculaActual->id] ?? collect()) : collect();
