@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Vacaciones\Services;
 
-use App\Modules\Academico\Enums\ModalidadCicloEnum;
-use App\Modules\Matricula\Enums\EstadoMatriculaEnum;
-use App\Modules\Matricula\Models\Estudiante;
-use App\Modules\Matricula\Models\Matricula;
+use App\Models\User;
 use App\Modules\Vacaciones\Models\Vacacion;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
@@ -15,27 +12,18 @@ use Illuminate\Validation\ValidationException;
 
 class VacacionService
 {
-    /**
-     * La duración de vacaciones del periodo académico anual es fija: 2
-     * meses desde la fecha que el coordinador elija como inicio.
-     */
-    private const MESES_DE_VACACIONES = 2;
-
-    public function activar(Estudiante $estudiante, string $fechaInicio, ?int $registradoPor): Vacacion
+    public function activar(User $user, string $fechaInicio, string $fechaFin, ?int $registradoPor): Vacacion
     {
-        $matricula = $this->matriculaVigente($estudiante);
-
-        if ($matricula === null || $matricula->ciclo->modalidad !== ModalidadCicloEnum::ANUAL) {
+        if (Carbon::parse($fechaFin)->lessThan(Carbon::parse($fechaInicio))) {
             throw ValidationException::withMessages([
-                'estudiante' => 'Las vacaciones solo aplican a estudiantes matriculados en periodo académico anual.',
+                'fechaFin' => 'La fecha de fin no puede ser anterior a la fecha de inicio.',
             ]);
         }
 
         return Vacacion::query()->create([
-            'estudiante_id' => $estudiante->id,
-            'matricula_id' => $matricula->id,
+            'user_id' => $user->id,
             'fecha_inicio' => $fechaInicio,
-            'fecha_fin' => Carbon::parse($fechaInicio)->addMonths(self::MESES_DE_VACACIONES),
+            'fecha_fin' => $fechaFin,
             'registrado_por' => $registradoPor,
         ]);
     }
@@ -50,7 +38,7 @@ class VacacionService
         return Vacacion::query()
             ->where('fecha_inicio', '<=', $hoy)
             ->where('fecha_fin', '>=', $hoy)
-            ->with(['estudiante', 'matricula.grado'])
+            ->with('user')
             ->orderBy('fecha_fin')
             ->get();
     }
@@ -62,18 +50,8 @@ class VacacionService
     {
         return Vacacion::query()
             ->where('fecha_fin', '<', Carbon::today())
-            ->with(['estudiante', 'matricula.grado'])
+            ->with('user')
             ->latest('fecha_fin')
             ->get();
-    }
-
-    private function matriculaVigente(Estudiante $estudiante): ?Matricula
-    {
-        return Matricula::query()
-            ->where('estudiante_id', $estudiante->id)
-            ->where('estado', EstadoMatriculaEnum::APROBADA)
-            ->latest('fecha_matricula')
-            ->with('ciclo')
-            ->first();
     }
 }

@@ -112,21 +112,6 @@
                 <span class="sidebar-label">Migraciones</span>
             </a>
         @endcan
-
-        @can('vacaciones.ver')
-            <a
-                href="{{ route('vacaciones.index') }}"
-                wire:navigate
-                @class([
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
-                    'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('vacaciones.*'),
-                    'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('vacaciones.*'),
-                ])
-            >
-                <x-heroicon-o-sun class="h-5 w-5 shrink-0" />
-                <span class="sidebar-label">Vacaciones</span>
-            </a>
-        @endcan
     @endcan
 
     @can('egresados.ver')
@@ -511,12 +496,27 @@
         </div>
     @endif
 
-    @canany(['usuarios.ver', 'docentes.ver', 'personal.ver', 'roles.gestionar', 'auditoria.ver'])
+    @canany(['usuarios.ver', 'docentes.ver', 'personal.ver', 'roles.gestionar', 'auditoria.ver', 'vacaciones.ver'])
         <div class="mt-4 border-t border-border pt-4">
             <p class="sidebar-section-title px-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">
                 Administración
             </p>
         </div>
+
+        @can('vacaciones.ver')
+            <a
+                href="{{ route('vacaciones.index') }}"
+                wire:navigate
+                @class([
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+                    'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('vacaciones.*'),
+                    'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('vacaciones.*'),
+                ])
+            >
+                <x-heroicon-o-sun class="h-5 w-5 shrink-0" />
+                <span class="sidebar-label">Vacaciones</span>
+            </a>
+        @endcan
 
         @can('usuarios.ver')
             <a

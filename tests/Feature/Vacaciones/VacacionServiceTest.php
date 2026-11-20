@@ -2,17 +2,10 @@
 
 namespace Tests\Feature\Vacaciones;
 
-use App\Modules\Academico\Enums\ModalidadCicloEnum;
-use App\Modules\Academico\Enums\TipoCicloEnum;
-use App\Modules\Academico\Models\Ciclo;
-use App\Modules\Academico\Models\Grado;
+use App\Models\User;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
-use App\Modules\Matricula\DTOs\RegistrarEstudianteData;
-use App\Modules\Matricula\DTOs\RegistrarMatriculaData;
-use App\Modules\Matricula\Models\Estudiante;
-use App\Modules\Matricula\Services\MatriculaService;
 use App\Modules\Vacaciones\Services\VacacionService;
-use App\Shared\ValueObjects\Dni;
+use App\Shared\Enums\RolEnum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -33,80 +26,48 @@ class VacacionServiceTest extends TestCase
         return $this->app->make(VacacionService::class);
     }
 
-    private function cicloConPeriodoAbierto(array $atributos = []): Ciclo
+    private function docente(): User
     {
-        $ciclo = Ciclo::factory()->activo()->create(array_merge([
-            'fecha_inicio' => now()->subDays(20),
-            'fecha_fin' => now()->addMonths(5),
-        ], $atributos));
+        $user = User::factory()->create();
+        $user->assignRole(RolEnum::DOCENTE->value);
 
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
-        ]);
-
-        return $ciclo;
+        return $user;
     }
 
-    private function estudianteMatriculado(Ciclo $ciclo): Estudiante
+    public function test_activar_registra_vacaciones_con_fechas_libres(): void
     {
-        $matriculas = $this->app->make(MatriculaService::class);
-        $grado = Grado::factory()->create();
+        $docente = $this->docente();
 
-        $estudiante = $matriculas->registrarEstudiante(new RegistrarEstudianteData(
-            nombres: 'Fiorella',
-            apellidos: 'Aquino Ramírez',
-            dni: new Dni((string) random_int(10000000, 99999999)),
-            email: uniqid('estudiante').'@example.com',
-            fechaNacimiento: now()->subYears(25)->format('Y-m-d'),
-            estadoCivil: null,
-            direccion: null,
-            celular: null,
-            observaciones: null,
-        ));
+        $vacacion = $this->service()->activar($docente, '2026-06-01', '2026-06-20', null);
 
-        $matriculas->matricular($estudiante, new RegistrarMatriculaData($ciclo->id, $grado->id, null, null));
-
-        return $estudiante;
+        $this->assertSame('2026-06-01', $vacacion->fecha_inicio->format('Y-m-d'));
+        $this->assertSame('2026-06-20', $vacacion->fecha_fin->format('Y-m-d'));
+        $this->assertSame($docente->id, $vacacion->user_id);
     }
 
-    public function test_activar_rechaza_un_estudiante_que_no_esta_en_periodo_academico_anual(): void
+    public function test_activar_rechaza_fecha_fin_anterior_a_fecha_inicio(): void
     {
-        $ciclo = $this->cicloConPeriodoAbierto(['tipo' => TipoCicloEnum::GRUPO_1]);
-        $estudiante = $this->estudianteMatriculado($ciclo);
+        $docente = $this->docente();
 
         $this->expectException(ValidationException::class);
 
-        $this->service()->activar($estudiante, now()->format('Y-m-d'), null);
-    }
-
-    public function test_activar_calcula_la_fecha_fin_a_dos_meses(): void
-    {
-        $ciclo = $this->cicloConPeriodoAbierto(['modalidad' => ModalidadCicloEnum::ANUAL, 'tipo' => null]);
-        $estudiante = $this->estudianteMatriculado($ciclo);
-
-        $vacacion = $this->service()->activar($estudiante, '2026-06-01', null);
-
-        $this->assertSame('2026-06-01', $vacacion->fecha_inicio->format('Y-m-d'));
-        $this->assertSame('2026-08-01', $vacacion->fecha_fin->format('Y-m-d'));
+        $this->service()->activar($docente, '2026-06-20', '2026-06-01', null);
     }
 
     public function test_vigentes_y_historial_particionan_por_fecha_fin(): void
     {
-        $ciclo = $this->cicloConPeriodoAbierto(['modalidad' => ModalidadCicloEnum::ANUAL, 'tipo' => null]);
-        $enVacaciones = $this->estudianteMatriculado($ciclo);
-        $yaTermino = $this->estudianteMatriculado($ciclo);
+        $enVacaciones = $this->docente();
+        $yaTermino = $this->docente();
 
-        $this->service()->activar($enVacaciones, now()->subDays(10)->format('Y-m-d'), null);
-        $this->service()->activar($yaTermino, now()->subMonths(4)->format('Y-m-d'), null);
+        $this->service()->activar($enVacaciones, now()->subDays(10)->format('Y-m-d'), now()->addDays(10)->format('Y-m-d'), null);
+        $this->service()->activar($yaTermino, now()->subMonths(4)->format('Y-m-d'), now()->subMonths(3)->format('Y-m-d'), null);
 
         $vigentes = $this->service()->vigentes();
         $historial = $this->service()->historial();
 
         $this->assertCount(1, $vigentes);
-        $this->assertSame($enVacaciones->id, $vigentes->first()->estudiante_id);
+        $this->assertSame($enVacaciones->id, $vigentes->first()->user_id);
         $this->assertCount(1, $historial);
-        $this->assertSame($yaTermino->id, $historial->first()->estudiante_id);
+        $this->assertSame($yaTermino->id, $historial->first()->user_id);
     }
 }

@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Vacaciones\Database\Factories;
 
-use App\Modules\Matricula\Models\Estudiante;
-use App\Modules\Matricula\Models\Matricula;
+use App\Models\User;
 use App\Modules\Vacaciones\Models\Vacacion;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -21,8 +20,7 @@ class VacacionFactory extends Factory
         $inicio = now()->subDays(10);
 
         return [
-            'estudiante_id' => Estudiante::factory(),
-            'matricula_id' => Matricula::factory(),
+            'user_id' => User::factory(),
             'fecha_inicio' => $inicio,
             'fecha_fin' => $inicio->copy()->addMonths(2),
         ];

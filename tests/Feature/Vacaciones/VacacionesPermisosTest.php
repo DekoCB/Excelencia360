@@ -3,16 +3,8 @@
 namespace Tests\Feature\Vacaciones;
 
 use App\Models\User;
-use App\Modules\Academico\Enums\ModalidadCicloEnum;
-use App\Modules\Academico\Models\Ciclo;
-use App\Modules\Academico\Models\Grado;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
-use App\Modules\Matricula\DTOs\RegistrarEstudianteData;
-use App\Modules\Matricula\DTOs\RegistrarMatriculaData;
-use App\Modules\Matricula\Models\Estudiante;
-use App\Modules\Matricula\Services\MatriculaService;
 use App\Shared\Enums\RolEnum;
-use App\Shared\ValueObjects\Dni;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Volt\Volt;
 use Tests\TestCase;
@@ -26,37 +18,6 @@ class VacacionesPermisosTest extends TestCase
         parent::setUp();
 
         $this->seed(RolesAndPermissionsSeeder::class);
-    }
-
-    private function estudianteAnualMatriculado(string $dni): Estudiante
-    {
-        $ciclo = Ciclo::factory()->activo()->create([
-            'modalidad' => ModalidadCicloEnum::ANUAL,
-            'tipo' => null,
-            'fecha_inicio' => now()->subDays(20),
-            'fecha_fin' => now()->addMonths(9),
-        ]);
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
-        ]);
-
-        $matriculas = app(MatriculaService::class);
-        $estudiante = $matriculas->registrarEstudiante(new RegistrarEstudianteData(
-            nombres: 'Verónica',
-            apellidos: 'Quispe Paredes',
-            dni: new Dni($dni),
-            email: uniqid('estudiante').'@example.com',
-            fechaNacimiento: now()->subYears(25)->format('Y-m-d'),
-            estadoCivil: null,
-            direccion: null,
-            celular: null,
-            observaciones: null,
-        ));
-        $matriculas->matricular($estudiante, new RegistrarMatriculaData($ciclo->id, Grado::factory()->create()->id, null, null));
-
-        return $estudiante;
     }
 
     public function test_rol_coordinador_puede_ver_vacaciones(): void
@@ -79,19 +40,22 @@ class VacacionesPermisosTest extends TestCase
     {
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
-        $estudiante = $this->estudianteAnualMatriculado('55667744');
+
+        $docente = User::factory()->create(['name' => 'Walter Quispe Paredes']);
+        $docente->assignRole(RolEnum::DOCENTE->value);
 
         $this->actingAs($usuario);
 
         Volt::test('vacaciones.index')
             ->call('abrirModal')
             ->set('terminoBusqueda', 'Quispe Paredes')
-            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
+            ->call('seleccionarUsuario', $docente->id, $docente->name)
             ->set('fechaInicio', now()->format('Y-m-d'))
+            ->set('fechaFin', now()->addDays(15)->format('Y-m-d'))
             ->call('activar')
             ->assertHasNoErrors()
             ->assertSet('mostrarModal', false);
 
-        $this->assertDatabaseHas('vacaciones', ['estudiante_id' => $estudiante->id]);
+        $this->assertDatabaseHas('vacaciones', ['user_id' => $docente->id]);
     }
 }

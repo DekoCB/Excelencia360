@@ -1,10 +1,8 @@
 <?php
 
-use App\Modules\Academico\Enums\ModalidadCicloEnum;
-use App\Modules\Matricula\Enums\EstadoMatriculaEnum;
-use App\Modules\Matricula\Models\Estudiante;
+use App\Models\User;
 use App\Modules\Vacaciones\Services\VacacionService;
-use Illuminate\Support\Carbon;
+use App\Shared\Enums\RolEnum;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
@@ -16,11 +14,13 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $terminoBusqueda = '';
 
-    public ?int $estudianteId = null;
+    public ?int $userId = null;
 
-    public string $estudianteNombre = '';
+    public string $userNombre = '';
 
     public string $fechaInicio = '';
+
+    public string $fechaFin = '';
 
     public function mount(): void
     {
@@ -32,14 +32,14 @@ new #[Layout('layouts.app')] class extends Component
         Gate::authorize('vacaciones.gestionar');
 
         $this->resetValidation();
-        $this->reset(['terminoBusqueda', 'estudianteId', 'estudianteNombre', 'fechaInicio']);
+        $this->reset(['terminoBusqueda', 'userId', 'userNombre', 'fechaInicio', 'fechaFin']);
         $this->mostrarModal = true;
     }
 
-    public function seleccionarEstudiante(int $estudianteId, string $nombre): void
+    public function seleccionarUsuario(int $userId, string $nombre): void
     {
-        $this->estudianteId = $estudianteId;
-        $this->estudianteNombre = $nombre;
+        $this->userId = $userId;
+        $this->userNombre = $nombre;
         $this->terminoBusqueda = '';
     }
 
@@ -48,12 +48,13 @@ new #[Layout('layouts.app')] class extends Component
         Gate::authorize('vacaciones.gestionar');
 
         $this->validate([
-            'estudianteId' => 'required|integer|exists:estudiantes,id',
+            'userId' => 'required|integer|exists:users,id',
             'fechaInicio' => 'required|date',
+            'fechaFin' => 'required|date',
         ]);
 
-        $estudiante = Estudiante::query()->findOrFail($this->estudianteId);
-        $service->activar($estudiante, $this->fechaInicio, Auth::id());
+        $user = User::query()->findOrFail($this->userId);
+        $service->activar($user, $this->fechaInicio, $this->fechaFin, Auth::id());
 
         $this->mostrarModal = false;
         session()->flash('status', 'Vacaciones registradas correctamente.');
@@ -65,16 +66,9 @@ new #[Layout('layouts.app')] class extends Component
 
         if ($this->terminoBusqueda !== '') {
             $termino = $this->terminoBusqueda;
-            $resultadosBusqueda = Estudiante::query()
-                ->where(function ($query) use ($termino) {
-                    $query->where('nombres', 'like', "%{$termino}%")
-                        ->orWhere('apellidos', 'like', "%{$termino}%")
-                        ->orWhere('dni', 'like', "%{$termino}%");
-                })
-                ->whereHas('matriculas', function ($query) {
-                    $query->where('estado', EstadoMatriculaEnum::APROBADA)
-                        ->whereHas('ciclo', fn ($q) => $q->where('modalidad', ModalidadCicloEnum::ANUAL));
-                })
+            $resultadosBusqueda = User::query()
+                ->where('name', 'like', "%{$termino}%")
+                ->whereHas('roles', fn ($query) => $query->whereNotIn('name', [RolEnum::ESTUDIANTE->value, RolEnum::APODERADO->value]))
                 ->limit(8)
                 ->get();
         }
@@ -83,7 +77,6 @@ new #[Layout('layouts.app')] class extends Component
             'resultadosBusqueda' => $resultadosBusqueda,
             'vigentes' => $service->vigentes(),
             'historial' => $service->historial(),
-            'fechaFinCalculada' => $this->fechaInicio !== '' ? Carbon::parse($this->fechaInicio)->addMonths(2)->format('d/m/Y') : null,
         ];
     }
 }; ?>
@@ -91,7 +84,7 @@ new #[Layout('layouts.app')] class extends Component
 <div>
     <x-slot name="header">
         <h1 class="font-display text-2xl text-ink">Vacaciones</h1>
-        <p class="mt-1 text-sm text-ink-dim">Periodos de 2 meses de descanso, exclusivos para estudiantes en periodo académico anual. Es solo informativo: no afecta asistencia ni aula virtual.</p>
+        <p class="mt-1 text-sm text-ink-dim">Periodos de descanso del personal (docentes, administrativos, etc.), con fechas libres. Es solo informativo: no afecta asistencia ni aula virtual.</p>
     </x-slot>
 
     @if (session('status'))
@@ -115,10 +108,7 @@ new #[Layout('layouts.app')] class extends Component
             <div class="divide-y divide-border">
                 @forelse ($vigentes as $vacacion)
                     <div class="flex items-center justify-between px-4 py-3 text-sm">
-                        <div>
-                            <p class="text-ink">{{ $vacacion->estudiante->nombreCompleto() }}</p>
-                            <p class="text-xs text-ink-faint">{{ $vacacion->matricula->grado->nombre }}</p>
-                        </div>
+                        <p class="text-ink">{{ $vacacion->user->name }}</p>
                         <p class="text-ink-dim">{{ $vacacion->fecha_inicio->format('d/m/Y') }} – {{ $vacacion->fecha_fin->format('d/m/Y') }}</p>
                     </div>
                 @empty
@@ -134,10 +124,7 @@ new #[Layout('layouts.app')] class extends Component
             <div class="divide-y divide-border">
                 @forelse ($historial as $vacacion)
                     <div class="flex items-center justify-between px-4 py-3 text-sm">
-                        <div>
-                            <p class="text-ink">{{ $vacacion->estudiante->nombreCompleto() }}</p>
-                            <p class="text-xs text-ink-faint">{{ $vacacion->matricula->grado->nombre }}</p>
-                        </div>
+                        <p class="text-ink">{{ $vacacion->user->name }}</p>
                         <p class="text-ink-dim">{{ $vacacion->fecha_inicio->format('d/m/Y') }} – {{ $vacacion->fecha_fin->format('d/m/Y') }}</p>
                     </div>
                 @empty
@@ -172,40 +159,44 @@ new #[Layout('layouts.app')] class extends Component
 
             <div class="mt-4 space-y-4">
                 <div>
-                    <x-input-label value="Estudiante (periodo académico anual)" />
-                    @if ($estudianteId)
+                    <x-input-label value="Personal" />
+                    @if ($userId)
                         <div class="mt-1 flex items-center justify-between rounded-md bg-accent-soft px-3 py-2 text-sm text-accent">
-                            {{ $estudianteNombre }}
-                            <button type="button" wire:click="$set('estudianteId', null)" class="text-xs underline">Cambiar</button>
+                            {{ $userNombre }}
+                            <button type="button" wire:click="$set('userId', null)" class="text-xs underline">Cambiar</button>
                         </div>
                     @else
-                        <x-text-input wire:model.live.debounce.300ms="terminoBusqueda" class="mt-1 block w-full" placeholder="Buscar por nombre, apellido o DNI…" />
+                        <x-text-input wire:model.live.debounce.300ms="terminoBusqueda" class="mt-1 block w-full" placeholder="Buscar por nombre…" />
                         @if ($resultadosBusqueda->isNotEmpty())
                             <div class="mt-1 divide-y divide-border rounded-md border border-border bg-surface">
-                                @foreach ($resultadosBusqueda as $estudiante)
+                                @foreach ($resultadosBusqueda as $usuario)
                                     <button
                                         type="button"
-                                        wire:click="seleccionarEstudiante({{ $estudiante->id }}, '{{ addslashes($estudiante->nombreCompleto()) }}')"
+                                        wire:click="seleccionarUsuario({{ $usuario->id }}, '{{ addslashes($usuario->name) }}')"
                                         class="block w-full px-3 py-2 text-left text-sm hover:bg-surface-2"
                                     >
-                                        {{ $estudiante->nombreCompleto() }} <span class="text-ink-faint">· {{ $estudiante->dni }}</span>
+                                        {{ $usuario->name }}
                                     </button>
                                 @endforeach
                             </div>
                         @elseif ($terminoBusqueda !== '')
-                            <p class="mt-1 text-xs text-ink-faint">Sin resultados en periodo académico anual.</p>
+                            <p class="mt-1 text-xs text-ink-faint">Sin resultados.</p>
                         @endif
                     @endif
-                    <x-input-error :messages="$errors->get('estudianteId')" class="mt-1" />
+                    <x-input-error :messages="$errors->get('userId')" class="mt-1" />
                 </div>
 
-                <div>
-                    <x-input-label for="fechaInicio" value="Fecha de inicio" />
-                    <x-date-input wire:model.live="fechaInicio" id="fechaInicio" class="mt-1 block w-full" />
-                    @if ($fechaFinCalculada)
-                        <p class="mt-1 text-xs text-ink-faint">Termina el {{ $fechaFinCalculada }} (2 meses después).</p>
-                    @endif
-                    <x-input-error :messages="$errors->get('fechaInicio')" class="mt-1" />
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <x-input-label for="fechaInicio" value="Fecha de inicio" />
+                        <x-date-input wire:model="fechaInicio" id="fechaInicio" class="mt-1 block w-full" />
+                        <x-input-error :messages="$errors->get('fechaInicio')" class="mt-1" />
+                    </div>
+                    <div>
+                        <x-input-label for="fechaFin" value="Fecha de fin" />
+                        <x-date-input wire:model="fechaFin" id="fechaFin" class="mt-1 block w-full" />
+                        <x-input-error :messages="$errors->get('fechaFin')" class="mt-1" />
+                    </div>
                 </div>
             </div>
 

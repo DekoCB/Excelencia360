@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\Vacaciones\Models;
 
 use App\Models\User;
-use App\Modules\Matricula\Models\Estudiante;
-use App\Modules\Matricula\Models\Matricula;
 use App\Modules\Vacaciones\Database\Factories\VacacionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,13 +12,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * Un periodo de 2 meses de vacaciones para un estudiante SIAGIE anual,
- * activado manualmente por un coordinador (ver VacacionService::activar()).
- * Es puramente informativo: no bloquea asistencia ni aula virtual.
+ * Un periodo de vacaciones de un miembro del personal (docente,
+ * administrativo, etc.), activado manualmente por un coordinador/dirección
+ * (ver VacacionService::activar()). Es puramente informativo: no bloquea
+ * asistencia ni aula virtual.
  *
  * @property int $id
- * @property int $estudiante_id
- * @property int $matricula_id
+ * @property int $user_id
  * @property Carbon $fecha_inicio
  * @property Carbon $fecha_fin
  * @property ?int $registrado_por
@@ -33,8 +31,7 @@ class Vacacion extends Model
     protected $table = 'vacaciones';
 
     protected $fillable = [
-        'estudiante_id',
-        'matricula_id',
+        'user_id',
         'fecha_inicio',
         'fecha_fin',
         'registrado_por',
@@ -53,14 +50,9 @@ class Vacacion extends Model
         return VacacionFactory::new();
     }
 
-    public function estudiante(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Estudiante::class);
-    }
-
-    public function matricula(): BelongsTo
-    {
-        return $this->belongsTo(Matricula::class);
+        return $this->belongsTo(User::class);
     }
 
     public function registradoPor(): BelongsTo
