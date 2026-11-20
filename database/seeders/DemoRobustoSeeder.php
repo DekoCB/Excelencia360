@@ -22,6 +22,7 @@ use App\Modules\AulaVirtual\Services\MaterialService;
 use App\Modules\AulaVirtual\Services\PublicacionService;
 use App\Modules\AulaVirtual\Services\TareaService;
 use App\Modules\Certificados\Services\CertificadoService;
+use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Models\Evaluacion;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
@@ -516,21 +517,27 @@ class DemoRobustoSeeder extends Seeder
 
             $cursoVirtual = $cursoVirtualService->activarParaHorario($horario);
 
-            $evaluacionUno = $service->crear($cursoVirtual, 'Evaluación mensual 1', now()->subWeeks(3)->format('Y-m-d'), TipoEvaluacionEnum::FISICO);
-            $evaluacionDos = $service->crear($cursoVirtual, 'Evaluación mensual 2', now()->subWeek()->format('Y-m-d'), TipoEvaluacionEnum::FISICO);
+            $criterioU1 = $service->crear($cursoVirtual, 'Criterio 1 - Unidad 1', now()->subWeeks(5)->format('Y-m-d'), TipoEvaluacionEnum::FISICO, RolEvaluacionEnum::CRITERIO, 1);
+            $criterioU2 = $service->crear($cursoVirtual, 'Criterio 1 - Unidad 2', now()->subWeeks(3)->format('Y-m-d'), TipoEvaluacionEnum::FISICO, RolEvaluacionEnum::CRITERIO, 2);
+            $asistencia = $service->crear($cursoVirtual, 'Asistencia', now()->subWeeks(1)->format('Y-m-d'), TipoEvaluacionEnum::FISICO, RolEvaluacionEnum::ASISTENCIA);
+            $examenFinal = $service->crear($cursoVirtual, 'Examen Final', now()->subWeek()->format('Y-m-d'), TipoEvaluacionEnum::FISICO, RolEvaluacionEnum::EXAMEN_FINAL);
 
             foreach ($estudiantes as $estudiante) {
-                $service->calificar($evaluacionUno, $estudiante, (float) random_int(8, 20), null, $horario->docente_id);
-                $service->calificar($evaluacionDos, $estudiante, (float) random_int(8, 20), null, $horario->docente_id);
+                $service->calificar($criterioU1, $estudiante, (float) random_int(8, 20), null, $horario->docente_id);
+                $service->calificar($criterioU2, $estudiante, (float) random_int(8, 20), null, $horario->docente_id);
+                $service->calificar($asistencia, $estudiante, (float) random_int(8, 20), null, $horario->docente_id);
+                $service->calificar($examenFinal, $estudiante, (float) random_int(8, 20), null, $horario->docente_id);
             }
 
-            $service->publicar($evaluacionUno);
+            $service->publicar($criterioU1);
+            $service->publicar($criterioU2);
+            $service->publicar($asistencia);
 
-            // Deja una fracción de las evaluaciones más recientes sin
+            // Deja una fracción de los exámenes finales más recientes sin
             // publicar, para mostrar el flujo "docente registra →
             // coordinador publica" también en los datos de ejemplo.
             if ($indice % 3 !== 0) {
-                $service->publicar($evaluacionDos);
+                $service->publicar($examenFinal);
             }
         }
 

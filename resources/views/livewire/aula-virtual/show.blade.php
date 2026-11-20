@@ -17,6 +17,7 @@ use App\Modules\AulaVirtual\Services\PlantillaCursoVirtualService;
 use App\Modules\AulaVirtual\Services\PublicacionService;
 use App\Modules\AulaVirtual\Services\SeccionService;
 use App\Modules\AulaVirtual\Services\TareaService;
+use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
 use Illuminate\Support\Collection;
@@ -122,6 +123,10 @@ new #[Layout('layouts.app')] class extends Component
     public string $evaluacionFecha = '';
 
     public string $evaluacionTipo = '';
+
+    public string $evaluacionRol = '';
+
+    public string $evaluacionUnidad = '';
 
     public string $evaluacionSeccionId = '';
 
@@ -271,6 +276,8 @@ new #[Layout('layouts.app')] class extends Component
             'evaluacionNombre' => 'required|string|max:150',
             'evaluacionFecha' => 'required|date',
             'evaluacionTipo' => 'required|string|in:'.implode(',', array_column(TipoEvaluacionEnum::cases(), 'value')),
+            'evaluacionRol' => 'required|string|in:'.implode(',', array_column(RolEvaluacionEnum::cases(), 'value')),
+            'evaluacionUnidad' => $this->evaluacionRol === RolEvaluacionEnum::CRITERIO->value ? 'required|in:1,2' : 'nullable',
         ]);
 
         $seccion = $this->seccionSeleccionada($this->evaluacionSeccionId);
@@ -280,10 +287,12 @@ new #[Layout('layouts.app')] class extends Component
             $this->evaluacionNombre,
             $this->evaluacionFecha,
             TipoEvaluacionEnum::from($this->evaluacionTipo),
+            RolEvaluacionEnum::from($this->evaluacionRol),
+            $this->evaluacionUnidad !== '' ? (int) $this->evaluacionUnidad : null,
             $seccion?->id,
         );
 
-        $this->reset(['evaluacionNombre', 'evaluacionFecha', 'evaluacionTipo', 'evaluacionSeccionId', 'mostrarFormEvaluacion']);
+        $this->reset(['evaluacionNombre', 'evaluacionFecha', 'evaluacionTipo', 'evaluacionRol', 'evaluacionUnidad', 'evaluacionSeccionId', 'mostrarFormEvaluacion']);
     }
 
     public function crearPublicacion(PublicacionService $service): void
@@ -548,6 +557,7 @@ new #[Layout('layouts.app')] class extends Component
             'tiposClaseGrabada' => TipoClaseGrabadaEnum::cases(),
             'tiposPublicacion' => TipoPublicacionEnum::cases(),
             'tiposEvaluacion' => TipoEvaluacionEnum::cases(),
+            'rolesEvaluacion' => RolEvaluacionEnum::cases(),
             'cursosRelacionados' => $cursos->cursosVirtualesRelacionados($this->curso),
             'plantillasDisponibles' => $this->curso->esDeCursoCorto() ? new Collection : $plantillas->listarPorCurso($this->curso->cursoAcademico()),
         ];
@@ -1021,6 +1031,35 @@ new #[Layout('layouts.app')] class extends Component
                     </div>
                     <p class="text-xs text-ink-faint">
                         Físico: solo se registran notas (examen en papel, oral, etc.). Virtual: además puedes armar la evaluación dentro de la app, con opción múltiple, opción única y preguntas abiertas.
+                    </p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <x-input-label for="evaluacionRol" value="Tipo de nota" />
+                            <x-select-input
+                                wire:model.live="evaluacionRol"
+                                id="evaluacionRol"
+                                class="mt-1 block w-full"
+                                :options="collect($rolesEvaluacion)->mapWithKeys(fn ($rol) => [$rol->value => $rol->label()])"
+                                placeholder="Selecciona…"
+                            />
+                            <x-input-error :messages="$errors->get('evaluacionRol')" class="mt-1" />
+                        </div>
+                        @if ($evaluacionRol === 'criterio')
+                            <div wire:key="evaluacion-unidad">
+                                <x-input-label for="evaluacionUnidad" value="Unidad" />
+                                <x-select-input
+                                    wire:model="evaluacionUnidad"
+                                    id="evaluacionUnidad"
+                                    class="mt-1 block w-full"
+                                    :options="['1' => 'Unidad 1', '2' => 'Unidad 2']"
+                                    placeholder="Selecciona…"
+                                />
+                                <x-input-error :messages="$errors->get('evaluacionUnidad')" class="mt-1" />
+                            </div>
+                        @endif
+                    </div>
+                    <p class="text-xs text-ink-faint">
+                        Criterio: una de 2 a 5 notas que promedian la Unidad 1 o 2. Examen Final/Sustitutorio/Aplazado/Asistencia: una sola nota por horario, usada directamente en la fórmula de la nota final.
                     </p>
                     <div>
                         <x-input-label for="evaluacionSeccionId" value="Sección (opcional)" />

@@ -64,8 +64,8 @@ class LibretaService
      * -- la editada a mano en NotaFinalCurso gana sobre el promedio
      * calculado de las evaluaciones en cuanto existe), "editadaManualmente"
      * (bool), "letra" (?string), "estado" ("APROBADO"/"DESAPROBADO"/null
-     * mientras no haya nota) y "porMes" (el desglose mes a mes, ver
-     * EvaluacionService::promedioMensualDelEstudiante()). Sin generics en
+     * mientras no haya nota) y "porUnidad" (el desglose por componente,
+     * ver EvaluacionService::desgloseDelEstudiante()). Sin generics en
      * el tipo de retorno: el TValue de Collection no es covariante (ver
      * https://phpstan.org/blog/whats-up-with-template-covariant), así que
      * ninguna anotación de forma de array sobrevive a un ->map().
@@ -87,7 +87,7 @@ class LibretaService
             $notaFinal = $notasFinales->get($horario->id);
             $promedio = $notaFinal !== null
                 ? (float) $notaFinal->nota
-                : $this->evaluaciones->promedioDelEstudiante($estudiante, $horario);
+                : $this->evaluaciones->promedioFinalDelEstudiante($estudiante, $horario);
 
             return [
                 'horario' => $horario,
@@ -101,7 +101,7 @@ class LibretaService
                 'estado' => $promedio !== null
                     ? ($promedio >= self::NOTA_MINIMA_APROBATORIA ? 'APROBADO' : 'DESAPROBADO')
                     : null,
-                'porMes' => $this->evaluaciones->promedioMensualDelEstudiante($estudiante, $horario),
+                'porUnidad' => $this->evaluaciones->desgloseDelEstudiante($estudiante, $horario),
             ];
         });
     }

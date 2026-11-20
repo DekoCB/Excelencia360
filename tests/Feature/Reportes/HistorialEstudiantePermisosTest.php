@@ -5,6 +5,7 @@ namespace Tests\Feature\Reportes;
 use App\Models\User;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Models\Calificacion;
 use App\Modules\Evaluaciones\Models\Evaluacion;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
@@ -238,12 +239,10 @@ class HistorialEstudiantePermisosTest extends TestCase
         $matriculaDos = Matricula::factory()->create(['estudiante_id' => $estudiante->id, 'estado' => 'aprobada', 'fecha_matricula' => now()]);
 
         $horarioUno = Horario::factory()->create(['grado_id' => $matriculaUno->grado_id, 'ciclo_id' => $matriculaUno->ciclo_id]);
-        $evaluacionUno = Evaluacion::factory()->create(['horario_id' => $horarioUno->id, 'estado' => 'publicada']);
-        Calificacion::factory()->create(['evaluacion_id' => $evaluacionUno->id, 'estudiante_id' => $estudiante->id, 'nota_numerica' => 12]);
+        $this->calificarCompleto($horarioUno, $estudiante, 12.0);
 
         $horarioDos = Horario::factory()->create(['grado_id' => $matriculaDos->grado_id, 'ciclo_id' => $matriculaDos->ciclo_id]);
-        $evaluacionDos = Evaluacion::factory()->create(['horario_id' => $horarioDos->id, 'estado' => 'publicada']);
-        Calificacion::factory()->create(['evaluacion_id' => $evaluacionDos->id, 'estudiante_id' => $estudiante->id, 'nota_numerica' => 18]);
+        $this->calificarCompleto($horarioDos, $estudiante, 18.0);
 
         $this->actingAs($coordinador);
 
@@ -293,5 +292,28 @@ class HistorialEstudiantePermisosTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertDontSee('Historial de estudiante');
+    }
+
+    /**
+     * Califica los 4 componentes obligatorios de la fórmula (Unidad 1,
+     * Unidad 2, Asistencia, Examen Final) con la misma nota, para que el
+     * promedio final resultante sea exactamente esa nota.
+     */
+    private function calificarCompleto(Horario $horario, Estudiante $estudiante, float $nota): void
+    {
+        foreach ([
+            ['rol' => RolEvaluacionEnum::CRITERIO, 'unidad' => 1],
+            ['rol' => RolEvaluacionEnum::CRITERIO, 'unidad' => 2],
+            ['rol' => RolEvaluacionEnum::ASISTENCIA, 'unidad' => null],
+            ['rol' => RolEvaluacionEnum::EXAMEN_FINAL, 'unidad' => null],
+        ] as $datos) {
+            $evaluacion = Evaluacion::factory()->create([
+                'horario_id' => $horario->id,
+                'rol' => $datos['rol'],
+                'unidad' => $datos['unidad'],
+                'estado' => 'publicada',
+            ]);
+            Calificacion::factory()->create(['evaluacion_id' => $evaluacion->id, 'estudiante_id' => $estudiante->id, 'nota_numerica' => $nota]);
+        }
     }
 }

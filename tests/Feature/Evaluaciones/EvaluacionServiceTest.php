@@ -9,6 +9,7 @@ use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
 use App\Modules\Evaluaciones\Enums\EstadoEvaluacionEnum;
+use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Models\Evaluacion;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
@@ -37,7 +38,7 @@ class EvaluacionServiceTest extends TestCase
     {
         $curso = CursoVirtual::query()->firstOrCreate(['horario_id' => $horario->id]);
 
-        return $this->service()->crear($curso, $nombre, $fecha, TipoEvaluacionEnum::FISICO, null, $enlaceExterno, $disponibleHasta);
+        return $this->service()->crear($curso, $nombre, $fecha, TipoEvaluacionEnum::FISICO, RolEvaluacionEnum::CRITERIO, 1, null, $enlaceExterno, $disponibleHasta);
     }
 
     public function test_crear_una_evaluacion_queda_en_estado_borrador(): void
@@ -167,24 +168,24 @@ class EvaluacionServiceTest extends TestCase
         $this->assertCount(1, $service->misCalificaciones($estudiante, $horario));
     }
 
-    public function test_promedio_del_estudiante_solo_considera_evaluaciones_publicadas(): void
+    public function test_promedio_unidad_solo_considera_evaluaciones_publicadas(): void
     {
         $horario = Horario::factory()->create();
         $estudiante = Estudiante::factory()->create();
         $service = $this->service();
 
-        $evaluacionUno = $this->crear($horario, 'Evaluación 1', '2026-07-01');
+        $evaluacionUno = $this->crear($horario, 'Criterio 1', '2026-07-01');
         $service->calificar($evaluacionUno, $estudiante, 14.0, null, null);
         $service->publicar($evaluacionUno);
 
-        $evaluacionDos = $this->crear($horario, 'Evaluación 2', '2026-07-15');
+        $evaluacionDos = $this->crear($horario, 'Criterio 2', '2026-07-15');
         $service->calificar($evaluacionDos, $estudiante, 20.0, null, null);
         $service->publicar($evaluacionDos);
 
-        $evaluacionSinPublicar = $this->crear($horario, 'Evaluación 3', '2026-07-20');
+        $evaluacionSinPublicar = $this->crear($horario, 'Criterio 3', '2026-07-20');
         $service->calificar($evaluacionSinPublicar, $estudiante, 0.0, null, null);
 
-        $this->assertSame(17.0, $service->promedioDelEstudiante($estudiante, $horario));
+        $this->assertSame(17.0, $service->promedioUnidad($estudiante, $horario, 1));
     }
 
     public function test_publicar_notifica_a_los_estudiantes_matriculados_con_usuario_vinculado(): void
@@ -273,12 +274,99 @@ class EvaluacionServiceTest extends TestCase
         $this->assertFalse($rosterSeccionA->contains('id', $estudianteB->id));
     }
 
-    public function test_promedio_es_null_sin_calificaciones_publicadas(): void
+    public function test_promedio_unidad_es_null_sin_calificaciones_publicadas(): void
     {
         $horario = Horario::factory()->create();
         $estudiante = Estudiante::factory()->create();
 
-        $this->assertNull($this->service()->promedioDelEstudiante($estudiante, $horario));
+        $this->assertNull($this->service()->promedioUnidad($estudiante, $horario, 1));
+    }
+
+    public function test_promedio_final_es_null_mientras_falte_algun_componente(): void
+    {
+        $horario = Horario::factory()->create();
+        $estudiante = Estudiante::factory()->create();
+        $service = $this->service();
+
+        $criterioU1 = $this->crear($horario, 'Criterio U1', '2026-07-01');
+        $service->calificar($criterioU1, $estudiante, 18.0, null, null);
+        $service->publicar($criterioU1);
+
+        // Falta Unidad 2, Asistencia y Examen Final todavía.
+        $this->assertNull($service->promedioFinalDelEstudiante($estudiante, $horario));
+    }
+
+    public function test_promedio_final_combina_las_4_unidades_con_sus_pesos(): void
+    {
+        $horario = Horario::factory()->create();
+        $estudiante = Estudiante::factory()->create();
+        $service = $this->service();
+        $curso = CursoVirtual::query()->firstOrCreate(['horario_id' => $horario->id]);
+
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Criterio U1', RolEvaluacionEnum::CRITERIO, 1, 14.0);
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Criterio U2', RolEvaluacionEnum::CRITERIO, 2, 16.0);
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Asistencia', RolEvaluacionEnum::ASISTENCIA, null, 18.0);
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Examen Final', RolEvaluacionEnum::EXAMEN_FINAL, null, 10.0);
+
+        // 0.2*14 + 0.2*16 + 0.2*18 + 0.4*10 = 13.6
+        $this->assertSame(13.6, $service->promedioFinalDelEstudiante($estudiante, $horario));
+    }
+
+    public function test_promedio_final_el_sustitutorio_reemplaza_la_nota_mas_baja(): void
+    {
+        $horario = Horario::factory()->create();
+        $estudiante = Estudiante::factory()->create();
+        $service = $this->service();
+        $curso = CursoVirtual::query()->firstOrCreate(['horario_id' => $horario->id]);
+
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Criterio U1', RolEvaluacionEnum::CRITERIO, 1, 18.0);
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Criterio U2', RolEvaluacionEnum::CRITERIO, 2, 18.0);
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Asistencia', RolEvaluacionEnum::ASISTENCIA, null, 18.0);
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Examen Final', RolEvaluacionEnum::EXAMEN_FINAL, null, 5.0);
+        // El Examen Final (5.0) es la más baja -- el Sustitutorio la reemplaza.
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Sustitutorio', RolEvaluacionEnum::SUSTITUTORIO, null, 18.0);
+
+        $this->assertSame(18.0, $service->promedioFinalDelEstudiante($estudiante, $horario));
+    }
+
+    public function test_promedio_final_el_aplazado_reemplaza_directamente_al_examen_final(): void
+    {
+        $horario = Horario::factory()->create();
+        $estudiante = Estudiante::factory()->create();
+        $service = $this->service();
+        $curso = CursoVirtual::query()->firstOrCreate(['horario_id' => $horario->id]);
+
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Criterio U1', RolEvaluacionEnum::CRITERIO, 1, 14.0);
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Criterio U2', RolEvaluacionEnum::CRITERIO, 2, 16.0);
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Asistencia', RolEvaluacionEnum::ASISTENCIA, null, 18.0);
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Examen Final', RolEvaluacionEnum::EXAMEN_FINAL, null, 0.0);
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Aplazado', RolEvaluacionEnum::APLAZADO, null, 10.0);
+
+        // 0.2*14 + 0.2*16 + 0.2*18 + 0.4*10 = 13.6 (el Examen Final original de 0.0 no se usa)
+        $this->assertSame(13.6, $service->promedioFinalDelEstudiante($estudiante, $horario));
+    }
+
+    private function calificarYPublicar(EvaluacionService $service, CursoVirtual $curso, Estudiante $estudiante, string $nombre, RolEvaluacionEnum $rol, ?int $unidad, float $nota): void
+    {
+        $evaluacion = $service->crear($curso, $nombre, '2026-07-01', TipoEvaluacionEnum::FISICO, $rol, $unidad);
+        $service->calificar($evaluacion, $estudiante, $nota, null, null);
+        $service->publicar($evaluacion);
+    }
+
+    /**
+     * Califica los 4 componentes obligatorios de la fórmula (Unidad 1,
+     * Unidad 2, Asistencia, Examen Final) con la misma nota, para que el
+     * promedio final resultante sea exactamente esa nota.
+     */
+    private function calificarCompleto(Horario $horario, Estudiante $estudiante, float $nota): void
+    {
+        $service = $this->service();
+        $curso = CursoVirtual::query()->firstOrCreate(['horario_id' => $horario->id]);
+
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Criterio U1', RolEvaluacionEnum::CRITERIO, 1, $nota);
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Criterio U2', RolEvaluacionEnum::CRITERIO, 2, $nota);
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Asistencia', RolEvaluacionEnum::ASISTENCIA, null, $nota);
+        $this->calificarYPublicar($service, $curso, $estudiante, 'Examen Final', RolEvaluacionEnum::EXAMEN_FINAL, null, $nota);
     }
 
     public function test_crear_una_evaluacion_con_enlace_lo_persiste(): void
@@ -414,17 +502,14 @@ class EvaluacionServiceTest extends TestCase
             'ciclo_id' => $horario->ciclo_id,
         ]);
 
-        $service = $this->service();
-        $evaluacion = $this->crear($horario, 'Evaluación mensual', '2026-07-15');
-        $service->publicar($evaluacion);
-        $service->calificar($evaluacion, $estudiante, 17.5, 'Buen desempeño', null);
+        $this->calificarCompleto($horario, $estudiante, 17.5);
 
-        $resumen = $service->resumenDelEstudiante($estudiante);
+        $resumen = $this->service()->resumenDelEstudiante($estudiante);
 
         $this->assertCount(1, $resumen);
         $this->assertSame($horario->id, $resumen->first()['horario']->id);
         $this->assertSame(17.5, $resumen->first()['promedio']);
-        $this->assertCount(1, $resumen->first()['calificaciones']);
+        $this->assertCount(4, $resumen->first()['calificaciones']);
     }
 
     public function test_resumen_del_estudiante_no_incluye_cursos_ajenos(): void
@@ -473,16 +558,10 @@ class EvaluacionServiceTest extends TestCase
         Matricula::factory()->create(['estudiante_id' => $estudiante->id, 'grado_id' => $grado->id, 'ciclo_id' => $cicloAnterior->id]);
         Matricula::factory()->create(['estudiante_id' => $estudiante->id, 'grado_id' => $grado->id, 'ciclo_id' => $cicloActual->id]);
 
-        $service = $this->service();
-        $evaluacionAnterior = $this->crear($horarioAnterior, 'Evaluación', '2026-03-15');
-        $service->publicar($evaluacionAnterior);
-        $service->calificar($evaluacionAnterior, $estudiante, 12.0, null, null);
+        $this->calificarCompleto($horarioAnterior, $estudiante, 12.0);
+        $this->calificarCompleto($horarioActual, $estudiante, 18.0);
 
-        $evaluacionActual = $this->crear($horarioActual, 'Evaluación', '2026-07-15');
-        $service->publicar($evaluacionActual);
-        $service->calificar($evaluacionActual, $estudiante, 18.0, null, null);
-
-        $porCiclo = $service->resumenDelEstudiantePorCiclo($estudiante);
+        $porCiclo = $this->service()->resumenDelEstudiantePorCiclo($estudiante);
 
         $this->assertCount(2, $porCiclo);
         $this->assertSame($cicloActual->id, $porCiclo->first()['ciclo']->id);

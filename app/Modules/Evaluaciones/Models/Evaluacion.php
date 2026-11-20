@@ -9,6 +9,7 @@ use App\Modules\AulaVirtual\Models\CursoVirtual;
 use App\Modules\AulaVirtual\Models\Seccion;
 use App\Modules\Evaluaciones\Database\Factories\EvaluacionFactory;
 use App\Modules\Evaluaciones\Enums\EstadoEvaluacionEnum;
+use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Identidad\Support\Auditable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,6 +25,8 @@ use Illuminate\Support\Carbon;
  * @property int|null $seccion_id
  * @property string $nombre
  * @property TipoEvaluacionEnum $tipo
+ * @property RolEvaluacionEnum|null $rol
+ * @property int|null $unidad
  * @property Carbon $fecha
  * @property string|null $enlace_externo
  * @property Carbon|null $disponible_hasta
@@ -45,6 +48,8 @@ class Evaluacion extends Model
         'seccion_id',
         'nombre',
         'tipo',
+        'rol',
+        'unidad',
         'fecha',
         'enlace_externo',
         'disponible_hasta',
@@ -55,6 +60,7 @@ class Evaluacion extends Model
     {
         return [
             'tipo' => TipoEvaluacionEnum::class,
+            'rol' => RolEvaluacionEnum::class,
             'fecha' => 'date',
             'disponible_hasta' => 'datetime',
             'estado' => EstadoEvaluacionEnum::class,

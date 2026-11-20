@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
+use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Models\Evaluacion;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
@@ -43,6 +44,8 @@ class EvaluacionesBloqueoTest extends TestCase
             $nombre,
             $fecha,
             TipoEvaluacionEnum::FISICO,
+            RolEvaluacionEnum::CRITERIO,
+            1,
             null,
             $enlaceExterno,
         );

@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
+use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
@@ -53,9 +54,7 @@ class MiLibretaTest extends TestCase
 
         $evaluacionService = $this->app->make(EvaluacionService::class);
         $cursoReciente = CursoVirtual::factory()->create(['horario_id' => $horarioReciente->id]);
-        $evaluacion = $evaluacionService->crear($cursoReciente, 'Evaluación', '2026-07-15', TipoEvaluacionEnum::FISICO);
-        $evaluacionService->calificar($evaluacion, $estudiante, 17.0, null, null);
-        $evaluacionService->publicar($evaluacion);
+        $this->calificarCompleto($evaluacionService, $cursoReciente, $estudiante, 17.0);
 
         $this->actingAs($usuario)
             ->get(route('evaluaciones.mi-libreta'))
@@ -109,9 +108,7 @@ class MiLibretaTest extends TestCase
 
         $evaluacionService = $this->app->make(EvaluacionService::class);
         $cursoAnterior = CursoVirtual::factory()->create(['horario_id' => $horarioAnterior->id]);
-        $evaluacion = $evaluacionService->crear($cursoAnterior, 'Evaluación', '2026-03-15', TipoEvaluacionEnum::FISICO);
-        $evaluacionService->calificar($evaluacion, $estudiante, 14.0, null, null);
-        $evaluacionService->publicar($evaluacion);
+        $this->calificarCompleto($evaluacionService, $cursoAnterior, $estudiante, 14.0);
 
         $this->actingAs($usuario);
 
@@ -165,5 +162,25 @@ class MiLibretaTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertDatabaseHas('libretas', ['estudiante_id' => $estudiante->id, 'ciclo_id' => $horario->ciclo_id]);
+    }
+
+    /**
+     * Califica los 4 componentes obligatorios de la fórmula (Unidad 1,
+     * Unidad 2, Asistencia, Examen Final) con la misma nota, para que el
+     * promedio final resultante sea exactamente esa nota (0.2+0.2+0.2+0.4
+     * de un mismo valor = ese valor).
+     */
+    private function calificarCompleto(EvaluacionService $service, CursoVirtual $curso, Estudiante $estudiante, float $nota): void
+    {
+        foreach ([
+            ['Criterio U1', RolEvaluacionEnum::CRITERIO, 1],
+            ['Criterio U2', RolEvaluacionEnum::CRITERIO, 2],
+            ['Asistencia', RolEvaluacionEnum::ASISTENCIA, null],
+            ['Examen Final', RolEvaluacionEnum::EXAMEN_FINAL, null],
+        ] as [$nombre, $rol, $unidad]) {
+            $evaluacion = $service->crear($curso, $nombre, '2026-07-01', TipoEvaluacionEnum::FISICO, $rol, $unidad);
+            $service->calificar($evaluacion, $estudiante, $nota, null, null);
+            $service->publicar($evaluacion);
+        }
     }
 }

@@ -7,6 +7,7 @@ namespace App\Modules\Evaluaciones\Database\Factories;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
 use App\Modules\Evaluaciones\Enums\EstadoEvaluacionEnum;
+use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Models\Evaluacion;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -24,6 +25,8 @@ class EvaluacionFactory extends Factory
             'horario_id' => Horario::factory(),
             'nombre' => 'Evaluación '.$this->faker->words(2, true),
             'tipo' => TipoEvaluacionEnum::FISICO,
+            'rol' => RolEvaluacionEnum::CRITERIO,
+            'unidad' => 1,
             'fecha' => now()->format('Y-m-d'),
             'estado' => EstadoEvaluacionEnum::BORRADOR,
         ];

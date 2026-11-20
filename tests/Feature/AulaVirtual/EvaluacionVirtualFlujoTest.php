@@ -5,6 +5,7 @@ namespace Tests\Feature\AulaVirtual;
 use App\Models\User;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
+use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Enums\TipoPreguntaEnum;
 use App\Modules\Evaluaciones\Models\Evaluacion;
@@ -39,7 +40,7 @@ class EvaluacionVirtualFlujoTest extends TestCase
 
     private function evaluacionVirtual(CursoVirtual $curso): Evaluacion
     {
-        return $this->app->make(EvaluacionService::class)->crear($curso, 'Examen virtual', '2026-07-15', TipoEvaluacionEnum::VIRTUAL);
+        return $this->app->make(EvaluacionService::class)->crear($curso, 'Examen virtual', '2026-07-15', TipoEvaluacionEnum::VIRTUAL, RolEvaluacionEnum::CRITERIO, 1);
     }
 
     private function matricularEn(Horario $horario): Estudiante

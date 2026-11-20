@@ -5,6 +5,7 @@ namespace Tests\Feature\Evaluaciones;
 use App\Models\User;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
+use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Models\Evaluacion;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
@@ -36,7 +37,7 @@ class EvaluacionesPermisosTest extends TestCase
 
     private function crear(CursoVirtual $curso, string $nombre, string $fecha): Evaluacion
     {
-        return $this->app->make(EvaluacionService::class)->crear($curso, $nombre, $fecha, TipoEvaluacionEnum::FISICO);
+        return $this->app->make(EvaluacionService::class)->crear($curso, $nombre, $fecha, TipoEvaluacionEnum::FISICO, RolEvaluacionEnum::CRITERIO, 1);
     }
 
     public function test_el_docente_dueno_del_curso_puede_ver_y_registrar_evaluaciones(): void

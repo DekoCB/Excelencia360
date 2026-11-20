@@ -5,6 +5,7 @@ namespace Tests\Feature\Evaluaciones;
 use App\Models\User;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
+use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Models\Evaluacion;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
@@ -40,7 +41,7 @@ class EvaluacionesFlujoTest extends TestCase
 
     private function crear(CursoVirtual $curso, string $nombre, string $fecha): Evaluacion
     {
-        return $this->app->make(EvaluacionService::class)->crear($curso, $nombre, $fecha, TipoEvaluacionEnum::FISICO);
+        return $this->app->make(EvaluacionService::class)->crear($curso, $nombre, $fecha, TipoEvaluacionEnum::FISICO, RolEvaluacionEnum::CRITERIO, 1);
     }
 
     public function test_el_docente_crea_una_evaluacion_desde_la_pestana_de_cursos_virtuales(): void
@@ -55,6 +56,8 @@ class EvaluacionesFlujoTest extends TestCase
             ->set('evaluacionNombre', 'Evaluación mensual — julio')
             ->set('evaluacionFecha', '2026-07-15')
             ->set('evaluacionTipo', 'fisico')
+            ->set('evaluacionRol', 'criterio')
+            ->set('evaluacionUnidad', '1')
             ->call('crearEvaluacion')
             ->assertHasNoErrors();
 

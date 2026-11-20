@@ -58,16 +58,34 @@
                 </tr>
                 <tr class="bg-surface-2">
                     <td colspan="4" class="px-4 py-3">
-                        @if (($curso['porMes'] ?? collect())->isNotEmpty())
+                        @php $porUnidad = $curso['porUnidad'] ?? null; @endphp
+                        @if ($porUnidad)
                             <div class="flex flex-wrap gap-2">
-                                @foreach ($curso['porMes'] as $mes)
+                                <span class="rounded-full border border-border bg-surface px-2 py-1 text-xs text-ink-dim">
+                                    Unidad 1: <span class="font-medium text-ink">{{ $porUnidad['unidad1'] !== null ? number_format($porUnidad['unidad1'], 2) : '—' }}</span>
+                                </span>
+                                <span class="rounded-full border border-border bg-surface px-2 py-1 text-xs text-ink-dim">
+                                    Unidad 2: <span class="font-medium text-ink">{{ $porUnidad['unidad2'] !== null ? number_format($porUnidad['unidad2'], 2) : '—' }}</span>
+                                </span>
+                                <span class="rounded-full border border-border bg-surface px-2 py-1 text-xs text-ink-dim">
+                                    Asistencia: <span class="font-medium text-ink">{{ $porUnidad['asistencia'] !== null ? number_format($porUnidad['asistencia'], 2) : '—' }}</span>
+                                </span>
+                                <span class="rounded-full border border-border bg-surface px-2 py-1 text-xs text-ink-dim">
+                                    Examen Final: <span class="font-medium text-ink">{{ $porUnidad['examenFinal'] !== null ? number_format($porUnidad['examenFinal'], 2) : '—' }}</span>
+                                </span>
+                                @if ($porUnidad['sustitutorio'] !== null)
                                     <span class="rounded-full border border-border bg-surface px-2 py-1 text-xs text-ink-dim">
-                                        {{ ucfirst($mes['mes']) }}: <span class="font-medium text-ink">{{ number_format($mes['promedio'], 2) }}</span>
+                                        Sustitutorio: <span class="font-medium text-ink">{{ number_format($porUnidad['sustitutorio'], 2) }}</span>
                                     </span>
-                                @endforeach
+                                @endif
+                                @if ($porUnidad['aplazado'] !== null)
+                                    <span class="rounded-full border border-border bg-surface px-2 py-1 text-xs text-ink-dim">
+                                        Aplazado: <span class="font-medium text-ink">{{ number_format($porUnidad['aplazado'], 2) }}</span>
+                                    </span>
+                                @endif
                             </div>
                         @else
-                            <p class="text-xs text-ink-faint">Sin calificaciones registradas por mes.</p>
+                            <p class="text-xs text-ink-faint">Sin calificaciones registradas.</p>
                         @endif
                     </td>
                 </tr>

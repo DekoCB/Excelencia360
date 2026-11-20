@@ -7,6 +7,7 @@ use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Academico\Models\SeccionAcademica;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
+use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
 use App\Modules\Evaluaciones\Services\LibretaService;
@@ -29,6 +30,25 @@ class LibretaServiceTest extends TestCase
     private function cursoVirtualDe(Horario $horario): CursoVirtual
     {
         return CursoVirtual::factory()->create(['horario_id' => $horario->id]);
+    }
+
+    /**
+     * Califica los 4 componentes obligatorios de la fórmula (Unidad 1,
+     * Unidad 2, Asistencia, Examen Final) con la misma nota, para que el
+     * promedio final resultante sea exactamente esa nota.
+     */
+    private function calificarCompleto(EvaluacionService $service, CursoVirtual $curso, Estudiante $estudiante, float $nota): void
+    {
+        foreach ([
+            ['Criterio U1', RolEvaluacionEnum::CRITERIO, 1],
+            ['Criterio U2', RolEvaluacionEnum::CRITERIO, 2],
+            ['Asistencia', RolEvaluacionEnum::ASISTENCIA, null],
+            ['Examen Final', RolEvaluacionEnum::EXAMEN_FINAL, null],
+        ] as [$nombre, $rol, $unidad]) {
+            $evaluacion = $service->crear($curso, $nombre, '2026-07-01', TipoEvaluacionEnum::FISICO, $rol, $unidad);
+            $service->calificar($evaluacion, $estudiante, $nota, null, null);
+            $service->publicar($evaluacion);
+        }
     }
 
     public function test_generar_libreta_falla_si_no_hay_matricula_aprobada_en_ese_ciclo(): void
@@ -55,9 +75,7 @@ class LibretaServiceTest extends TestCase
         ]);
 
         $evaluacionService = $this->app->make(EvaluacionService::class);
-        $evaluacion = $evaluacionService->crear($this->cursoVirtualDe($horario), 'Evaluación', '2026-07-15', TipoEvaluacionEnum::FISICO);
-        $evaluacionService->calificar($evaluacion, $estudiante, 16.0, null, null);
-        $evaluacionService->publicar($evaluacion);
+        $this->calificarCompleto($evaluacionService, $this->cursoVirtualDe($horario), $estudiante, 16.0);
 
         $libreta = $this->libretaService()->generar($estudiante, $ciclo);
 
@@ -97,9 +115,7 @@ class LibretaServiceTest extends TestCase
         ]);
 
         $evaluacionService = $this->app->make(EvaluacionService::class);
-        $evaluacion = $evaluacionService->crear($this->cursoVirtualDe($horario), 'Evaluación', '2026-07-15', TipoEvaluacionEnum::FISICO);
-        $evaluacionService->calificar($evaluacion, $estudiante, 18.0, null, null);
-        $evaluacionService->publicar($evaluacion);
+        $this->calificarCompleto($evaluacionService, $this->cursoVirtualDe($horario), $estudiante, 18.0);
 
         $resumen = $this->libretaService()->resumenPorCursos($estudiante, $ciclo);
 
@@ -119,7 +135,7 @@ class LibretaServiceTest extends TestCase
         $this->assertTrue($resumen->isEmpty());
     }
 
-    public function test_resumen_por_cursos_incluye_el_desglose_mes_a_mes(): void
+    public function test_resumen_por_cursos_incluye_el_desglose_por_unidad(): void
     {
         $ciclo = Ciclo::factory()->create();
         $estudiante = Estudiante::factory()->create();
@@ -133,19 +149,20 @@ class LibretaServiceTest extends TestCase
         $evaluacionService = $this->app->make(EvaluacionService::class);
         $curso = $this->cursoVirtualDe($horario);
 
-        $marzo = $evaluacionService->crear($curso, 'Evaluación de marzo', '2026-03-10', TipoEvaluacionEnum::FISICO);
-        $evaluacionService->calificar($marzo, $estudiante, 14.0, null, null);
-        $evaluacionService->publicar($marzo);
+        $criterioU1 = $evaluacionService->crear($curso, 'Criterio U1', '2026-03-10', TipoEvaluacionEnum::FISICO, RolEvaluacionEnum::CRITERIO, 1);
+        $evaluacionService->calificar($criterioU1, $estudiante, 14.0, null, null);
+        $evaluacionService->publicar($criterioU1);
 
-        $abril = $evaluacionService->crear($curso, 'Evaluación de abril', '2026-04-10', TipoEvaluacionEnum::FISICO);
-        $evaluacionService->calificar($abril, $estudiante, 18.0, null, null);
-        $evaluacionService->publicar($abril);
+        $criterioU2 = $evaluacionService->crear($curso, 'Criterio U2', '2026-04-10', TipoEvaluacionEnum::FISICO, RolEvaluacionEnum::CRITERIO, 2);
+        $evaluacionService->calificar($criterioU2, $estudiante, 18.0, null, null);
+        $evaluacionService->publicar($criterioU2);
 
-        $porMes = $this->libretaService()->resumenPorCursos($estudiante, $ciclo)->first()['porMes'];
+        $porUnidad = $this->libretaService()->resumenPorCursos($estudiante, $ciclo)->first()['porUnidad'];
 
-        $this->assertCount(2, $porMes);
-        $this->assertSame(14.0, $porMes[0]['promedio']);
-        $this->assertSame(18.0, $porMes[1]['promedio']);
+        $this->assertSame(14.0, $porUnidad['unidad1']);
+        $this->assertSame(18.0, $porUnidad['unidad2']);
+        $this->assertNull($porUnidad['asistencia']);
+        $this->assertNull($porUnidad['examenFinal']);
     }
 
     public function test_calcular_situacion_final_es_aprobado_sin_ningun_curso_con_letra_c(): void
@@ -198,9 +215,7 @@ class LibretaServiceTest extends TestCase
         ]);
 
         $evaluacionService = $this->app->make(EvaluacionService::class);
-        $evaluacion = $evaluacionService->crear($this->cursoVirtualDe($horario), 'Evaluación', '2026-07-15', TipoEvaluacionEnum::FISICO);
-        $evaluacionService->calificar($evaluacion, $estudiante, 18.0, null, null);
-        $evaluacionService->publicar($evaluacion);
+        $this->calificarCompleto($evaluacionService, $this->cursoVirtualDe($horario), $estudiante, 18.0);
 
         $datos = $this->libretaService()->datosParaPdf($estudiante);
 
@@ -323,9 +338,7 @@ class LibretaServiceTest extends TestCase
         ]);
 
         $evaluacionService = $this->app->make(EvaluacionService::class);
-        $evaluacion = $evaluacionService->crear($this->cursoVirtualDe($horario), 'Evaluación', '2026-07-15', TipoEvaluacionEnum::FISICO);
-        $evaluacionService->calificar($evaluacion, $estudiante, 10.0, null, null);
-        $evaluacionService->publicar($evaluacion);
+        $this->calificarCompleto($evaluacionService, $this->cursoVirtualDe($horario), $estudiante, 10.0);
 
         $this->libretaService()->guardarNotaFinal($estudiante, $horario, 17.5, $horario->docente);
 

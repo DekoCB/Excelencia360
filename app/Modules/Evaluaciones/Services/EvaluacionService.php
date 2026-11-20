@@ -7,6 +7,7 @@ namespace App\Modules\Evaluaciones\Services;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
 use App\Modules\Evaluaciones\Enums\EstadoEvaluacionEnum;
+use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Models\Calificacion;
 use App\Modules\Evaluaciones\Models\Evaluacion;
@@ -15,8 +16,8 @@ use App\Modules\Matricula\Models\Matricula;
 use App\Modules\Notificaciones\Enums\TipoNotificacionEnum;
 use App\Modules\Notificaciones\Services\NotificacionService;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use Throwable;
 
@@ -91,15 +92,35 @@ class EvaluacionService
      * Virtual se rinde dentro de la app, ver PreguntaService): se ignora
      * en vez de rechazarse si igual llega uno para no obligar al
      * formulario a condicionar el campo antes de enviar.
+     *
+     * $rol y $unidad ubican esta Evaluacion dentro de la fórmula de la
+     * nota final (ver RolEvaluacionEnum): $unidad solo tiene sentido para
+     * Criterio (1 o 2, varias por Unidad), y se ignora para cualquier otro
+     * rol. Examen Final/Sustitutorio/Aplazado/Asistencia son únicos por
+     * horario -- no se puede crear un segundo del mismo rol.
      */
-    public function crear(CursoVirtual $curso, string $nombre, string $fecha, TipoEvaluacionEnum $tipo, ?int $seccionId = null, ?string $enlaceExterno = null, ?string $disponibleHasta = null): Evaluacion
+    public function crear(CursoVirtual $curso, string $nombre, string $fecha, TipoEvaluacionEnum $tipo, RolEvaluacionEnum $rol, ?int $unidad = null, ?int $seccionId = null, ?string $enlaceExterno = null, ?string $disponibleHasta = null): Evaluacion
     {
+        if ($rol === RolEvaluacionEnum::CRITERIO && ! in_array($unidad, [1, 2], true)) {
+            throw ValidationException::withMessages([
+                'unidad' => 'Un criterio debe pertenecer a la Unidad 1 o a la Unidad 2.',
+            ]);
+        }
+
+        if ($rol->unicoPorHorario() && Evaluacion::query()->where('horario_id', $curso->horario_id)->where('rol', $rol)->exists()) {
+            throw ValidationException::withMessages([
+                'rol' => "Ya existe una evaluación de tipo «{$rol->label()}» para este horario.",
+            ]);
+        }
+
         return Evaluacion::query()->create([
             'horario_id' => $curso->horario_id,
             'curso_virtual_id' => $curso->id,
             'seccion_id' => $seccionId,
             'nombre' => $nombre,
             'tipo' => $tipo,
+            'rol' => $rol,
+            'unidad' => $rol === RolEvaluacionEnum::CRITERIO ? $unidad : null,
             'fecha' => $fecha,
             'enlace_externo' => $tipo === TipoEvaluacionEnum::FISICO ? $enlaceExterno : null,
             'disponible_hasta' => $disponibleHasta,
@@ -291,44 +312,86 @@ class EvaluacionService
     }
 
     /**
-     * Promedio de las calificaciones publicadas del estudiante en un
-     * horario, considerando solo los últimos 6 exámenes mensuales por
-     * fecha. Si hay menos de 6 registrados, promedia los que existan.
+     * Promedio simple de los Criterios publicados y calificados de una
+     * Unidad (1 o 2) del estudiante en un horario. Null si todavía no hay
+     * ningún Criterio de esa Unidad calificado.
      */
-    public function promedioDelEstudiante(Estudiante $estudiante, Horario $horario): ?float
+    public function promedioUnidad(Estudiante $estudiante, Horario $horario, int $unidad): ?float
     {
         $notas = $this->misCalificaciones($estudiante, $horario)
-            ->sortByDesc(fn (Calificacion $calificacion) => $calificacion->evaluacion->fecha)
-            ->take(6)
+            ->filter(fn (Calificacion $calificacion) => $calificacion->evaluacion->rol === RolEvaluacionEnum::CRITERIO && $calificacion->evaluacion->unidad === $unidad)
             ->pluck('nota_numerica');
 
-        if ($notas->isEmpty()) {
-            return null;
-        }
-
-        return round((float) $notas->avg(), 2);
+        return $notas->isEmpty() ? null : round((float) $notas->avg(), 2);
     }
 
     /**
-     * El desglose mes a mes del promedio del estudiante en un horario, para
-     * la libreta de notas: cada elemento trae "mes" (label legible, ej.
-     * "Marzo 2026") y "promedio", ordenados cronológicamente. Se agrupa por
-     * la fecha de la evaluación (no de la calificación, que no tiene fecha
-     * propia), así que un mes sin evaluaciones calificadas simplemente no
-     * aparece en el desglose.
-     *
-     * @return SupportCollection<int, array{mes: string, promedio: float}>
+     * La nota publicada del estudiante en la (única) Evaluacion de este
+     * rol para el horario -- Examen Final/Sustitutorio/Aplazado/
+     * Asistencia. Null si no existe o todavía no se calificó.
      */
-    public function promedioMensualDelEstudiante(Estudiante $estudiante, Horario $horario): SupportCollection
+    private function notaPorRol(Estudiante $estudiante, Horario $horario, RolEvaluacionEnum $rol): ?float
     {
-        return $this->misCalificaciones($estudiante, $horario)
-            ->groupBy(fn (Calificacion $calificacion) => $calificacion->evaluacion->fecha->format('Y-m'))
-            ->sortKeys()
-            ->map(fn (Collection $calificaciones, string $clave) => [
-                'mes' => Carbon::createFromFormat('Y-m', $clave)->translatedFormat('F Y'),
-                'promedio' => round((float) $calificaciones->pluck('nota_numerica')->avg(), 2),
-            ])
-            ->values();
+        $calificacion = $this->misCalificaciones($estudiante, $horario)
+            ->first(fn (Calificacion $calificacion) => $calificacion->evaluacion->rol === $rol);
+
+        return $calificacion !== null ? (float) $calificacion->nota_numerica : null;
+    }
+
+    /**
+     * Promedio Final = 20% Unidad 1 + 20% Unidad 2 + 20% Asistencia + 40%
+     * Examen Final. Null mientras falte alguno de los 4 componentes.
+     * Aplazado, si existe, reemplaza directamente al Examen Final;
+     * Sustitutorio, si existe, reemplaza la nota más baja entre
+     * {Unidad 1, Unidad 2, Examen Final} (ya con el Aplazado aplicado).
+     */
+    public function promedioFinalDelEstudiante(Estudiante $estudiante, Horario $horario): ?float
+    {
+        $unidad1 = $this->promedioUnidad($estudiante, $horario, 1);
+        $unidad2 = $this->promedioUnidad($estudiante, $horario, 2);
+        $asistencia = $this->notaPorRol($estudiante, $horario, RolEvaluacionEnum::ASISTENCIA);
+        $examenFinal = $this->notaPorRol($estudiante, $horario, RolEvaluacionEnum::APLAZADO)
+            ?? $this->notaPorRol($estudiante, $horario, RolEvaluacionEnum::EXAMEN_FINAL);
+
+        if ($unidad1 === null || $unidad2 === null || $asistencia === null || $examenFinal === null) {
+            return null;
+        }
+
+        $sustitutorio = $this->notaPorRol($estudiante, $horario, RolEvaluacionEnum::SUSTITUTORIO);
+
+        if ($sustitutorio !== null) {
+            $masBaja = min($unidad1, $unidad2, $examenFinal);
+
+            if ($unidad1 === $masBaja) {
+                $unidad1 = $sustitutorio;
+            } elseif ($unidad2 === $masBaja) {
+                $unidad2 = $sustitutorio;
+            } else {
+                $examenFinal = $sustitutorio;
+            }
+        }
+
+        return round(0.2 * $unidad1 + 0.2 * $unidad2 + 0.2 * $asistencia + 0.4 * $examenFinal, 2);
+    }
+
+    /**
+     * El desglose por componente del promedio del estudiante en un
+     * horario, para la libreta de notas: Unidad 1, Unidad 2, Asistencia y
+     * Examen Final (null si todavía no se calificó cada uno), más
+     * Sustitutorio/Aplazado solo si existen.
+     *
+     * @return array{unidad1: ?float, unidad2: ?float, asistencia: ?float, examenFinal: ?float, sustitutorio: ?float, aplazado: ?float}
+     */
+    public function desgloseDelEstudiante(Estudiante $estudiante, Horario $horario): array
+    {
+        return [
+            'unidad1' => $this->promedioUnidad($estudiante, $horario, 1),
+            'unidad2' => $this->promedioUnidad($estudiante, $horario, 2),
+            'asistencia' => $this->notaPorRol($estudiante, $horario, RolEvaluacionEnum::ASISTENCIA),
+            'examenFinal' => $this->notaPorRol($estudiante, $horario, RolEvaluacionEnum::EXAMEN_FINAL),
+            'sustitutorio' => $this->notaPorRol($estudiante, $horario, RolEvaluacionEnum::SUSTITUTORIO),
+            'aplazado' => $this->notaPorRol($estudiante, $horario, RolEvaluacionEnum::APLAZADO),
+        ];
     }
 
     /**
@@ -347,7 +410,7 @@ class EvaluacionService
         return collect($this->horariosDelEstudiante($estudiante))->map(fn (Horario $horario) => [
             'horario' => $horario,
             'calificaciones' => $this->misCalificaciones($estudiante, $horario),
-            'promedio' => $this->promedioDelEstudiante($estudiante, $horario),
+            'promedio' => $this->promedioFinalDelEstudiante($estudiante, $horario),
         ]);
     }
 
