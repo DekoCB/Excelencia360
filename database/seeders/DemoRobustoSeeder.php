@@ -4,9 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use App\Modules\Academico\Enums\DiaSemanaEnum;
-use App\Modules\Academico\Enums\EstadoCicloEnum;
 use App\Modules\Academico\Enums\FranjaHorarioEnum;
-use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Models\Aula;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
@@ -117,7 +115,6 @@ class DemoRobustoSeeder extends Seeder
         $docentes = $this->crearDocentes(5);
         $this->crearHorarios($ciclo, $aulas, $docentes);
         $this->crearEstudiantesYMatriculas($ciclo, $grados);
-        $this->poblarPeriodoAcademicoAnual($grados);
         $this->diversificarEstadosDeEstudiantes();
 
         $horarios = Horario::query()->where('ciclo_id', $ciclo->id)->get();
@@ -414,56 +411,6 @@ class DemoRobustoSeeder extends Seeder
                     // abierto hoy, no bloquea el resto del seeder: el
                     // estudiante queda registrado sin matrícula de ejemplo.
                 }
-            }
-        }
-    }
-
-    /**
-     * Un ciclo de Periodo Académico anual de ejemplo (independiente de
-     * los 4 grupos rotativos) con un par de estudiantes matriculados,
-     * para poder verificar la ficha/historial/wizard con un caso real de
-     * esa modalidad.
-     *
-     * @param  Collection<int, Grado>  $grados
-     */
-    private function poblarPeriodoAcademicoAnual(Collection $grados): void
-    {
-        $anio = (int) now()->year;
-
-        $cicloAnual = Ciclo::query()->firstOrCreate(
-            ['modalidad' => ModalidadCicloEnum::ANUAL, 'anio' => $anio],
-            [
-                'nombre' => "Periodo Académico Anual - {$anio}",
-                'tipo' => null,
-                'fecha_inicio' => "{$anio}-03-01",
-                'fecha_fin' => "{$anio}-10-31",
-                'estado' => EstadoCicloEnum::ACTIVO,
-            ]
-        );
-
-        $servicio = app(MatriculaService::class);
-
-        foreach ($grados->take(2) as $grado) {
-            $estudiante = $servicio->registrarEstudiante(new RegistrarEstudianteData(
-                nombres: $this->nombreAleatorio(),
-                apellidos: $this->apellidosAleatorios(),
-                dni: new Dni((string) $this->secuenciaDniEstudiante++),
-                fechaNacimiento: now()->subYears(random_int(18, 40))->subDays(random_int(0, 330))->format('Y-m-d'),
-                estadoCivil: Arr::random(EstadoCivilEnum::cases()),
-                direccion: $this->direccionAleatoria(),
-                celular: new Telefono($this->siguienteCelular()),
-                observaciones: null,
-            ));
-
-            try {
-                $servicio->matricular($estudiante, new RegistrarMatriculaData(
-                    cicloId: $cicloAnual->id,
-                    gradoId: $grado->id,
-                    observaciones: null,
-                    registradoPor: null,
-                ));
-            } catch (ValidationException) {
-                // No bloquea el resto del seeder si ya existe la matrícula.
             }
         }
     }

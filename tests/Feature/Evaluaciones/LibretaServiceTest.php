@@ -179,26 +179,11 @@ class LibretaServiceTest extends TestCase
         $this->assertSame('APROBADO', $this->libretaService()->calcularSituacionFinal($cursos));
     }
 
-    public function test_periodo_promocional_es_anual_para_un_ciclo_anual(): void
+    public function test_periodo_promocional_es_el_nombre_libre_del_ciclo(): void
     {
-        $ciclo = Ciclo::factory()->anual()->create();
-
-        $this->assertSame('ANUAL', $this->libretaService()->periodoPromocional($ciclo));
-    }
-
-    public function test_periodo_promocional_es_1_para_un_grupo_que_arranca_en_la_primera_mitad_del_anio(): void
-    {
-        // Ciclo::factory() por defecto es Grupo 1 (mesInicioFijo = 1).
-        $ciclo = Ciclo::factory()->create(['anio' => 2026]);
+        $ciclo = Ciclo::factory()->create(['nombre' => '2026-1']);
 
         $this->assertSame('2026-1', $this->libretaService()->periodoPromocional($ciclo));
-    }
-
-    public function test_periodo_promocional_es_2_para_un_grupo_que_arranca_en_la_segunda_mitad_del_anio(): void
-    {
-        $ciclo = Ciclo::factory()->grupo3()->create(['anio' => 2026]);
-
-        $this->assertSame('2026-2', $this->libretaService()->periodoPromocional($ciclo));
     }
 
     public function test_datos_para_pdf_incluye_todos_los_periodos_del_estudiante(): void

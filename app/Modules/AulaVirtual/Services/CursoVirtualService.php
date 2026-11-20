@@ -21,10 +21,9 @@ class CursoVirtualService
     ) {}
 
     /**
-     * El período de matrícula (Ciclo) "actual" para acotar el catálogo de
+     * El periodo académico (Ciclo) "actual" para acotar el catálogo de
      * cursos virtuales: el que está marcado como activo, o si ninguno lo
-     * está (entre períodos), el de fecha de inicio más reciente -- mismo
-     * criterio de respaldo que CicloService::cicloAnualVigente().
+     * está (entre periodos), el de fecha de inicio más reciente.
      */
     private function cicloActualId(): ?int
     {

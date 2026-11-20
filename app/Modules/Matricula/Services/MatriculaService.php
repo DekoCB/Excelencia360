@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\Matricula\Services;
 
 use App\Models\User;
-use App\Modules\Academico\Enums\EstadoPeriodoMatriculaEnum;
-use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Enums\TipoCursoEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
@@ -280,10 +278,6 @@ class MatriculaService
         $ciclo = Ciclo::query()->findOrFail($data->cicloId);
         $grado = Grado::query()->findOrFail($data->gradoId);
 
-        if ($ciclo->modalidad !== ModalidadCicloEnum::ANUAL) {
-            $this->validarPeriodoDeMatriculaAbierto($ciclo);
-        }
-
         if ($this->matriculas->existeParaEstudianteYCiclo($estudiante->id, $ciclo->id)) {
             throw ValidationException::withMessages([
                 'ciclo' => 'Este estudiante ya tiene una matrícula registrada para este ciclo.',
@@ -291,9 +285,7 @@ class MatriculaService
         }
 
         $fechaMatricula = $data->fechaMatricula !== null ? Carbon::parse($data->fechaMatricula) : now();
-        $fechaFinEstudio = $ciclo->modalidad === ModalidadCicloEnum::ANUAL
-            ? $ciclo->fecha_fin
-            : $fechaMatricula->clone()->addMonths($estudiante->es_menor_edad ? 8 : 6);
+        $fechaFinEstudio = $ciclo->fecha_fin;
 
         return DB::transaction(function () use ($estudiante, $ciclo, $grado, $data, $fechaMatricula, $fechaFinEstudio) {
             $matricula = $this->matriculas->create([
@@ -470,31 +462,6 @@ class MatriculaService
         $matricula->horarios()->attach($horario->id);
 
         return $matricula->fresh();
-    }
-
-    /**
-     * Solo aplica a los 4 Grupos rotativos de 6 meses, cada uno con su
-     * propia ventana de admisión (fecha_inicio_matricula/fecha_fin_matricula
-     * en el propio Ciclo) que un coordinador abre y cierra a mano. El
-     * Periodo Académico anual no tiene este concepto -- se identifica solo
-     * por año y su matrícula está disponible mientras el ciclo esté
-     * vigente (ver el llamado condicional en matricular()).
-     */
-    private function validarPeriodoDeMatriculaAbierto(Ciclo $ciclo): void
-    {
-        $hoy = Carbon::today();
-
-        $periodoAbierto = $ciclo->estado_matricula === EstadoPeriodoMatriculaEnum::ABIERTO
-            && $ciclo->fecha_inicio_matricula !== null
-            && $ciclo->fecha_fin_matricula !== null
-            && $ciclo->fecha_inicio_matricula->lessThanOrEqualTo($hoy)
-            && $ciclo->fecha_fin_matricula->greaterThanOrEqualTo($hoy);
-
-        if (! $periodoAbierto) {
-            throw ValidationException::withMessages([
-                'ciclo' => "No hay un periodo de matrícula abierto hoy para el ciclo «{$ciclo->nombre}».",
-            ]);
-        }
     }
 
     /**

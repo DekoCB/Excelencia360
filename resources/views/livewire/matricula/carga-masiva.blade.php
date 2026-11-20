@@ -1,7 +1,5 @@
 <?php
 
-use App\Modules\Academico\Enums\EstadoCicloEnum;
-use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Matricula\Exports\MatriculaCursoCortoPlantillaExport;
 use App\Modules\Matricula\Exports\MatriculaMasivaPlantillaExport;
@@ -85,30 +83,14 @@ new #[Layout('layouts.app')] class extends Component
     }
 
     /**
-     * El período de matrícula de Instituto es el propio Período Académico
-     * vigente: un ciclo anual cuenta mientras esté activo (igual que
-     * matricula/wizard.blade.php, que ya autoasigna el ciclo anual vigente
-     * sin pedir período aparte); uno de 6 meses sigue dependiendo de su
-     * ventana de admisión propia (fecha_inicio_matricula/fecha_fin_matricula).
-     * Antes esto exigía estado_matricula='abierto' para cualquier ciclo, algo
-     * que un ciclo anual nunca tiene (ver CicloService::prepararFechasDeMatricula()),
-     * así que Instituto -- que opera sobre todo con ciclos anuales -- nunca
-     * encontraba ninguno.
+     * Los periodos académicos disponibles para la carga masiva de
+     * Instituto: cualquier ciclo elegible libremente, más recientes primero.
      *
      * @return \Illuminate\Database\Eloquent\Collection<int, Ciclo>
      */
     private function ciclosDisponibles(): \Illuminate\Database\Eloquent\Collection
     {
-        return Ciclo::query()
-            ->where(function ($query) {
-                $query->where(fn ($q) => $q->where('modalidad', ModalidadCicloEnum::ANUAL)->where('estado', EstadoCicloEnum::ACTIVO))
-                    ->orWhere(fn ($q) => $q->where('modalidad', ModalidadCicloEnum::SEIS_MESES)
-                        ->where('estado_matricula', 'abierto')
-                        ->where('fecha_inicio_matricula', '<=', now())
-                        ->where('fecha_fin_matricula', '>=', now()));
-            })
-            ->orderByDesc('fecha_inicio')
-            ->get();
+        return Ciclo::query()->orderByDesc('fecha_inicio')->get();
     }
 
     public function with(): array

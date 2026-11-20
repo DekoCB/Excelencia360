@@ -187,52 +187,6 @@ class EvaluacionServiceTest extends TestCase
         $this->assertSame(17.0, $service->promedioDelEstudiante($estudiante, $horario));
     }
 
-    public function test_promedio_del_estudiante_solo_considera_los_ultimos_6_examenes_en_un_ciclo_de_seis_meses(): void
-    {
-        // Ciclo::factory() no fija modalidad, así que hereda el default de
-        // columna ('seis_meses') -- confirma que examenesQueCuentan() = 6.
-        $horario = Horario::factory()->create();
-        $estudiante = Estudiante::factory()->create();
-        $service = $this->service();
-
-        // La primera evaluación (nota 0) queda fuera del promedio: hay 7
-        // publicadas y solo cuentan las últimas 6 por fecha.
-        $evaluacionMasAntigua = $this->crear($horario, 'Evaluación 1', '2026-01-10');
-        $service->calificar($evaluacionMasAntigua, $estudiante, 0.0, null, null);
-        $service->publicar($evaluacionMasAntigua);
-
-        foreach (range(2, 7) as $numero) {
-            $evaluacion = $this->crear($horario, "Evaluación {$numero}", "2026-0{$numero}-10");
-            $service->calificar($evaluacion, $estudiante, 20.0, null, null);
-            $service->publicar($evaluacion);
-        }
-
-        $this->assertSame(20.0, $service->promedioDelEstudiante($estudiante, $horario));
-    }
-
-    public function test_promedio_del_estudiante_considera_los_ultimos_8_examenes_en_un_ciclo_anual(): void
-    {
-        $ciclo = Ciclo::factory()->anual()->create();
-        $horario = Horario::factory()->create(['ciclo_id' => $ciclo->id]);
-        $estudiante = Estudiante::factory()->create();
-        $service = $this->service();
-
-        // 9 evaluaciones publicadas, la más antigua (nota 0) queda fuera:
-        // solo cuentan las últimas 8 por fecha.
-        $evaluacionMasAntigua = $this->crear($horario, 'Marzo', '2026-03-10');
-        $service->calificar($evaluacionMasAntigua, $estudiante, 0.0, null, null);
-        $service->publicar($evaluacionMasAntigua);
-
-        $meses = ['04', '05', '06', '07', '08', '09', '10', '11'];
-        foreach ($meses as $mes) {
-            $evaluacion = $this->crear($horario, "Evaluación {$mes}", "2026-{$mes}-10");
-            $service->calificar($evaluacion, $estudiante, 20.0, null, null);
-            $service->publicar($evaluacion);
-        }
-
-        $this->assertSame(20.0, $service->promedioDelEstudiante($estudiante, $horario));
-    }
-
     public function test_publicar_notifica_a_los_estudiantes_matriculados_con_usuario_vinculado(): void
     {
         $horario = Horario::factory()->create();

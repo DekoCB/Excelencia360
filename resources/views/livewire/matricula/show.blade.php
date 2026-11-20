@@ -1,6 +1,5 @@
 <?php
 
-use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Horario;
@@ -358,10 +357,10 @@ new #[Layout('layouts.app')] class extends Component
 
     /**
      * Atajo desde la ficha: solo se elige el Programa de Estudio, el
-     * Semestre y el Período de matrícula se resuelven solos (ver
-     * MatriculaService::gradoSiguienteParaPrograma()) -- mismo camino que
-     * usa el wizard, sin repetir sus 6 pasos para un estudiante que ya
-     * tiene ficha.
+     * Semestre se resuelve solo (ver
+     * MatriculaService::gradoSiguienteParaPrograma()) y el periodo
+     * académico es el activo más reciente -- mismo camino que usa el
+     * wizard, sin repetir sus pasos para un estudiante que ya tiene ficha.
      */
     public function guardarNuevaMatricula(MatriculaService $service): void
     {
@@ -374,19 +373,12 @@ new #[Layout('layouts.app')] class extends Component
         $programa = ProgramaEstudio::query()->findOrFail($this->nuevaMatriculaProgramaId);
 
         $ciclo = Ciclo::query()
-            ->where('modalidad', ModalidadCicloEnum::SEIS_MESES)
-            ->where('estado_matricula', 'abierto')
-            ->where('fecha_inicio_matricula', '<=', now())
-            ->where('fecha_fin_matricula', '>=', now())
+            ->where('estado', 'activo')
             ->orderByDesc('fecha_inicio')
-            ->first() ?? Ciclo::query()
-                ->where('modalidad', ModalidadCicloEnum::ANUAL)
-                ->where('estado', 'activo')
-                ->orderByDesc('fecha_inicio')
-                ->first();
+            ->first();
 
         if (! $ciclo) {
-            $this->addError('nuevaMatriculaProgramaId', 'No hay ningún período de matrícula abierto en este momento.');
+            $this->addError('nuevaMatriculaProgramaId', 'No hay ningún periodo académico activo en este momento.');
 
             return;
         }

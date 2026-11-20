@@ -34,18 +34,10 @@ class MatriculaMasivaServiceTest extends TestCase
 
     private function cicloConPeriodoAbierto(): Ciclo
     {
-        $ciclo = Ciclo::factory()->activo()->create([
+        return Ciclo::factory()->activo()->create([
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
-        ]);
-
-        return $ciclo;
     }
 
     /**

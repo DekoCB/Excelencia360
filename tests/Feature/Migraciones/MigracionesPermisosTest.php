@@ -3,7 +3,6 @@
 namespace Tests\Feature\Migraciones;
 
 use App\Models\User;
-use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
@@ -30,31 +29,9 @@ class MigracionesPermisosTest extends TestCase
 
     private function cicloConPeriodoAbierto(): Ciclo
     {
-        $ciclo = Ciclo::factory()->activo()->create([
+        return Ciclo::factory()->activo()->create([
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
-        ]);
-
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
-        ]);
-
-        return $ciclo;
-    }
-
-    // SIAGIE anual no depende de un periodo de matrícula abierto (a
-    // diferencia de los Grupos de 6 meses): solo importa el año.
-    private function cicloAnual(int $anio, bool $activo = true): Ciclo
-    {
-        return Ciclo::factory()->create([
-            'modalidad' => ModalidadCicloEnum::ANUAL,
-            'tipo' => null,
-            'anio' => $anio,
-            'fecha_inicio' => "{$anio}-03-01",
-            'fecha_fin' => "{$anio}-10-31",
-            'estado' => $activo ? 'activo' : 'planificado',
         ]);
     }
 
@@ -139,7 +116,6 @@ class MigracionesPermisosTest extends TestCase
 
         Volt::test('migraciones.index')
             ->set('tab', 'masivo')
-            ->set('modalidadOrigen', 'seis_meses')
             ->set('cicloOrigenId', (string) $cicloOrigen->id)
             ->set('gradoOrigenId', (string) $gradoOrigen->id)
             ->set('masivoCicloDestinoId', (string) $cicloDestino->id)
@@ -149,36 +125,5 @@ class MigracionesPermisosTest extends TestCase
             ->assertSet('resultado.exitosos', 2);
 
         $this->assertDatabaseCount('matriculas', 4);
-    }
-
-    public function test_migrar_de_forma_masiva_en_periodo_academico_anual_no_pide_grupo_y_usa_el_ciclo_vigente(): void
-    {
-        $usuario = User::factory()->create();
-        $usuario->assignRole(RolEnum::COORDINADOR->value);
-
-        $gradoOrigen = Grado::factory()->create(['orden' => 1]);
-        $gradoDestino = Grado::factory()->create(['orden' => 2]);
-        $cicloAnualOrigen = $this->cicloAnual(now()->year);
-        $cicloAnualDestino = $this->cicloAnual(now()->year + 1, activo: false);
-        $this->estudianteMatriculado($cicloAnualOrigen, $gradoOrigen, '55667755');
-
-        $this->actingAs($usuario);
-
-        Volt::test('migraciones.index')
-            ->set('tab', 'masivo')
-            ->set('modalidadOrigen', 'anual')
-            ->assertDontSee('Todos los grupos')
-            ->assertSee((string) $cicloAnualOrigen->anio)
-            ->set('gradoOrigenId', (string) $gradoOrigen->id)
-            ->assertSet('masivoCicloDestinoId', (string) $cicloAnualDestino->id)
-            ->set('masivoGradoDestinoId', (string) $gradoDestino->id)
-            ->call('migrarMasivo')
-            ->assertHasNoErrors()
-            ->assertSet('resultado.exitosos', 1);
-
-        $this->assertDatabaseHas('matriculas', [
-            'ciclo_id' => $cicloAnualDestino->id,
-            'grado_id' => $gradoDestino->id,
-        ]);
     }
 }

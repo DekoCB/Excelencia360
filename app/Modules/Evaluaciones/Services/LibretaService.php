@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\Evaluaciones\Services;
 
 use App\Models\User;
-use App\Modules\Academico\Enums\ModalidadCicloEnum;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Evaluaciones\Enums\NotaLetraEnum;
@@ -137,22 +136,14 @@ class LibretaService
     }
 
     /**
-     * El "periodo promocional" tal como lo pide SIAGIE: "{año}-1"/"{año}-2"
-     * para los Grupos de 6 meses (según si el Grupo arranca en la primera
-     * o segunda mitad del año calendario), o "ANUAL" para el periodo
-     * académico anual -- a diferencia de Ciclo::nombre (texto libre tipo
-     * "Grupo 1 (Enero - Junio)"), esto es el formato exigido en la
-     * libreta oficial.
+     * El "periodo promocional" para la libreta: directamente el nombre
+     * libre del Ciclo (convención del instituto, ej. "2026-1") -- ya no
+     * hace falta derivarlo de una modalidad/tipo, el nombre del Ciclo es
+     * la fuente de verdad.
      */
     public function periodoPromocional(Ciclo $ciclo): string
     {
-        if ($ciclo->modalidad === ModalidadCicloEnum::ANUAL) {
-            return 'ANUAL';
-        }
-
-        $semestre = ($ciclo->tipo?->mesInicioFijo() ?? 1) > 6 ? 2 : 1;
-
-        return "{$ciclo->anio}-{$semestre}";
+        return $ciclo->nombre;
     }
 
     /**

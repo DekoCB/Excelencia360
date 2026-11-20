@@ -38,7 +38,7 @@
         @forelse ($historial['matriculas'] as $matricula)
             <div class="flex items-center justify-between py-3 text-sm">
                 <div>
-                    <p class="text-ink">{{ $matricula->grado->nombre }} · {{ $matricula->ciclo->nombre }} · {{ $matricula->ciclo->modalidad->label() }}</p>
+                    <p class="text-ink">{{ $matricula->grado->nombre }} · {{ $matricula->ciclo->nombre }}</p>
                     <p class="text-ink-faint">
                         Matriculado el {{ $matricula->fecha_matricula->format('d/m/Y') }}
                         @if ($matricula->fecha_fin_estudio)

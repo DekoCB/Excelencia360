@@ -92,11 +92,6 @@ class CargaMasivaTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
-        ]);
         $programa = ProgramaEstudio::factory()->create(['nombre' => 'Administración de Empresas']);
         Grado::factory()->create(['programa_estudio_id' => $programa->id, 'nombre' => 'Semestre 3']);
         $estudiante = Estudiante::factory()->create(['dni' => '22334455', 'es_menor_edad' => false]);

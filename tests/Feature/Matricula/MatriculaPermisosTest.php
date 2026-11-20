@@ -21,7 +21,6 @@ use App\Shared\Enums\RolEnum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Livewire\Features\SupportTesting\Testable;
 use Livewire\Volt\Volt;
 use Tests\TestCase;
 
@@ -67,11 +66,6 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
-        ]);
         $grado = Grado::factory()->create();
 
         $this->actingAs($usuario);
@@ -113,11 +107,6 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
-        ]);
         $grado = Grado::factory()->create();
 
         $this->actingAs($usuario);
@@ -157,11 +146,6 @@ class MatriculaPermisosTest extends TestCase
         $ciclo = Ciclo::factory()->activo()->create([
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
-        ]);
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
         ]);
         $grado = Grado::factory()->create();
 
@@ -301,11 +285,6 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
-        ]);
         $grado = Grado::factory()->create();
         $fechaElegida = now()->subDays(5)->format('Y-m-d');
 
@@ -348,11 +327,6 @@ class MatriculaPermisosTest extends TestCase
         $ciclo = Ciclo::factory()->activo()->create([
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
-        ]);
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
         ]);
         $grado = Grado::factory()->create();
 
@@ -432,44 +406,6 @@ class MatriculaPermisosTest extends TestCase
         $this->assertSame('application/pdf', $testable->effects['download']['contentType']);
     }
 
-    public function test_elegir_modalidad_anual_en_el_wizard_autoselecciona_el_ciclo_vigente(): void
-    {
-        Storage::fake('public');
-
-        $usuario = User::factory()->create();
-        $usuario->assignRole(RolEnum::COORDINADOR->value);
-
-        // Sin periodo de matrícula: a diferencia de los Grupos de 6 meses,
-        // SIAGIE anual no lo necesita para poder matricularse.
-        $cicloAnual = Ciclo::factory()->anual()->activo()->create();
-        $grado = Grado::factory()->create();
-
-        $this->actingAs($usuario);
-
-        Volt::test('matricula.wizard')
-            ->set('nombres', 'Marisol')
-            ->set('apellidos', 'Peña Ríos')
-            ->set('dni', '55667950')
-            ->set('email', 'estudiante'.uniqid().'@example.com')
-            ->set('fechaNacimiento', now()->subYears(28)->format('Y-m-d'))
-            ->call('avanzar')
-            ->assertSet('paso', 3)
-            ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
-            ->call('avanzar')
-            ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
-            ->set('modalidadCiclo', 'anual')
-            ->assertSet('cicloId', (string) $cicloAnual->id)
-            ->set('gradoId', (string) $grado->id)
-            ->call('confirmar')
-            ->assertHasNoErrors()
-            ->assertDispatched('matricula-registrada');
-
-        $estudiante = Estudiante::query()->where('dni', '55667950')->firstOrFail();
-        $this->assertDatabaseHas('matriculas', ['estudiante_id' => $estudiante->id, 'ciclo_id' => $cicloAnual->id]);
-    }
-
     public function test_el_wizard_detecta_un_dni_existente_y_permite_rematricular_sin_repetir_los_datos(): void
     {
         $usuario = User::factory()->create();
@@ -478,11 +414,6 @@ class MatriculaPermisosTest extends TestCase
         $ciclo = Ciclo::factory()->activo()->create([
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
-        ]);
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
         ]);
         $grado = Grado::factory()->create();
 
@@ -705,11 +636,6 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
-        ]);
         $grado = Grado::factory()->create();
 
         $this->actingAs($usuario);
@@ -770,11 +696,6 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
-        ]);
         $grado = Grado::factory()->create();
 
         $this->actingAs($usuario);
@@ -821,11 +742,6 @@ class MatriculaPermisosTest extends TestCase
         $ciclo = Ciclo::factory()->activo()->create([
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
-        ]);
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
         ]);
         $grado = Grado::factory()->create();
 
@@ -878,11 +794,6 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
-        ]);
         $grado = Grado::factory()->create();
 
         $this->actingAs($usuario);
@@ -925,11 +836,6 @@ class MatriculaPermisosTest extends TestCase
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
-        ]);
         $grado = Grado::factory()->create();
 
         $this->actingAs($usuario);
@@ -958,67 +864,6 @@ class MatriculaPermisosTest extends TestCase
             ->assertNotDispatched('matricula-registrada');
 
         $this->assertDatabaseMissing('estudiantes', ['dni' => '55667713']);
-    }
-
-    /**
-     * Avanza el wizard hasta el paso 5 (Matrícula) para un estudiante mayor
-     * de edad recién creado, listo para setear cicloId/gradoId.
-     */
-    private function wizardEnPasoDeMatricula(string $dni): Testable
-    {
-        return Volt::test('matricula.wizard')
-            ->set('nombres', 'Luis')
-            ->set('apellidos', 'Fernández Ruiz')
-            ->set('dni', $dni)
-            ->set('email', 'estudiante'.uniqid().'@example.com')
-            ->set('fechaNacimiento', now()->subYears(28)->format('Y-m-d'))
-            ->call('avanzar')
-            ->assertSet('paso', 3)
-            ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
-            ->call('avanzar')
-            ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5);
-    }
-
-    public function test_reintentar_confirmar_tras_error_de_matricula_no_duplica_al_estudiante(): void
-    {
-        Storage::fake('public');
-
-        $usuario = User::factory()->create();
-        $usuario->assignRole(RolEnum::COORDINADOR->value);
-
-        // Ciclo sin periodo de matrícula abierto: matricular() falla.
-        $ciclo = Ciclo::factory()->activo()->create();
-        $grado = Grado::factory()->create();
-
-        $this->actingAs($usuario);
-
-        $component = $this->wizardEnPasoDeMatricula('55667802')
-            ->set('cicloId', (string) $ciclo->id)
-            ->set('gradoId', (string) $grado->id)
-            ->call('confirmar')
-            ->assertHasErrors();
-
-        $this->assertDatabaseCount('estudiantes', 0);
-
-        // El coordinador abre el periodo de matrícula y reintenta en el
-        // mismo componente sin volver al paso 1: antes de la corrección de
-        // este bug, esto duplicaba al estudiante (mismo DNI) y rompía con
-        // un error sin manejar.
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
-        ]);
-
-        $component
-            ->call('confirmar')
-            ->assertHasNoErrors();
-
-        $this->assertDatabaseCount('estudiantes', 1);
-        $estudiante = Estudiante::query()->where('dni', '55667802')->firstOrFail();
-        $this->assertDatabaseHas('matriculas', ['estudiante_id' => $estudiante->id, 'ciclo_id' => $ciclo->id]);
     }
 
     public function test_cancelar_el_wizard_dispara_el_evento_que_cierra_el_modal(): void

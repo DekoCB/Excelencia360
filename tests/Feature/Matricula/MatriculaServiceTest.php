@@ -76,18 +76,10 @@ class MatriculaServiceTest extends TestCase
 
     private function cicloConPeriodoAbierto(): Ciclo
     {
-        $ciclo = Ciclo::factory()->activo()->create([
+        return Ciclo::factory()->activo()->create([
             'fecha_inicio' => now()->subDays(20),
             'fecha_fin' => now()->addMonths(5),
         ]);
-
-        $ciclo->update([
-            'fecha_inicio_matricula' => now()->subDays(10),
-            'fecha_fin_matricula' => now()->addDays(10),
-            'estado_matricula' => 'abierto',
-        ]);
-
-        return $ciclo;
     }
 
     public function test_calcula_correctamente_si_es_menor_de_edad(): void
@@ -291,22 +283,6 @@ class MatriculaServiceTest extends TestCase
         $this->assertFalse($disponibles->contains('id', $menorConApoderado->id));
     }
 
-    public function test_no_permite_matricular_sin_periodo_de_matricula_abierto(): void
-    {
-        $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMayor());
-        $ciclo = Ciclo::factory()->activo()->create();
-        $grado = Grado::factory()->create();
-
-        $this->expectException(ValidationException::class);
-
-        $this->service()->matricular($estudiante, new RegistrarMatriculaData(
-            cicloId: $ciclo->id,
-            gradoId: $grado->id,
-            observaciones: null,
-            registradoPor: null,
-        ));
-    }
-
     public function test_no_permite_matricula_duplicada_para_el_mismo_estudiante_y_ciclo(): void
     {
         $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMayor());
@@ -392,7 +368,7 @@ class MatriculaServiceTest extends TestCase
         $this->assertTrue($matricula->horarios->isEmpty());
     }
 
-    public function test_matricular_calcula_fecha_fin_estudio_a_seis_meses_para_mayor_de_edad(): void
+    public function test_matricular_usa_la_fecha_fin_del_ciclo_como_fecha_fin_de_estudio(): void
     {
         $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMayor());
         $ciclo = $this->cicloConPeriodoAbierto();
@@ -400,27 +376,15 @@ class MatriculaServiceTest extends TestCase
 
         $matricula = $this->service()->matricular($estudiante, new RegistrarMatriculaData($ciclo->id, $grado->id, null, null));
 
-        $this->assertTrue($matricula->fecha_matricula->addMonths(6)->isSameDay($matricula->fecha_fin_estudio));
+        $this->assertTrue($ciclo->fecha_fin->isSameDay($matricula->fecha_fin_estudio));
     }
 
-    public function test_matricular_calcula_fecha_fin_estudio_a_ocho_meses_para_menor_de_edad(): void
+    public function test_matricular_no_exige_ningun_periodo_de_matricula_abierto(): void
     {
-        $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMenor());
-        $ciclo = $this->cicloConPeriodoAbierto();
-        $grado = Grado::factory()->create();
-
-        $matricula = $this->service()->matricular($estudiante, new RegistrarMatriculaData($ciclo->id, $grado->id, null, null));
-
-        $this->assertTrue($matricula->fecha_matricula->addMonths(8)->isSameDay($matricula->fecha_fin_estudio));
-    }
-
-    public function test_matricular_en_un_ciclo_anual_no_exige_periodo_de_matricula_abierto(): void
-    {
-        // A diferencia de los Grupos de 6 meses, el periodo académico
-        // anual no depende de una ventana de matrícula propia: este ciclo
-        // no tiene ninguna y aun así debe poder matricularse.
+        // Ya no existe el concepto de "ventana de matrícula": cualquier
+        // ciclo puede recibir matrículas en cualquier momento.
         $estudiante = $this->service()->registrarEstudiante($this->datosEstudianteMayor());
-        $ciclo = Ciclo::factory()->anual()->activo()->create();
+        $ciclo = Ciclo::factory()->activo()->create();
         $grado = Grado::factory()->create();
 
         $matricula = $this->service()->matricular($estudiante, new RegistrarMatriculaData($ciclo->id, $grado->id, null, null));
