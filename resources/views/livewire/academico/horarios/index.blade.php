@@ -18,7 +18,12 @@ use Livewire\Volt\Component;
 
 new #[Layout('layouts.app')] class extends Component
 {
-    public string $vista = 'lista';
+    public string $vista = 'calendario';
+
+    // Instituto / curso_corto -- qué calendario se muestra, y qué tipo
+    // precarga el formulario al crear un horario nuevo desde esa pestaña
+    // (ver abrirModal()).
+    public string $calendarioTipo = 'instituto';
 
     public bool $mostrarModal = false;
 
@@ -218,7 +223,11 @@ new #[Layout('layouts.app')] class extends Component
             'horaInicioHoraPorDia', 'horaInicioMinutoPorDia', 'horaFinHoraPorDia', 'horaFinMinutoPorDia',
             'horaInicioHora12PorDia', 'horaInicioAmPmPorDia', 'horaFinHora12PorDia', 'horaFinAmPmPorDia',
         ]);
-        $this->cicloId = $this->cicloFiltro;
+        // Ya sabe qué tipo de horario crear según la pestaña de calendario
+        // desde la que se abrió -- ver updatedTipo() para lo que cambia.
+        $this->tipo = $this->calendarioTipo;
+        $this->cicloId = $this->tipo === 'curso_corto' ? '' : $this->cicloFiltro;
+        $this->conHoraDefinida = $this->tipo !== 'curso_corto';
         $this->mostrarModal = true;
     }
 
@@ -478,8 +487,12 @@ new #[Layout('layouts.app')] class extends Component
 
         $tipoCurso = $this->tipo === 'curso_corto' ? 'capacitacion' : 'academico';
 
+        $cicloActivoParaCalendario = $this->cicloFiltro !== '' ? Ciclo::query()->find($this->cicloFiltro) : null;
+
         return [
             'ciclos' => Ciclo::query()->orderByDesc('fecha_inicio')->get(),
+            'eventosInstituto' => $this->eventosCalendario($horarios->filter(fn (Horario $h) => ! $h->esDeCursoCorto()), $cicloActivoParaCalendario),
+            'eventosCursoCorto' => $this->eventosCalendario($horarios->filter(fn (Horario $h) => $h->esDeCursoCorto()), null),
             'horariosPorFranja' => $this->agruparPorFranjaYGrado($horarios),
             'horarioDiasPorDia' => $this->agruparDiasParaLaGrilla($horarios),
             'cursos' => Curso::query()->where('activo', true)->where('tipo', $tipoCurso)->orderBy('nombre')->get(),
@@ -495,6 +508,49 @@ new #[Layout('layouts.app')] class extends Component
             'diasSemana' => DiaSemanaEnum::ordenSemana(),
             'diasParaHoras' => $this->diasEfectivos(),
         ];
+    }
+
+    /**
+     * Los HorarioDia de estos horarios, en el formato de evento recurrente
+     * de FullCalendar (ver x-data="horariosCalendario(...)" en app.js):
+     * daysOfWeek + startTime/endTime para los que tienen hora definida, o
+     * allDay para los que no (ver $conHoraDefinida) -- FullCalendar los
+     * muestra en la franja "Sin hora fija" en vez de en la grilla de horas.
+     * Un horario de Instituto se acota a las fechas de su propio Ciclo
+     * (startRecur/endRecur); uno de curso corto, sin ciclo, no se acota.
+     *
+     * @param  Collection<int, Horario>  $horarios
+     * @return list<array<string, mixed>>
+     */
+    private function eventosCalendario(Collection $horarios, ?Ciclo $ciclo): array
+    {
+        return $horarios
+            ->flatMap(function (Horario $horario) use ($ciclo) {
+                return $horario->dias->map(function (HorarioDia $dia) use ($horario, $ciclo) {
+                    $evento = [
+                        'title' => "{$horario->curso->nombre} — {$horario->docente->name}",
+                        'daysOfWeek' => [$dia->dia_semana->numeroCarbon()],
+                        'extendedProps' => ['horarioId' => $horario->id],
+                        'color' => $horario->esDeCursoCorto() ? '#18BEBC' : '#165D96',
+                    ];
+
+                    if ($dia->hora_inicio !== null && $dia->hora_fin !== null) {
+                        $evento['startTime'] = $dia->hora_inicio;
+                        $evento['endTime'] = $dia->hora_fin;
+                    } else {
+                        $evento['allDay'] = true;
+                    }
+
+                    if ($ciclo !== null) {
+                        $evento['startRecur'] = $ciclo->fecha_inicio->format('Y-m-d');
+                        $evento['endRecur'] = $ciclo->fecha_fin->format('Y-m-d');
+                    }
+
+                    return $evento;
+                });
+            })
+            ->values()
+            ->all();
     }
 
     /**
@@ -586,6 +642,11 @@ new #[Layout('layouts.app')] class extends Component
         <div class="flex gap-1 rounded-md border border-border bg-surface p-1">
             <button
                 type="button"
+                wire:click="$set('vista', 'calendario')"
+                @class(['rounded px-3 py-1.5 text-sm font-medium', 'bg-accent text-white' => $vista === 'calendario', 'text-ink-dim' => $vista !== 'calendario'])
+            >Calendario</button>
+            <button
+                type="button"
                 wire:click="$set('vista', 'lista')"
                 @class(['rounded px-3 py-1.5 text-sm font-medium', 'bg-accent text-white' => $vista === 'lista', 'text-ink-dim' => $vista !== 'lista'])
             >Lista</button>
@@ -598,6 +659,33 @@ new #[Layout('layouts.app')] class extends Component
             @endcan
         </div>
     </div>
+
+    @if ($vista === 'calendario')
+        <div class="mb-4 flex gap-1 rounded-md border border-border bg-surface p-1 w-fit">
+            <button
+                type="button"
+                wire:click="$set('calendarioTipo', 'instituto')"
+                @class(['rounded px-3 py-1.5 text-sm font-medium', 'bg-accent text-white' => $calendarioTipo === 'instituto', 'text-ink-dim' => $calendarioTipo !== 'instituto'])
+            >Instituto</button>
+            <button
+                type="button"
+                wire:click="$set('calendarioTipo', 'curso_corto')"
+                @class(['rounded px-3 py-1.5 text-sm font-medium', 'bg-accent text-white' => $calendarioTipo === 'curso_corto', 'text-ink-dim' => $calendarioTipo !== 'curso_corto'])
+            >Curso corto</button>
+        </div>
+
+        @php
+            $eventosActivos = $calendarioTipo === 'instituto' ? $eventosInstituto : $eventosCursoCorto;
+        @endphp
+        {{-- Sin wire:ignore a propósito: el wire:key cambia con los datos
+             (no solo con el tipo/ciclo) para que Livewire reconstruya el
+             nodo -- y con él, reinicialice Alpine/FullCalendar con los
+             eventos al día -- cada vez que un horario se crea, edita o
+             mueve (mismo motivo que x-select-input más abajo). --}}
+        <div wire:key="calendario-{{ $calendarioTipo }}-{{ $cicloFiltro }}-{{ md5(json_encode($eventosActivos)) }}" class="rounded-2xl border border-border bg-surface p-3 shadow-sm">
+            <div x-data="horariosCalendario(@js($eventosActivos))"></div>
+        </div>
+    @endif
 
     @if ($vista === 'lista')
         @forelse ($horariosPorFranja as $grupoFranja)

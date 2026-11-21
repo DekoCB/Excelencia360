@@ -411,6 +411,7 @@ class HorarioFormTest extends TestCase
         ]);
 
         $html = Volt::test('academico.horarios.index')
+            ->set('vista', 'lista')
             ->set('cicloFiltro', (string) $ciclo->id)
             ->html();
 

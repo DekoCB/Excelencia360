@@ -328,6 +328,7 @@ class HorarioCursoCortoTest extends TestCase
         ]);
 
         Volt::test('academico.horarios.index')
+            ->set('vista', 'lista')
             ->assertSee('Curso corto: Ofimática Básica')
             ->assertSee('Ofimática Básica');
     }

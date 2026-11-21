@@ -1,6 +1,10 @@
 import './bootstrap';
 import Chart from 'chart.js/auto';
 import jsQR from 'jsqr';
+import { Calendar } from '@fullcalendar/core';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import esLocale from '@fullcalendar/core/locales/es';
 import { VortexScene, VORTEX_LOGIN_CONFIG } from './vortex-dust';
 
 /**
@@ -80,6 +84,42 @@ document.addEventListener('alpine:init', () => {
         },
         destroy() {
             this.chart?.destroy();
+        },
+    }));
+
+    /**
+     * horariosCalendario: una grilla semanal de FullCalendar para la
+     * pestaña "Calendario" de Horarios (ver academico/horarios/index.blade.php),
+     * una instancia por tipo (Instituto / Curso corto). "eventos" ya viene
+     * armado desde el servidor en el formato de evento recurrente de
+     * FullCalendar (daysOfWeek/startTime/endTime, ver Horario::paraCalendario()).
+     */
+    Alpine.data('horariosCalendario', (eventos) => ({
+        calendario: null,
+        init() {
+            this.calendario = new Calendar(this.$el, {
+                plugins: [dayGridPlugin, timeGridPlugin],
+                initialView: 'timeGridWeek',
+                headerToolbar: { start: 'title', center: '', end: 'today prev,next' },
+                locale: esLocale,
+                allDaySlot: true,
+                allDayText: 'Sin hora fija',
+                slotMinTime: '07:00:00',
+                slotMaxTime: '23:00:00',
+                height: 'auto',
+                nowIndicator: true,
+                events: eventos,
+                eventClick: (info) => {
+                    const horarioId = info.event.extendedProps.horarioId;
+                    if (horarioId) {
+                        this.$wire.call('abrirModalEditar', horarioId);
+                    }
+                },
+            });
+            this.calendario.render();
+        },
+        destroy() {
+            this.calendario?.destroy();
         },
     }));
 
