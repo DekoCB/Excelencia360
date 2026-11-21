@@ -17,10 +17,6 @@ Route::middleware(['auth'])->prefix('matricula')->name('matricula.')->group(func
         ->middleware('can:matricula.crear')
         ->name('carga-masiva-estudiantes');
 
-    Volt::route('carga-masiva', 'matricula.carga-masiva')
-        ->middleware('can:matricula.crear')
-        ->name('carga-masiva');
-
     // Portal de Apoderados / directorio de tutores: también antes de
     // {estudiante} por la misma razón que las de arriba. Sin middleware
     // "can" propio porque acepta dos permisos distintos según el modo
@@ -36,4 +32,18 @@ Route::middleware(['auth'])->prefix('matricula')->name('matricula.')->group(func
     Volt::route('{estudiante}', 'matricula.show')
         ->middleware('can:matricula.ver')
         ->name('show');
+});
+
+// Módulo de Matrícula, separado de Estudiantes (ver matricula.index):
+// "Estudiantes" solo registra; este sirve exclusivamente para matricular
+// a un estudiante ya registrado. Prefijo/nombre de ruta distintos
+// (plural) para no chocar con el wildcard {estudiante} de arriba.
+Route::middleware(['auth'])->prefix('matriculas')->name('matriculas.')->group(function () {
+    Volt::route('/', 'matricula.nueva.index')
+        ->middleware('can:matricula.crear')
+        ->name('index');
+
+    Volt::route('carga-masiva', 'matricula.carga-masiva')
+        ->middleware('can:matricula.crear')
+        ->name('carga-masiva');
 });

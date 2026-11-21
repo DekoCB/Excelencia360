@@ -140,52 +140,49 @@ class SecretariaModalidadTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_el_wizard_oculta_el_selector_de_tipo_y_lo_fija_en_instituto_para_secretaria_instituto(): void
+    public function test_el_modulo_de_matricula_oculta_el_selector_de_tipo_y_lo_fija_en_instituto_para_secretaria_instituto(): void
     {
         $secretaria = User::factory()->create();
         $secretaria->assignRole(RolEnum::SECRETARIA_INSTITUTO->value);
+        $estudiante = Estudiante::factory()->create();
 
         $this->actingAs($secretaria);
 
-        Volt::test('matricula.wizard')
+        Volt::test('matricula.nueva.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->assertSet('tipoMatricula', 'instituto')
             ->assertDontSee('id="tipoMatricula"');
     }
 
-    public function test_el_wizard_oculta_el_selector_de_tipo_y_lo_fija_en_curso_corto_para_secretaria_excelencia(): void
+    public function test_el_modulo_de_matricula_oculta_el_selector_de_tipo_y_lo_fija_en_curso_corto_para_secretaria_excelencia(): void
     {
         $secretaria = User::factory()->create();
         $secretaria->assignRole(RolEnum::SECRETARIA_EXCELENCIA->value);
+        $estudiante = Estudiante::factory()->create();
 
         $this->actingAs($secretaria);
 
-        Volt::test('matricula.wizard')
+        Volt::test('matricula.nueva.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->assertSet('tipoMatricula', 'curso_corto')
             ->assertDontSee('id="tipoMatricula"');
     }
 
-    public function test_el_wizard_ignora_un_intento_de_forzar_tipo_instituto_desde_secretaria_excelencia(): void
+    public function test_el_modulo_de_matricula_ignora_un_intento_de_forzar_tipo_instituto_desde_secretaria_excelencia(): void
     {
         $secretaria = User::factory()->create();
         $secretaria->assignRole(RolEnum::SECRETARIA_EXCELENCIA->value);
+        $estudiante = Estudiante::factory()->create();
 
         $this->actingAs($secretaria);
 
-        // Llega hasta el paso 5 (Matrícula) y simula la manipulación directa
-        // de wire:model al tipo que el selector (oculto) ya no ofrece.
-        Volt::test('matricula.wizard')
-            ->set('nombres', 'Rosa')
-            ->set('apellidos', 'Medina Luna')
-            ->set('dni', '55667988')
-            ->set('email', 'estudiante'.uniqid().'@example.com')
-            ->set('fechaNacimiento', now()->subYears(25)->format('Y-m-d'))
-            ->call('avanzar')
-            ->assertSet('paso', 3)
-            ->call('avanzar')
-            ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
+        // Simula la manipulación directa de wire:model al tipo que el
+        // selector (oculto) ya no ofrece.
+        Volt::test('matricula.nueva.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->set('tipoMatricula', 'instituto')
+            ->set('fechaMatricula', now()->format('Y-m-d'))
+            ->set('cursosCortoIds', [Curso::factory()->capacitacion()->create()->id])
             ->call('avanzar')
             ->assertSet('tipoMatricula', 'curso_corto');
     }
@@ -208,7 +205,7 @@ class SecretariaModalidadTest extends TestCase
         $secretaria->assignRole(RolEnum::SECRETARIA_INSTITUTO->value);
 
         $this->actingAs($secretaria)
-            ->get(route('matricula.carga-masiva'))
+            ->get(route('matriculas.carga-masiva'))
             ->assertOk();
     }
 }

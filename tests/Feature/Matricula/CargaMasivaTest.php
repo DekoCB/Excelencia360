@@ -115,7 +115,7 @@ class CargaMasivaTest extends TestCase
         $docente->assignRole(RolEnum::DOCENTE->value);
 
         $this->actingAs($docente)
-            ->get(route('matricula.carga-masiva'))
+            ->get(route('matriculas.carga-masiva'))
             ->assertForbidden();
     }
 }

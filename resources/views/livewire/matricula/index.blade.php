@@ -26,7 +26,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $tipoMatriculaFiltro = '';
 
-    public bool $mostrarWizard = false;
+    public bool $mostrarRegistro = false;
 
     // Búsqueda avanzada (§25 del prompt maestro): oculta por defecto para
     // no saturar el formulario simple de nombre/DNI + estado que cubre el
@@ -84,17 +84,17 @@ new #[Layout('layouts.app')] class extends Component
         session()->flash('status', $eliminados === 1 ? '1 estudiante eliminado.' : "{$eliminados} estudiantes eliminados.");
     }
 
-    #[On('wizard-cerrado')]
-    public function cerrarWizard(): void
+    #[On('registrar-cerrado')]
+    public function cerrarRegistro(): void
     {
-        $this->mostrarWizard = false;
+        $this->mostrarRegistro = false;
     }
 
-    #[On('matricula-registrada')]
-    public function matriculaRegistrada(int $estudianteId, string $nombre): void
+    #[On('estudiante-registrado')]
+    public function estudianteRegistrado(int $estudianteId, string $nombre): void
     {
-        $this->mostrarWizard = false;
-        session()->flash('status', "Matrícula de {$nombre} registrada correctamente.");
+        $this->mostrarRegistro = false;
+        session()->flash('status', "{$nombre} registrado correctamente.");
         session()->flash('estudianteRegistradoId', $estudianteId);
     }
 
@@ -217,13 +217,9 @@ new #[Layout('layouts.app')] class extends Component
                 <x-heroicon-o-arrow-up-tray class="h-4 w-4" />
                 Carga masiva de estudiantes
             </a>
-            <a href="{{ route('matricula.carga-masiva') }}" wire:navigate class="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-4 py-2 font-display text-sm font-medium text-ink transition hover:bg-surface-2">
-                <x-heroicon-o-arrow-up-tray class="h-4 w-4" />
-                Matrícula masiva
-            </a>
-            <x-primary-button type="button" wire:click="$set('mostrarWizard', true)" class="gap-2">
+            <x-primary-button type="button" wire:click="$set('mostrarRegistro', true)" class="gap-2">
                 <x-heroicon-o-plus class="h-4 w-4" />
-                Nueva matrícula
+                Registrar estudiante
             </x-primary-button>
         </div>
     @endcan
@@ -232,18 +228,21 @@ new #[Layout('layouts.app')] class extends Component
         <x-alert class="mb-4 flex items-center justify-between">
             <span>{{ session('status') }}</span>
             @if (session('estudianteRegistradoId'))
-                <button
-                    type="button"
-                    x-data
-                    x-on:click="$dispatch('ver-estudiante', { estudianteId: {{ session('estudianteRegistradoId') }} }); $dispatch('open-modal', 'ver-ficha')"
-                    class="font-medium underline"
-                >Ver ficha →</button>
+                <span class="flex items-center gap-3">
+                    <button
+                        type="button"
+                        x-data
+                        x-on:click="$dispatch('ver-estudiante', { estudianteId: {{ session('estudianteRegistradoId') }} }); $dispatch('open-modal', 'ver-ficha')"
+                        class="font-medium underline"
+                    >Ver ficha →</button>
+                    <a href="{{ route('matriculas.index', ['estudianteId' => session('estudianteRegistradoId')]) }}" wire:navigate class="font-medium underline">Matricular ahora →</a>
+                </span>
             @endif
         </x-alert>
     @endif
 
-    @if ($mostrarWizard)
-        <livewire:matricula.wizard wire:key="wizard-nueva-matricula" />
+    @if ($mostrarRegistro)
+        <livewire:matricula.registrar wire:key="registrar-estudiante" />
     @endif
 
     <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center">

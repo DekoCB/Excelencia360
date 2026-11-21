@@ -5,12 +5,6 @@
     'matriculas',
     'cursosCortos' => [],
     'cursosCortosDisponibles' => [],
-    'mostrandoFormCursoCorto' => false,
-    'cursoCortoNuevoId' => '',
-    'fechaInicioCursoCortoNuevo' => '',
-    'mostrandoFormNuevaMatricula' => false,
-    'nuevaMatriculaProgramaId' => '',
-    'programasDisponibles' => [],
     'certificadosSubidos' => [],
     'mostrandoFormCertificado' => false,
     'certificadoTipoNuevo' => '',
@@ -200,43 +194,14 @@
         </div>
     @endif
 
-    @if (count($cursosCortos) > 0 || $mostrandoFormCursoCorto || auth()->user()->can('matricula.editar'))
+    @if (count($cursosCortos) > 0 || auth()->user()->can('matricula.editar'))
         <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
             <div class="flex items-center justify-between">
                 <h2 class="text-sm font-semibold text-ink">Cursos cortos</h2>
                 @can('matricula.editar')
-                    @if (! $mostrandoFormCursoCorto)
-                        <button type="button" wire:click="mostrarFormCursoCorto" class="text-xs font-medium text-accent hover:underline">+ Matricular en curso corto</button>
-                    @endif
+                    <a href="{{ route('matriculas.index', ['estudianteId' => $estudiante->id]) }}" wire:navigate class="text-xs font-medium text-accent hover:underline">Matricular →</a>
                 @endcan
             </div>
-
-            @can('matricula.editar')
-                @if ($mostrandoFormCursoCorto)
-                    <form wire:submit="guardarCursoCorto" class="mt-4 space-y-3 rounded-xl border border-border bg-surface-2 p-4">
-                        <div>
-                            <x-input-label for="cursoCortoNuevoId" value="Curso" />
-                            <x-select-input
-                                wire:model="cursoCortoNuevoId"
-                                id="cursoCortoNuevoId"
-                                class="mt-1 block w-full"
-                                placeholder="Selecciona un curso…"
-                                :options="collect($cursosCortosDisponibles)->mapWithKeys(fn ($curso) => [$curso->id => $curso->nombre])"
-                            />
-                            <x-input-error :messages="$errors->get('cursoCortoNuevoId')" class="mt-1" />
-                        </div>
-                        <div>
-                            <x-input-label for="fechaInicioCursoCortoNuevo" value="Fecha de inicio" />
-                            <x-date-input wire:model="fechaInicioCursoCortoNuevo" id="fechaInicioCursoCortoNuevo" class="mt-1 block w-full" />
-                            <x-input-error :messages="$errors->get('fechaInicioCursoCortoNuevo')" class="mt-1" />
-                        </div>
-                        <div class="flex justify-end gap-2">
-                            <x-secondary-button type="button" wire:click="cancelarFormCursoCorto">Cancelar</x-secondary-button>
-                            <x-primary-button type="submit">Matricular</x-primary-button>
-                        </div>
-                    </form>
-                @endif
-            @endcan
 
             @if (count($cursosCortos) > 0)
             <div class="mt-4 divide-y divide-border">
@@ -269,7 +234,7 @@
                     </div>
                 @endforeach
             </div>
-            @elseif (! $mostrandoFormCursoCorto)
+            @else
                 <p class="mt-4 text-sm text-ink-faint">Sin cursos cortos registrados todavía.</p>
             @endif
         </div>
@@ -492,34 +457,9 @@
         <div class="flex items-center justify-between">
             <h2 class="text-sm font-semibold text-ink">Matrículas</h2>
             @can('matricula.editar')
-                @if (! $mostrandoFormNuevaMatricula)
-                    <button type="button" wire:click="mostrarFormNuevaMatricula" class="text-xs font-medium text-accent hover:underline">+ Nueva matrícula</button>
-                @endif
+                <a href="{{ route('matriculas.index', ['estudianteId' => $estudiante->id]) }}" wire:navigate class="text-xs font-medium text-accent hover:underline">Matricular →</a>
             @endcan
         </div>
-
-        @can('matricula.editar')
-            @if ($mostrandoFormNuevaMatricula)
-                <form wire:submit="guardarNuevaMatricula" class="mt-4 space-y-3 rounded-xl border border-border bg-surface-2 p-4">
-                    <div>
-                        <x-input-label for="nuevaMatriculaProgramaId" value="Programa de estudio" />
-                        <x-select-input
-                            wire:model="nuevaMatriculaProgramaId"
-                            id="nuevaMatriculaProgramaId"
-                            class="mt-1 block w-full"
-                            placeholder="Selecciona un programa…"
-                            :options="collect($programasDisponibles)->mapWithKeys(fn ($programa) => [$programa->id => $programa->nombre])"
-                        />
-                        <p class="mt-1 text-xs text-ink-faint">El semestre y el periodo académico se resuelven automáticamente: el siguiente que le corresponde según lo que ya cursó en este programa.</p>
-                        <x-input-error :messages="$errors->get('nuevaMatriculaProgramaId')" class="mt-1" />
-                    </div>
-                    <div class="flex justify-end gap-2">
-                        <x-secondary-button type="button" wire:click="cancelarFormNuevaMatricula">Cancelar</x-secondary-button>
-                        <x-primary-button type="submit">Matricular</x-primary-button>
-                    </div>
-                </form>
-            @endif
-        @endcan
 
         <div class="mt-4 divide-y divide-border">
             @forelse ($matriculas as $matricula)

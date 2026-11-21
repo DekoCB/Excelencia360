@@ -7,6 +7,12 @@ namespace App\Modules\Matricula\Exports;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 
+/**
+ * Solo las 4 primeras columnas (nombres, apellidos, dni, email) son
+ * obligatorias para MatriculaService::registrarEstudiantesDesdeFilas();
+ * todo lo que sigue (desde fecha_nacimiento) es opcional, de ahí que
+ * vayan en ese orden.
+ */
 class EstudiantesPlantillaExport implements FromArray, WithHeadings
 {
     public function headings(): array

@@ -98,6 +98,21 @@
             <span class="sidebar-label">Estudiantes</span>
         </a>
 
+        @can('matricula.crear')
+            <a
+                href="{{ route('matriculas.index') }}"
+                wire:navigate
+                @class([
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+                    'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('matriculas.*'),
+                    'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('matriculas.*'),
+                ])
+            >
+                <x-heroicon-o-clipboard-document-check class="h-5 w-5 shrink-0" />
+                <span class="sidebar-label">Matrícula</span>
+            </a>
+        @endcan
+
         @can('migraciones.ver')
             <a
                 href="{{ route('migraciones.index') }}"

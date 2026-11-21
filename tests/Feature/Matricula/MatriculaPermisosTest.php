@@ -55,7 +55,7 @@ class MatriculaPermisosTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_completar_el_wizard_registra_estudiante_y_matricula(): void
+    public function test_completar_el_registro_crea_al_estudiante_y_la_matricula_se_hace_aparte(): void
     {
         Storage::fake('public');
 
@@ -70,7 +70,7 @@ class MatriculaPermisosTest extends TestCase
 
         $this->actingAs($usuario);
 
-        Volt::test('matricula.wizard')
+        Volt::test('matricula.registrar')
             ->set('nombres', 'Luis')
             ->set('apellidos', 'Fernández Ruiz')
             ->set('dni', '55667788')
@@ -84,18 +84,23 @@ class MatriculaPermisosTest extends TestCase
             ->call('avanzar')
             ->assertHasNoErrors()
             ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
-            ->set('cicloId', (string) $ciclo->id)
-            ->set('gradoId', (string) $grado->id)
             ->call('confirmar')
             ->assertHasNoErrors()
-            ->assertDispatched('matricula-registrada');
+            ->assertDispatched('estudiante-registrado');
 
         $this->assertDatabaseHas('estudiantes', ['dni' => '55667788']);
         $estudiante = Estudiante::query()->where('dni', '55667788')->firstOrFail();
-        $this->assertDatabaseHas('matriculas', ['estudiante_id' => $estudiante->id, 'ciclo_id' => $ciclo->id]);
         $this->assertSame('Pendiente entregar certificado de estudios del colegio anterior.', $estudiante->observaciones);
+
+        Volt::test('matricula.nueva.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
+            ->set('cicloId', (string) $ciclo->id)
+            ->set('gradoId', (string) $grado->id)
+            ->call('avanzar')
+            ->call('confirmar')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('matriculas', ['estudiante_id' => $estudiante->id, 'ciclo_id' => $ciclo->id]);
     }
 
     public function test_el_paso_de_documentos_se_puede_saltar_sin_subir_ningun_archivo(): void
@@ -103,15 +108,9 @@ class MatriculaPermisosTest extends TestCase
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
 
-        $ciclo = Ciclo::factory()->activo()->create([
-            'fecha_inicio' => now()->subDays(20),
-            'fecha_fin' => now()->addMonths(5),
-        ]);
-        $grado = Grado::factory()->create();
-
         $this->actingAs($usuario);
 
-        Volt::test('matricula.wizard')
+        Volt::test('matricula.registrar')
             ->set('nombres', 'Diego')
             ->set('apellidos', 'Salazar Nuñez')
             ->set('dni', '55667966')
@@ -124,13 +123,9 @@ class MatriculaPermisosTest extends TestCase
             ->call('avanzar')
             ->assertHasNoErrors()
             ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
-            ->set('cicloId', (string) $ciclo->id)
-            ->set('gradoId', (string) $grado->id)
             ->call('confirmar')
             ->assertHasNoErrors()
-            ->assertDispatched('matricula-registrada');
+            ->assertDispatched('estudiante-registrado');
 
         $estudiante = Estudiante::query()->where('dni', '55667966')->firstOrFail();
         $this->assertCount(0, $estudiante->documentos);
@@ -143,15 +138,9 @@ class MatriculaPermisosTest extends TestCase
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
 
-        $ciclo = Ciclo::factory()->activo()->create([
-            'fecha_inicio' => now()->subDays(20),
-            'fecha_fin' => now()->addMonths(5),
-        ]);
-        $grado = Grado::factory()->create();
-
         $this->actingAs($usuario);
 
-        Volt::test('matricula.wizard')
+        Volt::test('matricula.registrar')
             ->set('nombres', 'Marisol')
             ->set('apellidos', 'Chuquimango Vera')
             ->set('dni', '55667799')
@@ -165,13 +154,9 @@ class MatriculaPermisosTest extends TestCase
             ->call('avanzar')
             ->assertHasNoErrors()
             ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
-            ->set('cicloId', (string) $ciclo->id)
-            ->set('gradoId', (string) $grado->id)
             ->call('confirmar')
             ->assertHasNoErrors()
-            ->assertDispatched('matricula-registrada');
+            ->assertDispatched('estudiante-registrado');
 
         $estudiante = Estudiante::query()->where('dni', '55667799')->firstOrFail();
         $documento = $estudiante->documentos()->where('tipo', 'dni_estudiante')->firstOrFail();
@@ -276,8 +261,6 @@ class MatriculaPermisosTest extends TestCase
 
     public function test_elegir_una_fecha_de_matricula_pasada_se_respeta_en_vez_de_usar_hoy(): void
     {
-        Storage::fake('public');
-
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
 
@@ -286,32 +269,20 @@ class MatriculaPermisosTest extends TestCase
             'fecha_fin' => now()->addMonths(5),
         ]);
         $grado = Grado::factory()->create();
+        $estudiante = Estudiante::factory()->create();
         $fechaElegida = now()->subDays(5)->format('Y-m-d');
 
         $this->actingAs($usuario);
 
-        Volt::test('matricula.wizard')
-            ->set('nombres', 'Oscar')
-            ->set('apellidos', 'Beltran Soto')
-            ->set('dni', '55667733')
-            ->set('email', 'estudiante'.uniqid().'@example.com')
-            ->set('fechaNacimiento', now()->subYears(27)->format('Y-m-d'))
-            ->call('avanzar')
-            ->assertHasNoErrors()
-            ->assertSet('paso', 3)
-            ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
-            ->call('avanzar')
-            ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
+        Volt::test('matricula.nueva.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->set('cicloId', (string) $ciclo->id)
             ->set('gradoId', (string) $grado->id)
             ->set('fechaMatricula', $fechaElegida)
+            ->call('avanzar')
             ->call('confirmar')
-            ->assertHasNoErrors()
-            ->assertDispatched('matricula-registrada');
+            ->assertHasNoErrors();
 
-        $estudiante = Estudiante::query()->where('dni', '55667733')->firstOrFail();
         $matricula = Matricula::query()->where('estudiante_id', $estudiante->id)->firstOrFail();
 
         $this->assertSame($fechaElegida, $matricula->fecha_matricula->format('Y-m-d'));
@@ -319,20 +290,12 @@ class MatriculaPermisosTest extends TestCase
 
     public function test_guardar_celulares_adicionales_para_un_estudiante_mayor_de_edad(): void
     {
-        Storage::fake('public');
-
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
 
-        $ciclo = Ciclo::factory()->activo()->create([
-            'fecha_inicio' => now()->subDays(20),
-            'fecha_fin' => now()->addMonths(5),
-        ]);
-        $grado = Grado::factory()->create();
-
         $this->actingAs($usuario);
 
-        Volt::test('matricula.wizard')
+        Volt::test('matricula.registrar')
             ->set('nombres', 'Patricia')
             ->set('apellidos', 'Salcedo Nina')
             ->set('dni', '55667722')
@@ -346,16 +309,11 @@ class MatriculaPermisosTest extends TestCase
             ->call('avanzar')
             ->assertHasNoErrors()
             ->assertSet('paso', 3)
-            ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
             ->call('avanzar')
             ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
-            ->set('cicloId', (string) $ciclo->id)
-            ->set('gradoId', (string) $grado->id)
             ->call('confirmar')
             ->assertHasNoErrors()
-            ->assertDispatched('matricula-registrada');
+            ->assertDispatched('estudiante-registrado');
 
         $estudiante = Estudiante::query()->where('dni', '55667722')->firstOrFail();
 
@@ -371,7 +329,7 @@ class MatriculaPermisosTest extends TestCase
 
         $this->actingAs($usuario);
 
-        Volt::test('matricula.wizard')
+        Volt::test('matricula.registrar')
             ->call('agregarCelular')
             ->set('celularesAdicionales.0', '912345678')
             ->call('agregarCelular')
@@ -406,44 +364,7 @@ class MatriculaPermisosTest extends TestCase
         $this->assertSame('application/pdf', $testable->effects['download']['contentType']);
     }
 
-    public function test_el_wizard_detecta_un_dni_existente_y_permite_rematricular_sin_repetir_los_datos(): void
-    {
-        $usuario = User::factory()->create();
-        $usuario->assignRole(RolEnum::COORDINADOR->value);
-
-        $ciclo = Ciclo::factory()->activo()->create([
-            'fecha_inicio' => now()->subDays(20),
-            'fecha_fin' => now()->addMonths(5),
-        ]);
-        $grado = Grado::factory()->create();
-
-        $estudiante = Estudiante::factory()->create(['dni' => '55667890']);
-
-        $this->actingAs($usuario);
-
-        Volt::test('matricula.wizard')
-            ->set('dni', '55667890')
-            ->set('email', 'estudiante'.uniqid().'@example.com')
-            ->assertSet('estudianteEncontradoId', $estudiante->id)
-            ->call('continuarComoRematricula')
-            ->assertSet('esRematricula', true)
-            ->assertSet('paso', 5)
-            ->set('cicloId', (string) $ciclo->id)
-            ->set('gradoId', (string) $grado->id)
-            ->call('confirmar')
-            ->assertHasNoErrors()
-            ->assertDispatched('matricula-registrada');
-
-        // No se crea una ficha nueva: sigue siendo el mismo estudiante, solo se le agrega la matrícula.
-        $this->assertDatabaseCount('estudiantes', 1);
-        $this->assertDatabaseHas('matriculas', [
-            'estudiante_id' => $estudiante->id,
-            'ciclo_id' => $ciclo->id,
-            'grado_id' => $grado->id,
-        ]);
-    }
-
-    public function test_el_wizard_sigue_bloqueando_avanzar_con_un_dni_ya_registrado_si_no_se_elige_rematricular(): void
+    public function test_registrar_con_un_dni_existente_muestra_error_en_vez_de_crear_un_duplicado(): void
     {
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
@@ -452,7 +373,7 @@ class MatriculaPermisosTest extends TestCase
 
         $this->actingAs($usuario);
 
-        Volt::test('matricula.wizard')
+        Volt::test('matricula.registrar')
             ->set('nombres', 'Otro')
             ->set('apellidos', 'Nombre')
             ->set('dni', '55667891')
@@ -465,41 +386,57 @@ class MatriculaPermisosTest extends TestCase
         $this->assertDatabaseCount('estudiantes', 1);
     }
 
-    public function test_elegir_curso_corto_en_el_wizard_salta_programa_y_semestre_y_matricula_al_curso(): void
+    public function test_un_estudiante_ya_registrado_se_puede_matricular_sin_repetir_sus_datos(): void
     {
-        Storage::fake('public');
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
 
+        $ciclo = Ciclo::factory()->activo()->create([
+            'fecha_inicio' => now()->subDays(20),
+            'fecha_fin' => now()->addMonths(5),
+        ]);
+        $grado = Grado::factory()->create();
+        $estudiante = Estudiante::factory()->create(['dni' => '55667890']);
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.nueva.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
+            ->set('cicloId', (string) $ciclo->id)
+            ->set('gradoId', (string) $grado->id)
+            ->call('avanzar')
+            ->call('confirmar')
+            ->assertHasNoErrors();
+
+        // No se crea una ficha nueva: sigue siendo el mismo estudiante, solo se le agrega la matrícula.
+        $this->assertDatabaseCount('estudiantes', 1);
+        $this->assertDatabaseHas('matriculas', [
+            'estudiante_id' => $estudiante->id,
+            'ciclo_id' => $ciclo->id,
+            'grado_id' => $grado->id,
+        ]);
+    }
+
+    public function test_elegir_curso_corto_en_el_modulo_de_matricula_salta_programa_y_semestre_y_matricula_al_curso(): void
+    {
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
 
         $curso = Curso::factory()->capacitacion()->create(['nombre' => 'Ofimática Básica']);
+        $estudiante = Estudiante::factory()->create();
 
         $this->actingAs($usuario);
 
-        Volt::test('matricula.wizard')
-            ->set('nombres', 'Hugo')
-            ->set('apellidos', 'Ramos Castro')
-            ->set('dni', '55667744')
-            ->set('email', 'estudiante'.uniqid().'@example.com')
-            ->set('fechaNacimiento', now()->subYears(25)->format('Y-m-d'))
-            ->call('avanzar')
-            ->assertSet('paso', 3)
-            ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
-            ->call('avanzar')
-            ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
+        Volt::test('matricula.nueva.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->set('tipoMatricula', 'curso_corto')
             ->set('cursosCortoIds.0', (string) $curso->id)
             ->set('fechaMatricula', now()->format('Y-m-d'))
             ->call('avanzar')
             ->assertHasNoErrors()
-            ->assertSet('paso', 6)
+            ->assertSet('paso', 2)
             ->call('confirmar')
-            ->assertHasNoErrors()
-            ->assertDispatched('matricula-registrada');
-
-        $estudiante = Estudiante::query()->where('dni', '55667744')->firstOrFail();
+            ->assertHasNoErrors();
 
         $this->assertDatabaseCount('matriculas', 0);
         $this->assertDatabaseHas('matriculas_curso_corto', [
@@ -508,31 +445,19 @@ class MatriculaPermisosTest extends TestCase
         ]);
     }
 
-    public function test_el_wizard_matricula_en_varios_cursos_cortos_a_la_vez(): void
+    public function test_el_modulo_de_matricula_matricula_en_varios_cursos_cortos_a_la_vez(): void
     {
-        Storage::fake('public');
-
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
 
         $cursoUno = Curso::factory()->capacitacion()->create(['nombre' => 'Ofimática Básica']);
         $cursoDos = Curso::factory()->capacitacion()->create(['nombre' => 'Inglés Básico']);
+        $estudiante = Estudiante::factory()->create();
 
         $this->actingAs($usuario);
 
-        Volt::test('matricula.wizard')
-            ->set('nombres', 'Milagros')
-            ->set('apellidos', 'Flores Campos')
-            ->set('dni', '55667746')
-            ->set('email', 'estudiante'.uniqid().'@example.com')
-            ->set('fechaNacimiento', now()->subYears(25)->format('Y-m-d'))
-            ->call('avanzar')
-            ->assertSet('paso', 3)
-            ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
-            ->call('avanzar')
-            ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
+        Volt::test('matricula.nueva.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->set('tipoMatricula', 'curso_corto')
             ->set('cursosCortoIds.0', (string) $cursoUno->id)
             ->call('agregarCursoCorto')
@@ -540,42 +465,27 @@ class MatriculaPermisosTest extends TestCase
             ->set('fechaMatricula', now()->format('Y-m-d'))
             ->call('avanzar')
             ->assertHasNoErrors()
-            ->assertSet('paso', 6)
+            ->assertSet('paso', 2)
             ->call('confirmar')
-            ->assertHasNoErrors()
-            ->assertDispatched('matricula-registrada');
-
-        $estudiante = Estudiante::query()->where('dni', '55667746')->firstOrFail();
+            ->assertHasNoErrors();
 
         $this->assertSame(2, $estudiante->cursosCortos()->count());
         $this->assertDatabaseHas('matriculas_curso_corto', ['estudiante_id' => $estudiante->id, 'curso_id' => $cursoUno->id]);
         $this->assertDatabaseHas('matriculas_curso_corto', ['estudiante_id' => $estudiante->id, 'curso_id' => $cursoDos->id]);
     }
 
-    public function test_el_wizard_rechaza_elegir_el_mismo_curso_corto_dos_veces(): void
+    public function test_el_modulo_de_matricula_rechaza_elegir_el_mismo_curso_corto_dos_veces(): void
     {
-        Storage::fake('public');
-
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
 
         $curso = Curso::factory()->capacitacion()->create();
+        $estudiante = Estudiante::factory()->create();
 
         $this->actingAs($usuario);
 
-        Volt::test('matricula.wizard')
-            ->set('nombres', 'Milagros')
-            ->set('apellidos', 'Flores Campos')
-            ->set('dni', '55667747')
-            ->set('email', 'estudiante'.uniqid().'@example.com')
-            ->set('fechaNacimiento', now()->subYears(25)->format('Y-m-d'))
-            ->call('avanzar')
-            ->assertSet('paso', 3)
-            ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
-            ->call('avanzar')
-            ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
+        Volt::test('matricula.nueva.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->set('tipoMatricula', 'curso_corto')
             ->set('cursosCortoIds.0', (string) $curso->id)
             ->call('agregarCursoCorto')
@@ -585,50 +495,33 @@ class MatriculaPermisosTest extends TestCase
             ->assertHasErrors(['cursosCortoIds.0', 'cursosCortoIds.1']);
     }
 
-    public function test_el_wizard_no_crea_plan_de_pago_al_matricular_un_curso_corto(): void
+    public function test_el_modulo_de_matricula_no_crea_plan_de_pago_al_matricular_un_curso_corto(): void
     {
-        Storage::fake('public');
-
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
 
         $curso = Curso::factory()->capacitacion()->create();
+        $estudiante = Estudiante::factory()->create();
 
         $this->actingAs($usuario);
 
-        Volt::test('matricula.wizard')
-            ->set('nombres', 'Elena')
-            ->set('apellidos', 'Quiroz Paz')
-            ->set('dni', '55667745')
-            ->set('email', 'estudiante'.uniqid().'@example.com')
-            ->set('fechaNacimiento', now()->subYears(25)->format('Y-m-d'))
-            ->call('avanzar')
-            ->assertSet('paso', 3)
-            ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
-            ->call('avanzar')
-            ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
+        Volt::test('matricula.nueva.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->set('tipoMatricula', 'curso_corto')
             ->set('cursosCortoIds.0', (string) $curso->id)
             ->set('fechaMatricula', now()->format('Y-m-d'))
             ->call('avanzar')
-            ->assertSet('paso', 6)
+            ->assertSet('paso', 2)
             ->call('confirmar')
-            ->assertHasNoErrors()
-            ->assertDispatched('matricula-registrada');
-
-        $estudiante = Estudiante::query()->where('dni', '55667745')->firstOrFail();
+            ->assertHasNoErrors();
 
         $this->assertDatabaseMissing('planes_pago', ['matricula_id' => null]);
         $this->assertSame(0, PlanPago::query()->count());
         $this->assertSame(0, $estudiante->matriculas()->count());
     }
 
-    public function test_el_wizard_configura_un_cronograma_de_pagos_personalizado_al_matricular(): void
+    public function test_el_modulo_de_matricula_configura_un_cronograma_de_pagos_personalizado(): void
     {
-        Storage::fake('public');
-
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
 
@@ -637,29 +530,19 @@ class MatriculaPermisosTest extends TestCase
             'fecha_fin' => now()->addMonths(5),
         ]);
         $grado = Grado::factory()->create();
+        $estudiante = Estudiante::factory()->create();
 
         $this->actingAs($usuario);
 
         $fechaCuotaAjustada = now()->addDays(5)->format('Y-m-d');
 
-        Volt::test('matricula.wizard')
-            ->set('nombres', 'Marisol')
-            ->set('apellidos', 'Peña Ríos')
-            ->set('dni', '55667799')
-            ->set('email', 'estudiante'.uniqid().'@example.com')
-            ->set('fechaNacimiento', now()->subYears(30)->format('Y-m-d'))
-            ->call('avanzar')
-            ->assertSet('paso', 3)
-            ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
-            ->call('avanzar')
-            ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
+        Volt::test('matricula.nueva.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->set('cicloId', (string) $ciclo->id)
             ->set('gradoId', (string) $grado->id)
             ->call('avanzar')
             ->assertHasNoErrors()
-            ->assertSet('paso', 6)
+            ->assertSet('paso', 2)
             ->set('configurarCronograma', true)
             ->set('numeroCuotasCronograma', '6')
             ->set('montoTotalCronograma', '600')
@@ -670,10 +553,8 @@ class MatriculaPermisosTest extends TestCase
             ->set('cuotaMontos.1', '150')
             ->set('cuotaFechas.1', $fechaCuotaAjustada)
             ->call('confirmar')
-            ->assertHasNoErrors()
-            ->assertDispatched('matricula-registrada');
+            ->assertHasNoErrors();
 
-        $estudiante = Estudiante::query()->where('dni', '55667799')->firstOrFail();
         $matricula = $estudiante->matriculas()->firstOrFail();
         $plan = PlanPago::query()->where('matricula_id', $matricula->id)->with('cuotas')->firstOrFail();
 
@@ -685,10 +566,8 @@ class MatriculaPermisosTest extends TestCase
         $this->assertSame('650.00', $plan->monto_total);
     }
 
-    public function test_el_wizard_no_crea_plan_de_pago_si_no_se_configura_cronograma(): void
+    public function test_el_modulo_de_matricula_no_crea_plan_de_pago_si_no_se_configura_cronograma(): void
     {
-        Storage::fake('public');
-
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
 
@@ -697,31 +576,19 @@ class MatriculaPermisosTest extends TestCase
             'fecha_fin' => now()->addMonths(5),
         ]);
         $grado = Grado::factory()->create();
+        $estudiante = Estudiante::factory()->create();
 
         $this->actingAs($usuario);
 
-        Volt::test('matricula.wizard')
-            ->set('nombres', 'Renzo')
-            ->set('apellidos', 'Villar Soto')
-            ->set('dni', '55667700')
-            ->set('email', 'estudiante'.uniqid().'@example.com')
-            ->set('fechaNacimiento', now()->subYears(30)->format('Y-m-d'))
-            ->call('avanzar')
-            ->assertSet('paso', 3)
-            ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
-            ->call('avanzar')
-            ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
+        Volt::test('matricula.nueva.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->set('cicloId', (string) $ciclo->id)
             ->set('gradoId', (string) $grado->id)
             ->call('avanzar')
-            ->assertSet('paso', 6)
+            ->assertSet('paso', 2)
             ->call('confirmar')
-            ->assertHasNoErrors()
-            ->assertDispatched('matricula-registrada');
+            ->assertHasNoErrors();
 
-        $estudiante = Estudiante::query()->where('dni', '55667700')->firstOrFail();
         $matricula = $estudiante->matriculas()->firstOrFail();
 
         $this->assertDatabaseMissing('planes_pago', ['matricula_id' => $matricula->id]);
@@ -734,8 +601,6 @@ class MatriculaPermisosTest extends TestCase
      */
     public function test_confirmar_matricula_con_cargos_adicionales_crea_los_registros_correctos(): void
     {
-        Storage::fake('public');
-
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
 
@@ -744,26 +609,16 @@ class MatriculaPermisosTest extends TestCase
             'fecha_fin' => now()->addMonths(5),
         ]);
         $grado = Grado::factory()->create();
+        $estudiante = Estudiante::factory()->create();
 
         $this->actingAs($usuario);
 
-        Volt::test('matricula.wizard')
-            ->set('nombres', 'Camila')
-            ->set('apellidos', 'Rojas Díaz')
-            ->set('dni', '55667711')
-            ->set('email', 'estudiante'.uniqid().'@example.com')
-            ->set('fechaNacimiento', now()->subYears(30)->format('Y-m-d'))
-            ->call('avanzar')
-            ->assertSet('paso', 3)
-            ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
-            ->call('avanzar')
-            ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
+        Volt::test('matricula.nueva.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->set('cicloId', (string) $ciclo->id)
             ->set('gradoId', (string) $grado->id)
             ->call('avanzar')
-            ->assertSet('paso', 6)
+            ->assertSet('paso', 2)
             ->call('agregarCargoAdicional')
             ->call('agregarCargoAdicional')
             ->set('cargosAdicionales.0.concepto', 'Convalidación')
@@ -771,10 +626,8 @@ class MatriculaPermisosTest extends TestCase
             ->set('cargosAdicionales.1.concepto', 'Exoneración')
             ->set('cargosAdicionales.1.monto', '30')
             ->call('confirmar')
-            ->assertHasNoErrors()
-            ->assertDispatched('matricula-registrada');
+            ->assertHasNoErrors();
 
-        $estudiante = Estudiante::query()->where('dni', '55667711')->firstOrFail();
         $cargos = CargoAdicional::query()->where('estudiante_id', $estudiante->id)->get();
 
         $this->assertCount(2, $cargos);
@@ -785,8 +638,6 @@ class MatriculaPermisosTest extends TestCase
 
     public function test_confirmar_matricula_ignora_una_fila_de_cargo_adicional_completamente_vacia(): void
     {
-        Storage::fake('public');
-
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
 
@@ -795,40 +646,25 @@ class MatriculaPermisosTest extends TestCase
             'fecha_fin' => now()->addMonths(5),
         ]);
         $grado = Grado::factory()->create();
+        $estudiante = Estudiante::factory()->create();
 
         $this->actingAs($usuario);
 
-        Volt::test('matricula.wizard')
-            ->set('nombres', 'Camila')
-            ->set('apellidos', 'Rojas Díaz')
-            ->set('dni', '55667712')
-            ->set('email', 'estudiante'.uniqid().'@example.com')
-            ->set('fechaNacimiento', now()->subYears(30)->format('Y-m-d'))
-            ->call('avanzar')
-            ->assertSet('paso', 3)
-            ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
-            ->call('avanzar')
-            ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
+        Volt::test('matricula.nueva.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->set('cicloId', (string) $ciclo->id)
             ->set('gradoId', (string) $grado->id)
             ->call('avanzar')
-            ->assertSet('paso', 6)
+            ->assertSet('paso', 2)
             ->call('agregarCargoAdicional')
             ->call('confirmar')
-            ->assertHasNoErrors()
-            ->assertDispatched('matricula-registrada');
-
-        $estudiante = Estudiante::query()->where('dni', '55667712')->firstOrFail();
+            ->assertHasNoErrors();
 
         $this->assertSame(0, CargoAdicional::query()->where('estudiante_id', $estudiante->id)->count());
     }
 
     public function test_confirmar_matricula_exige_el_monto_si_una_fila_de_cargo_adicional_tiene_concepto(): void
     {
-        Storage::fake('public');
-
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
 
@@ -837,45 +673,34 @@ class MatriculaPermisosTest extends TestCase
             'fecha_fin' => now()->addMonths(5),
         ]);
         $grado = Grado::factory()->create();
+        $estudiante = Estudiante::factory()->create();
 
         $this->actingAs($usuario);
 
-        Volt::test('matricula.wizard')
-            ->set('nombres', 'Camila')
-            ->set('apellidos', 'Rojas Díaz')
-            ->set('dni', '55667713')
-            ->set('email', 'estudiante'.uniqid().'@example.com')
-            ->set('fechaNacimiento', now()->subYears(30)->format('Y-m-d'))
-            ->call('avanzar')
-            ->assertSet('paso', 3)
-            ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
-            ->call('avanzar')
-            ->assertSet('paso', 4)
-            ->call('avanzar')
-            ->assertSet('paso', 5)
+        Volt::test('matricula.nueva.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->set('cicloId', (string) $ciclo->id)
             ->set('gradoId', (string) $grado->id)
             ->call('avanzar')
-            ->assertSet('paso', 6)
+            ->assertSet('paso', 2)
             ->call('agregarCargoAdicional')
             ->set('cargosAdicionales.0.concepto', 'Convalidación')
             ->call('confirmar')
-            ->assertHasErrors(['cargosAdicionales.0.concepto'])
-            ->assertNotDispatched('matricula-registrada');
+            ->assertHasErrors(['cargosAdicionales.0.concepto']);
 
-        $this->assertDatabaseMissing('estudiantes', ['dni' => '55667713']);
+        $this->assertSame(0, $estudiante->matriculas()->count());
     }
 
-    public function test_cancelar_el_wizard_dispara_el_evento_que_cierra_el_modal(): void
+    public function test_cancelar_el_registro_dispara_el_evento_que_cierra_el_modal(): void
     {
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
 
         $this->actingAs($usuario);
 
-        Volt::test('matricula.wizard')
+        Volt::test('matricula.registrar')
             ->call('cancelar')
-            ->assertDispatched('wizard-cerrado');
+            ->assertDispatched('registrar-cerrado');
     }
 
     public function test_el_buscador_de_estudiantes_muestra_sugerencias_y_filtra(): void
@@ -898,7 +723,7 @@ class MatriculaPermisosTest extends TestCase
             ->assertDontSee('Gonzalo Torres Diaz');
     }
 
-    public function test_el_listado_abre_y_cierra_el_modal_del_wizard(): void
+    public function test_el_listado_abre_y_cierra_el_modal_de_registro(): void
     {
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
@@ -906,11 +731,11 @@ class MatriculaPermisosTest extends TestCase
         $this->actingAs($usuario);
 
         Volt::test('matricula.index')
-            ->assertSet('mostrarWizard', false)
-            ->set('mostrarWizard', true)
-            ->assertSet('mostrarWizard', true)
-            ->call('cerrarWizard')
-            ->assertSet('mostrarWizard', false);
+            ->assertSet('mostrarRegistro', false)
+            ->set('mostrarRegistro', true)
+            ->assertSet('mostrarRegistro', true)
+            ->call('cerrarRegistro')
+            ->assertSet('mostrarRegistro', false);
     }
 
     public function test_guardar_observaciones_desde_la_pagina_completa_de_la_ficha(): void
@@ -1144,7 +969,7 @@ class MatriculaPermisosTest extends TestCase
         Volt::test('matricula.show', ['estudiante' => $estudiante])
             ->assertSee('Cursos cortos')
             ->assertSee('Sin cursos cortos registrados todavía.')
-            ->assertSee('Matricular en curso corto');
+            ->assertSee('Matricular →');
     }
 
     public function test_la_ficha_no_muestra_la_tarjeta_de_cursos_cortos_sin_permiso_de_editar(): void
@@ -1218,70 +1043,6 @@ class MatriculaPermisosTest extends TestCase
             ->assertForbidden();
 
         $this->assertSame('activo', $cursoCorto->fresh()->estado->value);
-    }
-
-    public function test_matricular_a_un_estudiante_en_otro_curso_corto_desde_la_ficha(): void
-    {
-        $usuario = User::factory()->create();
-        $usuario->assignRole(RolEnum::COORDINADOR->value);
-
-        $estudiante = Estudiante::factory()->create();
-        $curso = Curso::factory()->capacitacion()->create(['nombre' => 'Contabilidad Básica']);
-
-        $this->actingAs($usuario);
-
-        Volt::test('matricula.show', ['estudiante' => $estudiante])
-            ->call('mostrarFormCursoCorto')
-            ->set('cursoCortoNuevoId', (string) $curso->id)
-            ->set('fechaInicioCursoCortoNuevo', now()->format('Y-m-d'))
-            ->call('guardarCursoCorto')
-            ->assertHasNoErrors();
-
-        $this->assertDatabaseHas('matriculas_curso_corto', [
-            'estudiante_id' => $estudiante->id,
-            'curso_id' => $curso->id,
-        ]);
-    }
-
-    public function test_matricular_en_curso_corto_desde_el_modal_de_ficha(): void
-    {
-        $usuario = User::factory()->create();
-        $usuario->assignRole(RolEnum::COORDINADOR->value);
-
-        $estudiante = Estudiante::factory()->create();
-        $curso = Curso::factory()->capacitacion()->create();
-
-        $this->actingAs($usuario);
-
-        Volt::test('matricula.ficha-modal')
-            ->call('abrir', $estudiante->id)
-            ->call('mostrarFormCursoCorto')
-            ->set('cursoCortoNuevoId', (string) $curso->id)
-            ->set('fechaInicioCursoCortoNuevo', now()->format('Y-m-d'))
-            ->call('guardarCursoCorto')
-            ->assertHasNoErrors();
-
-        $this->assertDatabaseHas('matriculas_curso_corto', [
-            'estudiante_id' => $estudiante->id,
-            'curso_id' => $curso->id,
-        ]);
-    }
-
-    public function test_no_se_puede_matricular_en_curso_corto_desde_la_ficha_sin_el_permiso_de_editar_matricula(): void
-    {
-        $docente = User::factory()->create();
-        $docente->assignRole(RolEnum::DOCENTE->value);
-        $docente->givePermissionTo('matricula.ver');
-
-        $estudiante = Estudiante::factory()->create();
-
-        $this->actingAs($docente);
-
-        Volt::test('matricula.show', ['estudiante' => $estudiante])
-            ->call('mostrarFormCursoCorto')
-            ->assertForbidden();
-
-        $this->assertSame(0, $estudiante->cursosCortos()->count());
     }
 
     public function test_coordinador_edita_los_datos_personales_desde_la_ficha_completa(): void
