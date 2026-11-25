@@ -284,20 +284,19 @@ class HorarioCursoCortoTest extends TestCase
             ->set('cursoId', (string) $curso->id)
             ->set('docenteId', (string) $docente->id)
             ->set('aulaId', (string) $aula->id)
-            ->set('franjasSeleccionadas', ['sabados_domingos'])
             ->set('conHoraDefinida', true)
-            ->set('horaInicioHora12PorDia.sabado', '04')
-            ->set('horaInicioMinutoPorDia.sabado', '00')
-            ->set('horaInicioAmPmPorDia.sabado', 'PM')
-            ->set('horaFinHora12PorDia.sabado', '05')
-            ->set('horaFinMinutoPorDia.sabado', '00')
-            ->set('horaFinAmPmPorDia.sabado', 'PM')
-            ->set('horaInicioHora12PorDia.domingo', '09')
-            ->set('horaInicioMinutoPorDia.domingo', '00')
-            ->set('horaInicioAmPmPorDia.domingo', 'AM')
-            ->set('horaFinHora12PorDia.domingo', '10')
-            ->set('horaFinMinutoPorDia.domingo', '00')
-            ->set('horaFinAmPmPorDia.domingo', 'AM')
+            ->set('bloques', [
+                [
+                    'dia' => 'sabado',
+                    'horaInicioHora' => '04', 'horaInicioMinuto' => '00', 'horaInicioAmPm' => 'PM',
+                    'horaFinHora' => '05', 'horaFinMinuto' => '00', 'horaFinAmPm' => 'PM',
+                ],
+                [
+                    'dia' => 'domingo',
+                    'horaInicioHora' => '09', 'horaInicioMinuto' => '00', 'horaInicioAmPm' => 'AM',
+                    'horaFinHora' => '10', 'horaFinMinuto' => '00', 'horaFinAmPm' => 'AM',
+                ],
+            ])
             ->call('guardar')
             ->assertHasNoErrors();
 

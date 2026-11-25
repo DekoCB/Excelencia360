@@ -64,12 +64,15 @@ new #[Layout('layouts.app')] class extends Component
     public bool $horarioLibre = false;
 
     /**
-     * Al crear: las franjas institucionales marcadas (pueden combinarse
-     * más de una a la vez). Al editar, en cambio, se usan los días
-     * sueltos ya reales del horario (ver $diasSueltosSeleccionados) --
-     * después de un arrastre en la pestaña "Editar" los días pueden no
-     * calzar ya con ninguna franja fija, así que editar no puede seguir
-     * atado a la abstracción de franjas.
+     * Solo para el caso "sin hora definida" (ver $conHoraDefinida): al
+     * crear, las franjas institucionales marcadas (pueden combinarse más
+     * de una a la vez); al editar, los días sueltos ya reales del horario
+     * (ver $diasSueltosSeleccionados) -- después de un arrastre en la
+     * pestaña "Editar" los días pueden no calzar ya con ninguna franja
+     * fija, así que editar no puede seguir atado a la abstracción de
+     * franjas. Cuando SÍ hay hora definida, el día de cada bloque se
+     * elige dentro del propio bloque (ver $bloques) y estas dos
+     * propiedades no se usan.
      *
      * @var list<string>
      */
@@ -80,34 +83,19 @@ new #[Layout('layouts.app')] class extends Component
      */
     public array $diasSueltosSeleccionados = [];
 
-    /** @var array<string, string> */
-    public array $horaInicioHoraPorDia = [];
-
-    /** @var array<string, string> */
-    public array $horaInicioMinutoPorDia = [];
-
-    /** @var array<string, string> */
-    public array $horaFinHoraPorDia = [];
-
-    /** @var array<string, string> */
-    public array $horaFinMinutoPorDia = [];
-
-    // Curso corto: mismo dato que horaInicioHoraPorDia/horaFinHoraPorDia
-    // pero en formato 12h (01-12) + horaInicioAmPmPorDia/horaFinAmPmPorDia
-    // -- el selector de Instituto sigue siendo 24h sin cambios, así que no
-    // se reutilizan las mismas propiedades (evita tocar ese camino, ya
-    // cubierto por 22 tests existentes).
-    /** @var array<string, string> */
-    public array $horaInicioHora12PorDia = [];
-
-    /** @var array<string, string> */
-    public array $horaInicioAmPmPorDia = [];
-
-    /** @var array<string, string> */
-    public array $horaFinHora12PorDia = [];
-
-    /** @var array<string, string> */
-    public array $horaFinAmPmPorDia = [];
+    /**
+     * Un Horario puede tener varios bloques de horas el mismo día de
+     * semana (ej. lunes mañana y lunes tarde) -- cada bloque elige su
+     * propio día, así que ya no hay "un slot por día"; agregar dos
+     * bloques con el mismo día cubre ese caso sin lógica especial (el
+     * no-solape entre ellos lo valida HorarioService::validarDias()).
+     * Para curso corto, horaInicioHora/horaFinHora guardan la hora en
+     * formato 12h (01-12) y horaInicioAmPm/horaFinAmPm se usan; para
+     * Instituto son 24h (00-23) y los AmPm quedan vacíos.
+     *
+     * @var list<array{dia: string, horaInicioHora: string, horaInicioMinuto: string, horaInicioAmPm: string, horaFinHora: string, horaFinMinuto: string, horaFinAmPm: string}>
+     */
+    public array $bloques = [];
 
     /**
      * Las 2 franjas institucionales, salvo que el curso elegido tenga
@@ -171,17 +159,6 @@ new #[Layout('layouts.app')] class extends Component
     }
 
     /**
-     * Minutos en pasos de 15: los horarios de la institución siempre caen en
-     * una hora exacta o cuarto, y un selector de 60 opciones sería incómodo.
-     *
-     * @return array<string, string>
-     */
-    public function minutosDisponibles(): array
-    {
-        return ['00' => '00', '15' => '15', '30' => '30', '45' => '45'];
-    }
-
-    /**
      * Horas en formato 12h (01-12), para el selector de curso corto.
      *
      * @return array<string, string>
@@ -231,6 +208,51 @@ new #[Layout('layouts.app')] class extends Component
         return [sprintf('%02d', $hora12), $ampm];
     }
 
+    /**
+     * @return array{dia: string, horaInicioHora: string, horaInicioMinuto: string, horaInicioAmPm: string, horaFinHora: string, horaFinMinuto: string, horaFinAmPm: string}
+     */
+    private function bloqueVacio(): array
+    {
+        return [
+            'dia' => '',
+            'horaInicioHora' => '',
+            'horaInicioMinuto' => '',
+            'horaInicioAmPm' => '',
+            'horaFinHora' => '',
+            'horaFinMinuto' => '',
+            'horaFinAmPm' => '',
+        ];
+    }
+
+    public function agregarBloque(): void
+    {
+        $this->bloques[] = $this->bloqueVacio();
+    }
+
+    public function quitarBloque(int $indice): void
+    {
+        unset($this->bloques[$indice]);
+        $this->bloques = array_values($this->bloques);
+    }
+
+    /**
+     * Los días que el bloque puede elegir: todos, salvo que el curso
+     * elegido tenga franjas propias restringidas en su ficha
+     * (Curso::franjas_permitidas), en cuyo caso solo los días de esas
+     * franjas -- misma regla de negocio que antes aplicaba a
+     * $franjasSeleccionadas, ahora expresada como lista de días.
+     *
+     * @return array<string, string>
+     */
+    private function diasDisponiblesParaBloques(): array
+    {
+        return collect(array_keys($this->franjasDisponibles()))
+            ->flatMap(fn (string $valor) => FranjaHorarioEnum::from($valor)->dias())
+            ->unique(fn (DiaSemanaEnum $dia) => $dia->value)
+            ->mapWithKeys(fn (DiaSemanaEnum $dia) => [$dia->value => $dia->label()])
+            ->all();
+    }
+
     public function mount(): void
     {
         Gate::authorize('academico.ver');
@@ -246,15 +268,14 @@ new #[Layout('layouts.app')] class extends Component
         $this->resetValidation();
         $this->reset([
             'editandoId', 'tipo', 'cursoId', 'docenteId', 'aulaId', 'programaEstudioId', 'gradoId', 'conHoraDefinida', 'horarioLibre',
-            'franjasSeleccionadas', 'diasSueltosSeleccionados',
-            'horaInicioHoraPorDia', 'horaInicioMinutoPorDia', 'horaFinHoraPorDia', 'horaFinMinutoPorDia',
-            'horaInicioHora12PorDia', 'horaInicioAmPmPorDia', 'horaFinHora12PorDia', 'horaFinAmPmPorDia',
+            'franjasSeleccionadas', 'diasSueltosSeleccionados', 'bloques',
         ]);
         // Ya sabe qué tipo de horario crear según la pestaña de calendario
         // desde la que se abrió -- ver updatedTipo() para lo que cambia.
         $this->tipo = $this->calendarioTipo;
         $this->cicloId = $this->tipo === 'curso_corto' ? '' : $this->cicloFiltro;
         $this->conHoraDefinida = $this->tipo !== 'curso_corto';
+        $this->bloques = $this->conHoraDefinida ? [$this->bloqueVacio()] : [];
         $this->mostrarModal = true;
     }
 
@@ -279,6 +300,8 @@ new #[Layout('layouts.app')] class extends Component
             $this->cicloId = $this->cicloFiltro;
             $this->conHoraDefinida = true;
         }
+
+        $this->bloques = $this->conHoraDefinida ? [$this->bloqueVacio()] : [];
     }
 
     public function updatedHorarioLibre(): void
@@ -287,6 +310,19 @@ new #[Layout('layouts.app')] class extends Component
             $this->conHoraDefinida = false;
             $this->franjasSeleccionadas = [];
             $this->diasSueltosSeleccionados = [];
+            $this->bloques = [];
+        }
+    }
+
+    /**
+     * Al activar "Definir hora de clase" arranca con un bloque vacío para
+     * no mostrar la lista de bloques completamente en blanco sin ningún
+     * botón visible más que "+ Agregar bloque".
+     */
+    public function updatedConHoraDefinida(): void
+    {
+        if ($this->conHoraDefinida && $this->bloques === []) {
+            $this->bloques = [$this->bloqueVacio()];
         }
     }
 
@@ -312,42 +348,63 @@ new #[Layout('layouts.app')] class extends Component
         $this->docenteId = (string) $horario->docente_id;
         $this->aulaId = (string) $horario->aula_id;
         $this->franjasSeleccionadas = [];
-        $this->diasSueltosSeleccionados = $horario->dias->pluck('dia_semana.value')->all();
         $this->horarioLibre = $horario->esDeCursoCorto() && $horario->dias->isEmpty();
-
-        $this->horaInicioHoraPorDia = [];
-        $this->horaInicioMinutoPorDia = [];
-        $this->horaFinHoraPorDia = [];
-        $this->horaFinMinutoPorDia = [];
-        $this->horaInicioHora12PorDia = [];
-        $this->horaInicioAmPmPorDia = [];
-        $this->horaFinHora12PorDia = [];
-        $this->horaFinAmPmPorDia = [];
         $this->conHoraDefinida = $horario->dias->contains(fn (HorarioDia $dia) => $dia->hora_inicio !== null);
 
-        foreach ($horario->dias as $dia) {
-            if ($dia->hora_inicio === null || $dia->hora_fin === null) {
-                continue;
-            }
-
-            [$horaInicio, $minutoInicio] = explode(':', $dia->hora_inicio);
-            [$horaFin, $minutoFin] = explode(':', $dia->hora_fin);
-            $this->horaInicioHoraPorDia[$dia->dia_semana->value] = $horaInicio;
-            $this->horaInicioMinutoPorDia[$dia->dia_semana->value] = $minutoInicio;
-            $this->horaFinHoraPorDia[$dia->dia_semana->value] = $horaFin;
-            $this->horaFinMinutoPorDia[$dia->dia_semana->value] = $minutoFin;
-
-            [$this->horaInicioHora12PorDia[$dia->dia_semana->value], $this->horaInicioAmPmPorDia[$dia->dia_semana->value]] = $this->hora24A12($horaInicio);
-            [$this->horaFinHora12PorDia[$dia->dia_semana->value], $this->horaFinAmPmPorDia[$dia->dia_semana->value]] = $this->hora24A12($horaFin);
+        if ($this->conHoraDefinida) {
+            $this->diasSueltosSeleccionados = [];
+            $this->bloques = $horario->dias
+                ->filter(fn (HorarioDia $dia) => $dia->hora_inicio !== null)
+                ->map(fn (HorarioDia $dia) => $this->bloqueDesdeHorarioDia($dia))
+                ->values()
+                ->all();
+        } else {
+            $this->diasSueltosSeleccionados = $horario->dias->pluck('dia_semana.value')->all();
+            $this->bloques = [];
         }
 
         $this->mostrarModal = true;
     }
 
     /**
-     * Los días efectivos sobre los que se piden horas y se arma el
-     * horario: la unión de las franjas marcadas al crear, o los días
-     * sueltos ya elegidos al editar.
+     * @return array{dia: string, horaInicioHora: string, horaInicioMinuto: string, horaInicioAmPm: string, horaFinHora: string, horaFinMinuto: string, horaFinAmPm: string}
+     */
+    private function bloqueDesdeHorarioDia(HorarioDia $dia): array
+    {
+        [$horaInicio, $minutoInicio] = explode(':', $dia->hora_inicio);
+        [$horaFin, $minutoFin] = explode(':', $dia->hora_fin);
+
+        if ($this->tipo === 'curso_corto') {
+            [$horaInicio12, $amPmInicio] = $this->hora24A12($horaInicio);
+            [$horaFin12, $amPmFin] = $this->hora24A12($horaFin);
+
+            return [
+                'dia' => $dia->dia_semana->value,
+                'horaInicioHora' => $horaInicio12,
+                'horaInicioMinuto' => $minutoInicio,
+                'horaInicioAmPm' => $amPmInicio,
+                'horaFinHora' => $horaFin12,
+                'horaFinMinuto' => $minutoFin,
+                'horaFinAmPm' => $amPmFin,
+            ];
+        }
+
+        return [
+            'dia' => $dia->dia_semana->value,
+            'horaInicioHora' => $horaInicio,
+            'horaInicioMinuto' => $minutoInicio,
+            'horaInicioAmPm' => '',
+            'horaFinHora' => $horaFin,
+            'horaFinMinuto' => $minutoFin,
+            'horaFinAmPm' => '',
+        ];
+    }
+
+    /**
+     * Los días efectivos del caso "sin hora definida": la unión de las
+     * franjas marcadas al crear, o los días sueltos ya elegidos al
+     * editar. Cuando SÍ hay hora definida, los días salen directamente de
+     * cada bloque (ver $bloques) -- este método no aplica a ese caso.
      *
      * @return list<DiaSemanaEnum>
      */
@@ -372,7 +429,6 @@ new #[Layout('layouts.app')] class extends Component
     {
         Gate::authorize('academico.gestionar');
 
-        $dias = $this->diasEfectivos();
         $esCursoCorto = $this->tipo === 'curso_corto';
         $horarioLibre = $esCursoCorto && $this->horarioLibre;
         $pideHoras = ! $horarioLibre && $this->conHoraDefinida;
@@ -393,31 +449,36 @@ new #[Layout('layouts.app')] class extends Component
             $reglas['gradoId'] = 'required|integer|exists:grados,id';
         }
 
-        if (! $horarioLibre) {
+        if ($pideHoras) {
+            $diasPermitidos = array_keys($this->diasDisponiblesParaBloques());
+            $reglas['bloques'] = 'required|array|min:1';
+
+            foreach ($this->bloques as $indice => $bloque) {
+                $reglas["bloques.{$indice}.dia"] = 'required|string|in:'.implode(',', $diasPermitidos);
+                // numeric, no integer: "00" (el minuto tal como viene de la
+                // BD, p.ej. de "18:00:00") no pasa la regla "integer" de
+                // Laravel -- exige que (string)(int)$valor === $valor, y
+                // "00" !== "0".
+                $reglas["bloques.{$indice}.horaInicioMinuto"] = 'required|numeric|min:0|max:59';
+                $reglas["bloques.{$indice}.horaFinMinuto"] = 'required|numeric|min:0|max:59';
+
+                if ($esCursoCorto) {
+                    $reglas["bloques.{$indice}.horaInicioHora"] = 'required|string|in:'.implode(',', array_keys($this->horas12Disponibles()));
+                    $reglas["bloques.{$indice}.horaInicioAmPm"] = 'required|string|in:'.implode(',', array_keys($this->amPmDisponibles()));
+                    $reglas["bloques.{$indice}.horaFinHora"] = 'required|string|in:'.implode(',', array_keys($this->horas12Disponibles()));
+                    $reglas["bloques.{$indice}.horaFinAmPm"] = 'required|string|in:'.implode(',', array_keys($this->amPmDisponibles()));
+                } else {
+                    $reglas["bloques.{$indice}.horaInicioHora"] = 'required|string|in:'.implode(',', array_keys($this->horasDisponibles()));
+                    $reglas["bloques.{$indice}.horaFinHora"] = 'required|string|in:'.implode(',', array_keys($this->horasDisponibles()));
+                }
+            }
+        } elseif (! $horarioLibre) {
             if ($this->editandoId === null) {
                 $reglas['franjasSeleccionadas'] = 'required|array|min:1';
                 $reglas['franjasSeleccionadas.*'] = 'string|in:'.implode(',', array_keys($this->franjasDisponibles()));
             } else {
                 $reglas['diasSueltosSeleccionados'] = 'required|array|min:1';
                 $reglas['diasSueltosSeleccionados.*'] = 'string|in:'.implode(',', array_map(fn (DiaSemanaEnum $dia) => $dia->value, DiaSemanaEnum::cases()));
-            }
-        }
-
-        if ($pideHoras) {
-            foreach ($dias as $dia) {
-                if ($esCursoCorto) {
-                    $reglas["horaInicioHora12PorDia.{$dia->value}"] = 'required|string|in:'.implode(',', array_keys($this->horas12Disponibles()));
-                    $reglas["horaInicioAmPmPorDia.{$dia->value}"] = 'required|string|in:'.implode(',', array_keys($this->amPmDisponibles()));
-                    $reglas["horaFinHora12PorDia.{$dia->value}"] = 'required|string|in:'.implode(',', array_keys($this->horas12Disponibles()));
-                    $reglas["horaFinAmPmPorDia.{$dia->value}"] = 'required|string|in:'.implode(',', array_keys($this->amPmDisponibles()));
-                    $reglas["horaInicioMinutoPorDia.{$dia->value}"] = 'required|string|in:'.implode(',', array_keys($this->minutosDisponibles()));
-                    $reglas["horaFinMinutoPorDia.{$dia->value}"] = 'required|string|in:'.implode(',', array_keys($this->minutosDisponibles()));
-                } else {
-                    $reglas["horaInicioHoraPorDia.{$dia->value}"] = 'required|string|in:'.implode(',', array_keys($this->horasDisponibles()));
-                    $reglas["horaInicioMinutoPorDia.{$dia->value}"] = 'required|string|in:'.implode(',', array_keys($this->minutosDisponibles()));
-                    $reglas["horaFinHoraPorDia.{$dia->value}"] = 'required|string|in:'.implode(',', array_keys($this->horasDisponibles()));
-                    $reglas["horaFinMinutoPorDia.{$dia->value}"] = 'required|string|in:'.implode(',', array_keys($this->minutosDisponibles()));
-                }
             }
         }
 
@@ -439,28 +500,34 @@ new #[Layout('layouts.app')] class extends Component
             }
         }
 
-        $diasParaGuardar = array_map(function (DiaSemanaEnum $dia) use ($pideHoras, $esCursoCorto) {
-            if (! $pideHoras) {
-                return ['dia_semana' => $dia, 'hora_inicio' => null, 'hora_fin' => null];
-            }
+        if ($pideHoras) {
+            $diasParaGuardar = array_map(function (array $bloque) use ($esCursoCorto) {
+                $minutoInicio = sprintf('%02d', (int) $bloque['horaInicioMinuto']);
+                $minutoFin = sprintf('%02d', (int) $bloque['horaFinMinuto']);
 
-            if ($esCursoCorto) {
-                $horaInicio24 = $this->hora12A24($this->horaInicioHora12PorDia[$dia->value], $this->horaInicioAmPmPorDia[$dia->value]);
-                $horaFin24 = $this->hora12A24($this->horaFinHora12PorDia[$dia->value], $this->horaFinAmPmPorDia[$dia->value]);
+                if ($esCursoCorto) {
+                    $horaInicio24 = $this->hora12A24($bloque['horaInicioHora'], $bloque['horaInicioAmPm']);
+                    $horaFin24 = $this->hora12A24($bloque['horaFinHora'], $bloque['horaFinAmPm']);
+
+                    return [
+                        'dia_semana' => DiaSemanaEnum::from($bloque['dia']),
+                        'hora_inicio' => "{$horaInicio24}:{$minutoInicio}:00",
+                        'hora_fin' => "{$horaFin24}:{$minutoFin}:00",
+                    ];
+                }
 
                 return [
-                    'dia_semana' => $dia,
-                    'hora_inicio' => "{$horaInicio24}:{$this->horaInicioMinutoPorDia[$dia->value]}:00",
-                    'hora_fin' => "{$horaFin24}:{$this->horaFinMinutoPorDia[$dia->value]}:00",
+                    'dia_semana' => DiaSemanaEnum::from($bloque['dia']),
+                    'hora_inicio' => "{$bloque['horaInicioHora']}:{$minutoInicio}:00",
+                    'hora_fin' => "{$bloque['horaFinHora']}:{$minutoFin}:00",
                 ];
-            }
-
-            return [
-                'dia_semana' => $dia,
-                'hora_inicio' => "{$this->horaInicioHoraPorDia[$dia->value]}:{$this->horaInicioMinutoPorDia[$dia->value]}:00",
-                'hora_fin' => "{$this->horaFinHoraPorDia[$dia->value]}:{$this->horaFinMinutoPorDia[$dia->value]}:00",
-            ];
-        }, $dias);
+            }, $this->bloques);
+        } else {
+            $diasParaGuardar = array_map(
+                fn (DiaSemanaEnum $dia) => ['dia_semana' => $dia, 'hora_inicio' => null, 'hora_fin' => null],
+                $this->diasEfectivos(),
+            );
+        }
 
         $datos = [
             'curso_id' => (int) $this->cursoId,
@@ -547,11 +614,10 @@ new #[Layout('layouts.app')] class extends Component
             'cursoTieneFranjasRestringidas' => $this->cursoId !== '' && ! empty(Curso::query()->find($this->cursoId)?->franjas_permitidas),
             'franjas' => $this->franjasDisponibles(),
             'horas' => $this->horasDisponibles(),
-            'minutos' => $this->minutosDisponibles(),
             'horas12' => $this->horas12Disponibles(),
             'amPm' => $this->amPmDisponibles(),
             'diasSemana' => DiaSemanaEnum::ordenSemana(),
-            'diasParaHoras' => $this->diasEfectivos(),
+            'diasDisponiblesParaBloques' => $this->diasDisponiblesParaBloques(),
         ];
     }
 
@@ -950,7 +1016,91 @@ new #[Layout('layouts.app')] class extends Component
                     @endif
 
                     @unless ($tipo === 'curso_corto' && $horarioLibre)
-                        @if ($editandoId === null)
+                        <label class="flex items-center gap-2 text-sm text-ink">
+                            <input type="checkbox" wire:model.live="conHoraDefinida" class="rounded border-border text-accent focus:ring-accent">
+                            Definir hora de clase
+                        </label>
+                        <p class="-mt-2 text-xs text-ink-faint">Opcional: el horario puede quedar solo con sus días marcados, sin hora fija -- se puede completar después (mientras tanto, Asistencia queda bloqueada con un aviso).</p>
+
+                        @if ($conHoraDefinida)
+                            {{-- Bloques de horario: cada uno elige su propio día, así
+                                 que agregar dos bloques con el mismo día (ej. lunes
+                                 mañana y lunes tarde) ya cubre más de una clase el
+                                 mismo día -- el no-solape entre ellos lo valida
+                                 HorarioService::validarDias(). --}}
+                            <div>
+                                <x-input-label value="Bloques de horario" />
+                                @if ($cursoTieneFranjasRestringidas)
+                                    <p class="mt-1 text-xs text-ink-faint">Solo se permiten los días de la franja habilitada para este curso.</p>
+                                @endif
+
+                                <div class="mt-2 space-y-3">
+                                    @foreach ($bloques as $indice => $bloque)
+                                        <div class="rounded-md border border-border p-3" wire:key="bloque-{{ $indice }}">
+                                            <div class="flex items-end justify-between gap-2">
+                                                <div class="flex-1">
+                                                    <x-input-label value="Día" />
+                                                    <x-select-input
+                                                        wire:model="bloques.{{ $indice }}.dia"
+                                                        class="mt-1 block w-full"
+                                                        placeholder="Selecciona…"
+                                                        :options="$diasDisponiblesParaBloques"
+                                                    />
+                                                    <x-input-error :messages="$errors->get('bloques.'.$indice.'.dia')" class="mt-1" />
+                                                </div>
+                                                @if (count($bloques) > 1)
+                                                    <button type="button" wire:click="quitarBloque({{ $indice }})" class="shrink-0 pb-2 text-xs font-medium text-danger hover:underline">
+                                                        Quitar
+                                                    </button>
+                                                @endif
+                                            </div>
+
+                                            <div class="mt-3 grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <x-input-label value="Hora inicio" />
+                                                    @if ($tipo === 'curso_corto')
+                                                        <div class="mt-1 grid grid-cols-3 gap-2">
+                                                            <x-select-input wire:model="bloques.{{ $indice }}.horaInicioHora" placeholder="Hora" :options="$horas12" />
+                                                            <input type="number" min="0" max="59" wire:model="bloques.{{ $indice }}.horaInicioMinuto" placeholder="Min" class="rounded-md border-border bg-surface text-sm text-ink focus:border-accent focus:ring-accent">
+                                                            <x-select-input wire:model="bloques.{{ $indice }}.horaInicioAmPm" placeholder="AM/PM" :options="$amPm" />
+                                                        </div>
+                                                        <x-input-error :messages="$errors->get('bloques.'.$indice.'.horaInicioAmPm')" class="mt-1" />
+                                                    @else
+                                                        <div class="mt-1 grid grid-cols-2 gap-2">
+                                                            <x-select-input wire:model="bloques.{{ $indice }}.horaInicioHora" placeholder="Hora" :options="$horas" />
+                                                            <input type="number" min="0" max="59" wire:model="bloques.{{ $indice }}.horaInicioMinuto" placeholder="Min" class="rounded-md border-border bg-surface text-sm text-ink focus:border-accent focus:ring-accent">
+                                                        </div>
+                                                    @endif
+                                                    <x-input-error :messages="$errors->get('bloques.'.$indice.'.horaInicioHora')" class="mt-1" />
+                                                    <x-input-error :messages="$errors->get('bloques.'.$indice.'.horaInicioMinuto')" class="mt-1" />
+                                                </div>
+                                                <div>
+                                                    <x-input-label value="Hora fin" />
+                                                    @if ($tipo === 'curso_corto')
+                                                        <div class="mt-1 grid grid-cols-3 gap-2">
+                                                            <x-select-input wire:model="bloques.{{ $indice }}.horaFinHora" placeholder="Hora" :options="$horas12" />
+                                                            <input type="number" min="0" max="59" wire:model="bloques.{{ $indice }}.horaFinMinuto" placeholder="Min" class="rounded-md border-border bg-surface text-sm text-ink focus:border-accent focus:ring-accent">
+                                                            <x-select-input wire:model="bloques.{{ $indice }}.horaFinAmPm" placeholder="AM/PM" :options="$amPm" />
+                                                        </div>
+                                                        <x-input-error :messages="$errors->get('bloques.'.$indice.'.horaFinAmPm')" class="mt-1" />
+                                                    @else
+                                                        <div class="mt-1 grid grid-cols-2 gap-2">
+                                                            <x-select-input wire:model="bloques.{{ $indice }}.horaFinHora" placeholder="Hora" :options="$horas" />
+                                                            <input type="number" min="0" max="59" wire:model="bloques.{{ $indice }}.horaFinMinuto" placeholder="Min" class="rounded-md border-border bg-surface text-sm text-ink focus:border-accent focus:ring-accent">
+                                                        </div>
+                                                    @endif
+                                                    <x-input-error :messages="$errors->get('bloques.'.$indice.'.horaFinHora')" class="mt-1" />
+                                                    <x-input-error :messages="$errors->get('bloques.'.$indice.'.horaFinMinuto')" class="mt-1" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+
+                                <x-secondary-button type="button" wire:click="agregarBloque" class="mt-3">+ Agregar bloque</x-secondary-button>
+                                <x-input-error :messages="$errors->get('bloques')" class="mt-1" />
+                            </div>
+                        @elseif ($editandoId === null)
                             <div>
                                 <x-input-label value="Días de clase" />
                                 <p class="mt-1 text-xs text-ink-faint">Ningún curso se dicta en un día suelto: elige una o varias franjas.</p>
@@ -996,70 +1146,7 @@ new #[Layout('layouts.app')] class extends Component
                                 <x-input-error :messages="$errors->get('diasSueltosSeleccionados')" class="mt-1" />
                             </div>
                         @endif
-
-                        <label class="flex items-center gap-2 text-sm text-ink">
-                            <input type="checkbox" wire:model.live="conHoraDefinida" class="rounded border-border text-accent focus:ring-accent">
-                            Definir hora de clase
-                        </label>
-                        <p class="-mt-2 text-xs text-ink-faint">Opcional: el horario puede quedar solo con sus días marcados, sin hora fija -- se puede completar después (mientras tanto, Asistencia queda bloqueada con un aviso).</p>
                     @endunless
-
-                    @if ($diasParaHoras !== [] && $conHoraDefinida)
-                        <div class="space-y-3" wire:key="horas-{{ implode('-', array_map(fn ($d) => $d->value, $diasParaHoras)) }}">
-                            @foreach ($diasParaHoras as $dia)
-                                <div class="rounded-md border border-border p-3">
-                                    <p class="mb-2 text-sm font-medium text-ink">{{ $dia->label() }}</p>
-                                    @if ($tipo === 'curso_corto')
-                                        <div class="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <x-input-label value="Hora inicio" />
-                                                <div class="mt-1 grid grid-cols-3 gap-2">
-                                                    <x-select-input wire:model="horaInicioHora12PorDia.{{ $dia->value }}" placeholder="Hora" :options="$horas12" />
-                                                    <x-select-input wire:model="horaInicioMinutoPorDia.{{ $dia->value }}" placeholder="Min" :options="$minutos" />
-                                                    <x-select-input wire:model="horaInicioAmPmPorDia.{{ $dia->value }}" placeholder="AM/PM" :options="$amPm" />
-                                                </div>
-                                                <x-input-error :messages="$errors->get('horaInicioHora12PorDia.'.$dia->value)" class="mt-1" />
-                                                <x-input-error :messages="$errors->get('horaInicioMinutoPorDia.'.$dia->value)" class="mt-1" />
-                                                <x-input-error :messages="$errors->get('horaInicioAmPmPorDia.'.$dia->value)" class="mt-1" />
-                                            </div>
-                                            <div>
-                                                <x-input-label value="Hora fin" />
-                                                <div class="mt-1 grid grid-cols-3 gap-2">
-                                                    <x-select-input wire:model="horaFinHora12PorDia.{{ $dia->value }}" placeholder="Hora" :options="$horas12" />
-                                                    <x-select-input wire:model="horaFinMinutoPorDia.{{ $dia->value }}" placeholder="Min" :options="$minutos" />
-                                                    <x-select-input wire:model="horaFinAmPmPorDia.{{ $dia->value }}" placeholder="AM/PM" :options="$amPm" />
-                                                </div>
-                                                <x-input-error :messages="$errors->get('horaFinHora12PorDia.'.$dia->value)" class="mt-1" />
-                                                <x-input-error :messages="$errors->get('horaFinMinutoPorDia.'.$dia->value)" class="mt-1" />
-                                                <x-input-error :messages="$errors->get('horaFinAmPmPorDia.'.$dia->value)" class="mt-1" />
-                                            </div>
-                                        </div>
-                                    @else
-                                        <div class="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <x-input-label value="Hora inicio" />
-                                                <div class="mt-1 grid grid-cols-2 gap-2">
-                                                    <x-select-input wire:model="horaInicioHoraPorDia.{{ $dia->value }}" placeholder="Hora" :options="$horas" />
-                                                    <x-select-input wire:model="horaInicioMinutoPorDia.{{ $dia->value }}" placeholder="Min" :options="$minutos" />
-                                                </div>
-                                                <x-input-error :messages="$errors->get('horaInicioHoraPorDia.'.$dia->value)" class="mt-1" />
-                                                <x-input-error :messages="$errors->get('horaInicioMinutoPorDia.'.$dia->value)" class="mt-1" />
-                                            </div>
-                                            <div>
-                                                <x-input-label value="Hora fin" />
-                                                <div class="mt-1 grid grid-cols-2 gap-2">
-                                                    <x-select-input wire:model="horaFinHoraPorDia.{{ $dia->value }}" placeholder="Hora" :options="$horas" />
-                                                    <x-select-input wire:model="horaFinMinutoPorDia.{{ $dia->value }}" placeholder="Min" :options="$minutos" />
-                                                </div>
-                                                <x-input-error :messages="$errors->get('horaFinHoraPorDia.'.$dia->value)" class="mt-1" />
-                                                <x-input-error :messages="$errors->get('horaFinMinutoPorDia.'.$dia->value)" class="mt-1" />
-                                            </div>
-                                        </div>
-                                    @endif
-                                </div>
-                            @endforeach
-                        </div>
-                    @endif
 
                     {{-- Los choques de aula/docente los valida HorarioService::crear()/actualizar(), que lanza sus errores bajo la clave "dias". --}}
                     <x-input-error :messages="$errors->get('dias')" class="mt-1" />

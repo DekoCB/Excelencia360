@@ -117,6 +117,34 @@ class HorarioService
     }
 
     /**
+     * Un mismo Horario puede tener varios bloques el mismo día de semana
+     * (ej. lunes mañana y lunes tarde) -- lo que no puede es que dos
+     * bloques del propio Horario se crucen en horas entre sí. Esto es
+     * aparte de enAulaQueSolapan()/delDocenteQueSolapan(), que solo
+     * comparan contra OTROS horarios.
+     *
+     * @param  list<array{dia_semana: DiaSemanaEnum, hora_inicio: ?string, hora_fin: ?string}>  $dias
+     */
+    private function validarSinSolapeInterno(array $dias): void
+    {
+        $conHora = array_values(array_filter($dias, fn (array $dia) => $dia['hora_inicio'] !== null && $dia['hora_fin'] !== null));
+
+        foreach ($conHora as $indice => $dia) {
+            foreach ($conHora as $otroIndice => $otro) {
+                if ($otroIndice <= $indice || $dia['dia_semana'] !== $otro['dia_semana']) {
+                    continue;
+                }
+
+                if ($dia['hora_inicio'] < $otro['hora_fin'] && $otro['hora_inicio'] < $dia['hora_fin']) {
+                    throw ValidationException::withMessages([
+                        'dias' => "Dos bloques del {$dia['dia_semana']->label()} se cruzan en horas: {$this->horaCorta($dia['hora_inicio'])}–{$this->horaCorta($dia['hora_fin'])} y {$this->horaCorta($otro['hora_inicio'])}–{$this->horaCorta($otro['hora_fin'])}.",
+                    ]);
+                }
+            }
+        }
+    }
+
+    /**
      * @param  list<array{dia_semana: DiaSemanaEnum, hora_inicio: ?string, hora_fin: ?string}>  $dias
      */
     private function validarDias(array $dias, int $aulaId, int $docenteId, ?int $cicloId, ?int $exceptoHorarioId = null): void
@@ -130,6 +158,8 @@ class HorarioService
                 'dias' => 'Elige al menos un día de clase.',
             ]);
         }
+
+        $this->validarSinSolapeInterno($dias);
 
         foreach ($dias as $dia) {
             // Un horario de curso corto puede quedar sin horas definidas
