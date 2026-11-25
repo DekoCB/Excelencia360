@@ -9,6 +9,7 @@ use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Grado;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Academico\Models\HorarioDia;
+use App\Modules\Academico\Models\ProgramaEstudio;
 use App\Modules\Academico\Services\HorarioService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -45,6 +46,10 @@ new #[Layout('layouts.app')] class extends Component
     public string $aulaId = '';
 
     public string $cicloId = '';
+
+    // Solo filtra qué Grados/Cursos se ofrecen en los selects de abajo --
+    // no se guarda en el Horario (la tabla solo tiene ciclo_id/grado_id).
+    public string $programaEstudioId = '';
 
     public string $gradoId = '';
 
@@ -136,6 +141,28 @@ new #[Layout('layouts.app')] class extends Component
     }
 
     /**
+     * Cambiar el Programa de Estudio vacía el Semestre y el Curso elegidos:
+     * ambas listas dependen de este Programa (ver with()), así que una
+     * elección anterior podría ya no estar entre las opciones.
+     */
+    public function updatedProgramaEstudioId(): void
+    {
+        $this->gradoId = '';
+        $this->cursoId = '';
+        $this->franjasSeleccionadas = [];
+    }
+
+    /**
+     * Cambiar el Semestre vacía el Curso elegido: la lista de Cursos
+     * depende del Semestre (solo se ofrecen los vinculados a ese Grado).
+     */
+    public function updatedGradoId(): void
+    {
+        $this->cursoId = '';
+        $this->franjasSeleccionadas = [];
+    }
+
+    /**
      * @return array<string, string>
      */
     public function horasDisponibles(): array
@@ -218,7 +245,7 @@ new #[Layout('layouts.app')] class extends Component
 
         $this->resetValidation();
         $this->reset([
-            'editandoId', 'tipo', 'cursoId', 'docenteId', 'aulaId', 'gradoId', 'conHoraDefinida', 'horarioLibre',
+            'editandoId', 'tipo', 'cursoId', 'docenteId', 'aulaId', 'programaEstudioId', 'gradoId', 'conHoraDefinida', 'horarioLibre',
             'franjasSeleccionadas', 'diasSueltosSeleccionados',
             'horaInicioHoraPorDia', 'horaInicioMinutoPorDia', 'horaFinHoraPorDia', 'horaFinMinutoPorDia',
             'horaInicioHora12PorDia', 'horaInicioAmPmPorDia', 'horaFinHora12PorDia', 'horaFinAmPmPorDia',
@@ -245,6 +272,7 @@ new #[Layout('layouts.app')] class extends Component
 
         if ($this->tipo === 'curso_corto') {
             $this->cicloId = '';
+            $this->programaEstudioId = '';
             $this->gradoId = '';
             $this->conHoraDefinida = false;
         } else {
@@ -272,12 +300,13 @@ new #[Layout('layouts.app')] class extends Component
     {
         Gate::authorize('academico.gestionar');
 
-        $horario = Horario::query()->with('dias')->findOrFail($horarioId);
+        $horario = Horario::query()->with(['dias', 'grado'])->findOrFail($horarioId);
 
         $this->resetValidation();
         $this->editandoId = $horario->id;
         $this->tipo = $horario->esDeCursoCorto() ? 'curso_corto' : 'instituto';
         $this->cicloId = $horario->ciclo_id !== null ? (string) $horario->ciclo_id : '';
+        $this->programaEstudioId = $horario->grado !== null ? (string) $horario->grado->programa_estudio_id : '';
         $this->gradoId = $horario->grado_id !== null ? (string) $horario->grado_id : '';
         $this->cursoId = (string) $horario->curso_id;
         $this->docenteId = (string) $horario->docente_id;
@@ -356,9 +385,11 @@ new #[Layout('layouts.app')] class extends Component
 
         if ($esCursoCorto) {
             $reglas['cicloId'] = 'prohibited';
+            $reglas['programaEstudioId'] = 'prohibited';
             $reglas['gradoId'] = 'prohibited';
         } else {
             $reglas['cicloId'] = 'required|integer|exists:ciclos,id';
+            $reglas['programaEstudioId'] = 'required|integer|exists:programas_estudio,id';
             $reglas['gradoId'] = 'required|integer|exists:grados,id';
         }
 
@@ -485,9 +516,20 @@ new #[Layout('layouts.app')] class extends Component
         $horarios = ($this->cicloFiltro ? $service->delCiclo((int) $this->cicloFiltro) : collect())
             ->merge($service->deCursoCorto());
 
-        $tipoCurso = $this->tipo === 'curso_corto' ? 'capacitacion' : 'academico';
-
         $cicloActivoParaCalendario = $this->cicloFiltro !== '' ? Ciclo::query()->find($this->cicloFiltro) : null;
+
+        // Semestre (Grado) y Curso se eligen en cascada: Programa de Estudio
+        // -> Semestre -> Curso. Sin el paso anterior elegido, la lista
+        // siguiente queda vacía en vez de mostrar todo mezclado (antes
+        // "Semestre" listaba los Grados de todos los Programas juntos, con
+        // nombres repetidos como "I SEMESTRE" de carreras distintas).
+        $cursos = match (true) {
+            $this->tipo === 'curso_corto' => Curso::query()->where('activo', true)->where('tipo', 'capacitacion')->orderBy('nombre')->get(),
+            $this->gradoId !== '' => Curso::query()->where('activo', true)->where('tipo', 'academico')
+                ->whereHas('grados', fn ($query) => $query->whereKey((int) $this->gradoId))
+                ->orderBy('nombre')->get(),
+            default => new Collection,
+        };
 
         return [
             'ciclos' => Ciclo::query()->orderByDesc('fecha_inicio')->get(),
@@ -495,10 +537,13 @@ new #[Layout('layouts.app')] class extends Component
             'eventosCursoCorto' => $this->eventosCalendario($horarios->filter(fn (Horario $h) => $h->esDeCursoCorto()), null),
             'horariosPorFranja' => $this->agruparPorFranjaYGrado($horarios),
             'horarioDiasPorDia' => $this->agruparDiasParaLaGrilla($horarios),
-            'cursos' => Curso::query()->where('activo', true)->where('tipo', $tipoCurso)->orderBy('nombre')->get(),
+            'cursos' => $cursos,
             'docentes' => User::role('docente')->orderBy('name')->get(),
             'aulas' => Aula::query()->where('activa', true)->orderBy('nombre')->get(),
-            'grados' => Grado::query()->where('activo', true)->orderBy('nombre')->get(),
+            'programasEstudio' => ProgramaEstudio::query()->where('activo', true)->orderBy('nombre')->get(),
+            'grados' => $this->programaEstudioId !== ''
+                ? Grado::query()->where('activo', true)->where('programa_estudio_id', (int) $this->programaEstudioId)->orderBy('orden')->get()
+                : new Collection,
             'cursoTieneFranjasRestringidas' => $this->cursoId !== '' && ! empty(Curso::query()->find($this->cursoId)?->franjas_permitidas),
             'franjas' => $this->franjasDisponibles(),
             'horas' => $this->horasDisponibles(),
@@ -812,23 +857,47 @@ new #[Layout('layouts.app')] class extends Component
                     @endif
 
                     @if ($tipo === 'instituto')
-                        <div class="grid grid-cols-2 gap-4" wire:key="campos-instituto">
+                        <div wire:key="campo-periodo">
+                            <x-input-label for="cicloId" value="Período de matrícula" />
+                            <x-select-input
+                                wire:model="cicloId"
+                                id="cicloId"
+                                class="mt-1 block w-full"
+                                :options="collect($ciclos)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])"
+                            />
+                            <x-input-error :messages="$errors->get('cicloId')" class="mt-1" />
+                        </div>
+
+                        {{-- Programa de Estudio -> Semestre -> Curso es una
+                             cascada: cada select solo muestra opciones del
+                             anterior (ver with()), para no mezclar Semestres
+                             de carreras distintas con el mismo nombre (ej.
+                             dos "I SEMESTRE"). wire:key con el valor del
+                             select anterior obliga a Livewire a reconstruir
+                             el siguiente -- x-select-input arma su lista de
+                             opciones una sola vez dentro de x-data (Alpine),
+                             así que un simple cambio de atributos no basta
+                             para que recoja la lista filtrada nueva. --}}
+                        <div class="grid grid-cols-2 gap-4" wire:key="campos-programa-semestre">
                             <div>
-                                <x-input-label for="cicloId" value="Período de matrícula" />
+                                <x-input-label for="programaEstudioId" value="Programa de estudio" />
                                 <x-select-input
-                                    wire:model="cicloId"
-                                    id="cicloId"
+                                    wire:model.live="programaEstudioId"
+                                    id="programaEstudioId"
                                     class="mt-1 block w-full"
-                                    :options="collect($ciclos)->mapWithKeys(fn ($ciclo) => [$ciclo->id => $ciclo->nombre])"
+                                    placeholder="Selecciona…"
+                                    :options="collect($programasEstudio)->mapWithKeys(fn ($programa) => [$programa->id => $programa->nombre])"
                                 />
-                                <x-input-error :messages="$errors->get('cicloId')" class="mt-1" />
+                                <x-input-error :messages="$errors->get('programaEstudioId')" class="mt-1" />
                             </div>
-                            <div>
+                            <div wire:key="campo-semestre-{{ $programaEstudioId }}">
                                 <x-input-label for="gradoId" value="Semestre" />
                                 <x-select-input
-                                    wire:model="gradoId"
+                                    wire:model.live="gradoId"
                                     id="gradoId"
                                     class="mt-1 block w-full"
+                                    :disabled="$programaEstudioId === ''"
+                                    :placeholder="$programaEstudioId === '' ? 'Elige un programa primero' : 'Selecciona…'"
                                     :options="collect($grados)->mapWithKeys(fn ($grado) => [$grado->id => $grado->nombre])"
                                 />
                                 <x-input-error :messages="$errors->get('gradoId')" class="mt-1" />
@@ -836,19 +905,14 @@ new #[Layout('layouts.app')] class extends Component
                         </div>
                     @endif
 
-                    {{-- wire:key con $tipo: x-select-input arma su lista de
-                         opciones una sola vez dentro de x-data (Alpine), así
-                         que al cambiar de tipo Livewire debe reconstruir
-                         este nodo entero (no solo "parchar" sus atributos)
-                         para que Alpine reinicialice con la lista de cursos
-                         ya filtrada -- sin esto, el desplegable se queda
-                         mostrando cursos del tipo anterior. --}}
-                    <div wire:key="campo-curso-{{ $tipo }}">
+                    <div wire:key="campo-curso-{{ $tipo }}-{{ $gradoId }}">
                         <x-input-label for="cursoId" value="Curso" />
                         <x-select-input
                             wire:model.live="cursoId"
                             id="cursoId"
                             class="mt-1 block w-full"
+                            :disabled="$tipo === 'instituto' && $gradoId === ''"
+                            :placeholder="$tipo === 'instituto' && $gradoId === '' ? 'Elige un semestre primero' : 'Selecciona…'"
                             :options="collect($cursos)->mapWithKeys(fn ($curso) => [$curso->id => $curso->nombre.' ('.$curso->codigo.')'])"
                         />
                         <x-input-error :messages="$errors->get('cursoId')" class="mt-1" />

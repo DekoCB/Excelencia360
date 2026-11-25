@@ -49,6 +49,7 @@ class HorarioFormTest extends TestCase
         Volt::test('academico.horarios.index')
             ->call('abrirModal')
             ->set('cicloId', (string) $ciclo->id)
+            ->set('programaEstudioId', (string) $grado->programa_estudio_id)
             ->set('gradoId', (string) $grado->id)
             ->set('cursoId', (string) $curso->id)
             ->set('docenteId', (string) $docente->id)
@@ -89,6 +90,7 @@ class HorarioFormTest extends TestCase
         Volt::test('academico.horarios.index')
             ->call('abrirModal')
             ->set('cicloId', (string) $ciclo->id)
+            ->set('programaEstudioId', (string) $grado->programa_estudio_id)
             ->set('gradoId', (string) $grado->id)
             ->set('cursoId', (string) $curso->id)
             ->set('docenteId', (string) $docente->id)
@@ -117,6 +119,7 @@ class HorarioFormTest extends TestCase
         Volt::test('academico.horarios.index')
             ->call('abrirModal')
             ->set('cicloId', (string) $ciclo->id)
+            ->set('programaEstudioId', (string) $grado->programa_estudio_id)
             ->set('gradoId', (string) $grado->id)
             ->set('cursoId', (string) $curso->id)
             ->set('docenteId', (string) $docente->id)
@@ -167,6 +170,7 @@ class HorarioFormTest extends TestCase
         Volt::test('academico.horarios.index')
             ->call('abrirModal')
             ->set('cicloId', (string) $existente->ciclo_id)
+            ->set('programaEstudioId', (string) $gradoExistente->programa_estudio_id)
             ->set('gradoId', (string) $existente->grado_id)
             ->set('cursoId', (string) Curso::factory()->hasAttached($gradoExistente)->create()->id)
             ->set('docenteId', (string) User::factory()->create()->id)
@@ -198,6 +202,7 @@ class HorarioFormTest extends TestCase
         Volt::test('academico.horarios.index')
             ->call('abrirModal')
             ->set('cicloId', (string) Ciclo::factory()->create()->id)
+            ->set('programaEstudioId', (string) $grado->programa_estudio_id)
             ->set('gradoId', (string) $grado->id)
             ->set('cursoId', (string) $curso->id)
             ->set('docenteId', (string) User::factory()->create()->id)
@@ -221,10 +226,13 @@ class HorarioFormTest extends TestCase
     {
         $this->actingAs($this->actorCoordinador());
 
+        $grado = Grado::factory()->create();
+
         Volt::test('academico.horarios.index')
             ->call('abrirModal')
             ->set('cicloId', (string) Ciclo::factory()->create()->id)
-            ->set('gradoId', (string) Grado::factory()->create()->id)
+            ->set('programaEstudioId', (string) $grado->programa_estudio_id)
+            ->set('gradoId', (string) $grado->id)
             ->set('cursoId', (string) Curso::factory()->create()->id)
             ->set('docenteId', (string) User::factory()->create()->id)
             ->set('aulaId', (string) Aula::factory()->create()->id)
@@ -248,6 +256,7 @@ class HorarioFormTest extends TestCase
         Volt::test('academico.horarios.index')
             ->call('abrirModal')
             ->set('cicloId', (string) $ciclo->id)
+            ->set('programaEstudioId', (string) $grado->programa_estudio_id)
             ->set('gradoId', (string) $grado->id)
             ->set('cursoId', (string) $curso->id)
             ->set('docenteId', (string) $docente->id)
