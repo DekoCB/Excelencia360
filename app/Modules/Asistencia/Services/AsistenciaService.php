@@ -35,7 +35,7 @@ class AsistenciaService
     {
         return Horario::query()
             ->where('docente_id', $docenteId)
-            ->with(['curso', 'grado', 'ciclo', 'dias'])
+            ->with(['curso', 'grado.programaEstudio', 'ciclo', 'dias'])
             ->get();
     }
 
@@ -64,7 +64,7 @@ class AsistenciaService
                     $query->orWhereIn('curso_id', $cursosCortoIds)->whereNull('ciclo_id');
                 }
             })
-            ->with(['curso', 'grado', 'ciclo', 'docente', 'dias'])
+            ->with(['curso', 'grado.programaEstudio', 'ciclo', 'docente', 'dias'])
             ->get();
     }
 
@@ -73,7 +73,7 @@ class AsistenciaService
      */
     public function todos(): Collection
     {
-        return Horario::query()->with(['curso', 'grado', 'ciclo', 'docente', 'dias'])->get();
+        return Horario::query()->with(['curso', 'grado.programaEstudio', 'ciclo', 'docente', 'dias'])->get();
     }
 
     /**

@@ -13,6 +13,8 @@ new #[Layout('layouts.app')] class extends Component
 
     public ?int $cicloId = null;
 
+    public ?int $programaEstudioId = null;
+
     public ?int $gradoId = null;
 
     public function mount(): void
@@ -32,6 +34,7 @@ new #[Layout('layouts.app')] class extends Component
     {
         $this->modalidad = $modalidad;
         $this->cicloId = null;
+        $this->programaEstudioId = null;
         $this->gradoId = null;
     }
 
@@ -39,12 +42,18 @@ new #[Layout('layouts.app')] class extends Component
     {
         $this->modalidad = null;
         $this->cicloId = null;
+        $this->programaEstudioId = null;
         $this->gradoId = null;
     }
 
     public function seleccionarGrupo(int $cicloId): void
     {
         $this->cicloId = $cicloId;
+    }
+
+    public function seleccionarPrograma(int $programaEstudioId): void
+    {
+        $this->programaEstudioId = $programaEstudioId;
     }
 
     public function seleccionarGrado(int $gradoId): void
@@ -55,6 +64,13 @@ new #[Layout('layouts.app')] class extends Component
     public function volverAGrupos(): void
     {
         $this->cicloId = null;
+        $this->programaEstudioId = null;
+        $this->gradoId = null;
+    }
+
+    public function volverAProgramas(): void
+    {
+        $this->programaEstudioId = null;
         $this->gradoId = null;
     }
 
@@ -89,15 +105,18 @@ new #[Layout('layouts.app')] class extends Component
 
         $gruposDisponibles = $horariosInstituto->pluck('ciclo')->unique('id')->sortByDesc('fecha_inicio')->values();
 
+        $delCiclo = $this->cicloId ? $horariosInstituto->where('ciclo_id', $this->cicloId) : collect();
+        $programasDisponibles = $delCiclo->pluck('grado.programaEstudio')->unique('id')->sortBy('nombre')->values();
+
         $gradosDisponibles = collect();
         $grupos = collect();
 
-        if ($this->cicloId) {
-            $delCiclo = $horariosInstituto->where('ciclo_id', $this->cicloId);
-            $gradosDisponibles = $delCiclo->pluck('grado')->unique('id')->sortBy('orden')->values();
+        if ($this->programaEstudioId) {
+            $delPrograma = $delCiclo->where('grado.programa_estudio_id', $this->programaEstudioId);
+            $gradosDisponibles = $delPrograma->pluck('grado')->unique('id')->sortBy('orden')->values();
 
             if ($this->gradoId) {
-                $delGrado = $delCiclo->where('grado_id', $this->gradoId);
+                $delGrado = $delPrograma->where('grado_id', $this->gradoId);
 
                 // Un mismo curso+ciclo normalmente tiene un único Horario,
                 // pero se agrupan por curso+ciclo por si dos docentes
@@ -111,6 +130,7 @@ new #[Layout('layouts.app')] class extends Component
         return [
             'horariosCortos' => $horariosCortos,
             'gruposDisponibles' => $gruposDisponibles,
+            'programasDisponibles' => $programasDisponibles,
             'gradosDisponibles' => $gradosDisponibles,
             'grupos' => $grupos,
             'rol' => $rol,
@@ -156,7 +176,7 @@ new #[Layout('layouts.app')] class extends Component
             <button
                 type="button"
                 wire:click="elegirModalidad('instituto')"
-                class="block rounded-2xl border border-border bg-surface shadow-sm p-6 text-left transition hover:border-accent"
+                class="block rounded-2xl border border-border bg-surface shadow-sm p-6 text-center transition hover:border-accent"
             >
                 <p class="font-display text-lg text-ink">Instituto</p>
                 <p class="mt-1 text-sm text-ink-dim">Programas de estudio por período de matrícula y semestre.</p>
@@ -164,7 +184,7 @@ new #[Layout('layouts.app')] class extends Component
             <button
                 type="button"
                 wire:click="elegirModalidad('curso_corto')"
-                class="block rounded-2xl border border-border bg-surface shadow-sm p-6 text-left transition hover:border-accent"
+                class="block rounded-2xl border border-border bg-surface shadow-sm p-6 text-center transition hover:border-accent"
             >
                 <p class="font-display text-lg text-ink">Cursos cortos</p>
                 <p class="mt-1 text-sm text-ink-dim">Cursos de capacitación individuales.</p>
@@ -178,7 +198,7 @@ new #[Layout('layouts.app')] class extends Component
                 <a
                     href="{{ route('asistencia.show', $horarioCorto) }}"
                     wire:navigate
-                    class="block rounded-2xl border border-border bg-surface shadow-sm p-4 transition hover:border-accent"
+                    class="block rounded-2xl border border-border bg-surface shadow-sm p-4 text-center transition hover:border-accent"
                 >
                     <p class="font-display text-lg text-ink">{{ $horarioCorto->curso->nombre }}</p>
                     <p class="mt-3 text-xs text-ink-faint">
@@ -208,7 +228,7 @@ new #[Layout('layouts.app')] class extends Component
                 <button
                     type="button"
                     wire:click="seleccionarGrupo({{ $grupo->id }})"
-                    class="block rounded-2xl border border-border bg-surface shadow-sm p-4 text-left transition hover:border-accent"
+                    class="block rounded-2xl border border-border bg-surface shadow-sm p-4 text-center transition hover:border-accent"
                 >
                     <p class="font-display text-lg text-ink">{{ $grupo->nombre }}</p>
                     <p class="mt-1 text-sm text-ink-dim">{{ $grupo->fecha_inicio->format('d/m/Y') }} – {{ $grupo->fecha_fin->format('d/m/Y') }}</p>
@@ -225,8 +245,24 @@ new #[Layout('layouts.app')] class extends Component
                 </p>
             @endforelse
         </div>
+    @elseif (! $programaEstudioId)
+        <button type="button" wire:click="volverAGrupos" class="mb-4 text-sm text-ink-faint hover:text-ink">← Periodo académico</button>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            @forelse ($programasDisponibles as $programa)
+                <button
+                    type="button"
+                    wire:click="seleccionarPrograma({{ $programa->id }})"
+                    class="block rounded-2xl border border-border bg-surface shadow-sm p-4 text-center transition hover:border-accent"
+                >
+                    <p class="font-display text-lg text-ink">{{ $programa->nombre }}</p>
+                </button>
+            @empty
+                <p class="col-span-full py-8 text-center text-sm text-ink-faint">Este período no tiene horarios registrados.</p>
+            @endforelse
+        </div>
     @elseif (! $gradoId)
-        <button type="button" wire:click="volverAGrupos" class="mb-4 text-sm text-ink-faint hover:text-ink">← Período de Matrícula</button>
+        <button type="button" wire:click="volverAProgramas" class="mb-4 text-sm text-ink-faint hover:text-ink">← Programa de Estudio</button>
 
         <div class="grid grid-cols-2 gap-4">
             @forelse ($gradosDisponibles as $grado)
@@ -238,7 +274,7 @@ new #[Layout('layouts.app')] class extends Component
                     <p class="font-display text-lg text-ink">{{ $grado->nombre }}</p>
                 </button>
             @empty
-                <p class="col-span-full py-8 text-center text-sm text-ink-faint">Este período no tiene horarios registrados.</p>
+                <p class="col-span-full py-8 text-center text-sm text-ink-faint">Este programa no tiene horarios registrados.</p>
             @endforelse
         </div>
     @else
@@ -251,7 +287,7 @@ new #[Layout('layouts.app')] class extends Component
                     <a
                         href="{{ route('asistencia.show', $primero) }}"
                         wire:navigate
-                        class="block rounded-2xl border border-border bg-surface shadow-sm p-4 transition hover:border-accent"
+                        class="block rounded-2xl border border-border bg-surface shadow-sm p-4 text-center transition hover:border-accent"
                     >
                         <p class="font-display text-lg text-ink">{{ $primero->curso->nombre }}</p>
                         <p class="mt-3 text-xs text-ink-faint">
@@ -262,11 +298,11 @@ new #[Layout('layouts.app')] class extends Component
                         </p>
                     </a>
                 @else
-                    <div class="rounded-2xl border border-border bg-surface shadow-sm p-4">
+                    <div class="rounded-2xl border border-border bg-surface shadow-sm p-4 text-center">
                         <p class="font-display text-lg text-ink">{{ $primero->curso->nombre }}</p>
 
                         <p class="mt-3 text-xs text-ink-faint">Selecciona un horario</p>
-                        <div class="mt-2 flex flex-wrap gap-2">
+                        <div class="mt-2 flex flex-wrap justify-center gap-2">
                             @foreach ($grupo->sortBy(fn ($opcion) => $opcion->docente->name) as $opcion)
                                 <a
                                     href="{{ route('asistencia.show', $opcion) }}"

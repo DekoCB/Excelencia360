@@ -194,7 +194,7 @@ new #[Layout('layouts.app')] class extends Component
             <button
                 type="button"
                 wire:click="elegirModalidad('instituto')"
-                class="block rounded-2xl border border-border bg-surface shadow-sm p-6 text-left transition hover:border-accent"
+                class="block rounded-2xl border border-border bg-surface shadow-sm p-6 text-center transition hover:border-accent"
             >
                 <p class="font-display text-lg text-ink">Instituto</p>
                 <p class="mt-1 text-sm text-ink-dim">Programas de estudio por período de matrícula y semestre.</p>
@@ -202,7 +202,7 @@ new #[Layout('layouts.app')] class extends Component
             <button
                 type="button"
                 wire:click="elegirModalidad('curso_corto')"
-                class="block rounded-2xl border border-border bg-surface shadow-sm p-6 text-left transition hover:border-accent"
+                class="block rounded-2xl border border-border bg-surface shadow-sm p-6 text-center transition hover:border-accent"
             >
                 <p class="font-display text-lg text-ink">Cursos cortos</p>
                 <p class="mt-1 text-sm text-ink-dim">Cursos de capacitación individuales.</p>
@@ -216,7 +216,7 @@ new #[Layout('layouts.app')] class extends Component
                 <a
                     href="{{ route('aula-virtual.show', $cursoCorto) }}"
                     wire:navigate
-                    class="block rounded-2xl border border-border bg-surface shadow-sm p-4 transition hover:border-accent"
+                    class="block rounded-2xl border border-border bg-surface shadow-sm p-4 text-center transition hover:border-accent"
                 >
                     <x-curso-portada :curso="$cursoCorto->cursoAcademico()" class="mb-3" />
                     <p class="font-display text-lg text-ink">{{ $cursoCorto->cursoAcademico()->nombre }}</p>
@@ -246,7 +246,7 @@ new #[Layout('layouts.app')] class extends Component
                 <button
                     type="button"
                     wire:click="seleccionarPeriodo({{ $periodo->id }})"
-                    class="block rounded-2xl border border-border bg-surface shadow-sm p-4 text-left transition hover:border-accent"
+                    class="block rounded-2xl border border-border bg-surface shadow-sm p-4 text-center transition hover:border-accent"
                 >
                     <p class="font-display text-lg text-ink">{{ $periodo->nombre }}</p>
                 </button>
@@ -270,7 +270,7 @@ new #[Layout('layouts.app')] class extends Component
                 <button
                     type="button"
                     wire:click="seleccionarPrograma({{ $programa->id }})"
-                    class="block rounded-2xl border border-border bg-surface shadow-sm p-4 text-left transition hover:border-accent"
+                    class="block rounded-2xl border border-border bg-surface shadow-sm p-4 text-center transition hover:border-accent"
                 >
                     <p class="font-display text-lg text-ink">{{ $programa->nombre }}</p>
                 </button>
@@ -312,7 +312,7 @@ new #[Layout('layouts.app')] class extends Component
                     <a
                         href="{{ route('aula-virtual.show', $primero) }}"
                         wire:navigate
-                        class="block rounded-2xl border border-border bg-surface shadow-sm p-4 transition hover:border-accent"
+                        class="block rounded-2xl border border-border bg-surface shadow-sm p-4 text-center transition hover:border-accent"
                     >
                         <x-curso-portada :curso="$primero->horario->curso" class="mb-3" />
                         <p class="font-display text-lg text-ink">{{ $primero->horario->curso->nombre }}</p>
@@ -324,12 +324,12 @@ new #[Layout('layouts.app')] class extends Component
                         </p>
                     </a>
                 @else
-                    <div class="rounded-2xl border border-border bg-surface shadow-sm p-4">
+                    <div class="rounded-2xl border border-border bg-surface shadow-sm p-4 text-center">
                         <x-curso-portada :curso="$primero->horario->curso" class="mb-3" />
                         <p class="font-display text-lg text-ink">{{ $primero->horario->curso->nombre }}</p>
 
                         <p class="mt-3 text-xs text-ink-faint">Selecciona un curso virtual</p>
-                        <div class="mt-2 flex flex-wrap gap-2">
+                        <div class="mt-2 flex flex-wrap justify-center gap-2">
                             @foreach ($grupo->sortBy(fn ($opcion) => $opcion->horario->docente->name) as $opcion)
                                 <a
                                     href="{{ route('aula-virtual.show', $opcion) }}"
@@ -349,7 +349,7 @@ new #[Layout('layouts.app')] class extends Component
             @endforelse
 
             @foreach ($cursosPendientes as $curso)
-                <div class="rounded-2xl border border-dashed border-border bg-surface-2 p-4 opacity-75" wire:key="pendiente-{{ $curso->id }}">
+                <div class="rounded-2xl border border-dashed border-border bg-surface-2 p-4 text-center opacity-75" wire:key="pendiente-{{ $curso->id }}">
                     <x-curso-portada :curso="$curso" class="mb-3" />
                     <p class="font-display text-lg text-ink-dim">{{ $curso->nombre }}</p>
                     <p class="mt-3 text-xs text-ink-faint">Todavía no tiene horario asignado.</p>

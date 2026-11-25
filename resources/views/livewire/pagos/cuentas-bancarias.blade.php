@@ -4,11 +4,11 @@ use App\Modules\Pagos\Enums\MedioCuentaEnum;
 use App\Modules\Pagos\Enums\TipoBilleteraEnum;
 use App\Modules\Pagos\Models\CuentaBancaria;
 use App\Modules\Pagos\Services\CuentaBancariaService;
-use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
+use Illuminate\Validation\Rule;
 
 new #[Layout('layouts.app')] class extends Component
 {
@@ -38,11 +38,20 @@ new #[Layout('layouts.app')] class extends Component
 
     public function mount(): void
     {
-        Gate::authorize('tesoreria.gestionar');
+        $user = Auth::user();
+
+        // Tesorería las gestiona; un estudiante solo las ve, para saber a
+        // dónde depositar (ver pagos.mi-cuenta, donde revisa cuánto debe).
+        abort_unless(
+            $user->hasPermissionTo('tesoreria.gestionar') || ($user->hasPermissionTo('pagos.ver_propio') && $user->estudiante),
+            403,
+        );
     }
 
     public function abrirModal(?int $cuentaId = null): void
     {
+        Auth::user()->hasPermissionTo('tesoreria.gestionar') || abort(403);
+
         $this->resetValidation();
         $this->editandoId = $cuentaId;
         $this->qr = null;
@@ -68,6 +77,8 @@ new #[Layout('layouts.app')] class extends Component
 
     public function guardar(CuentaBancariaService $service): void
     {
+        Auth::user()->hasPermissionTo('tesoreria.gestionar') || abort(403);
+
         $reglas = [
             'medio' => ['required', Rule::in(array_column(MedioCuentaEnum::cases(), 'value'))],
             'titular' => 'required|string|max:100',
@@ -120,10 +131,13 @@ new #[Layout('layouts.app')] class extends Component
 
     public function with(CuentaBancariaService $service): array
     {
+        $puedeGestionar = Auth::user()->hasPermissionTo('tesoreria.gestionar');
+
         return [
-            'cuentas' => $service->listar(),
+            'cuentas' => $puedeGestionar ? $service->listar() : $service->activas(),
             'medios' => MedioCuentaEnum::cases(),
             'tiposBilletera' => TipoBilleteraEnum::cases(),
+            'puedeGestionar' => $puedeGestionar,
         ];
     }
 }; ?>
@@ -131,16 +145,18 @@ new #[Layout('layouts.app')] class extends Component
 <div>
     <x-slot name="header">
         <h1 class="font-display text-2xl text-ink">Cuentas para pagar</h1>
-        <p class="mt-1 text-sm text-ink-dim">Cuentas bancarias y billeteras digitales que ven los estudiantes para pagar su mensualidad.</p>
+        <p class="mt-1 text-sm text-ink-dim">Cuentas bancarias y billeteras digitales para pagar tu mensualidad.</p>
     </x-slot>
 
-    {{-- Ver academico/grados/index.blade.php: el botón no puede vivir en x-slot="header". --}}
-    <div class="mb-4 flex justify-end">
-        <x-primary-button type="button" wire:click="abrirModal" class="gap-2">
-            <x-heroicon-o-plus class="h-4 w-4" />
-            Nueva cuenta
-        </x-primary-button>
-    </div>
+    @if ($puedeGestionar)
+        {{-- Ver academico/grados/index.blade.php: el botón no puede vivir en x-slot="header". --}}
+        <div class="mb-4 flex justify-end">
+            <x-primary-button type="button" wire:click="abrirModal" class="gap-2">
+                <x-heroicon-o-plus class="h-4 w-4" />
+                Nueva cuenta
+            </x-primary-button>
+        </div>
+    @endif
 
     @if (session('status'))
         <x-alert class="mb-4">{{ session('status') }}</x-alert>
@@ -164,9 +180,11 @@ new #[Layout('layouts.app')] class extends Component
                         @endif
                         <p class="mt-1 text-xs text-ink-faint">{{ $cuenta->titular }}</p>
                     </div>
-                    <span @class(['rounded-full px-2 py-0.5 text-xs font-medium', 'bg-ok/10 text-ok' => $cuenta->activa, 'bg-ink-faint/10 text-ink-faint' => ! $cuenta->activa])>
-                        {{ $cuenta->activa ? 'Activa' : 'Inactiva' }}
-                    </span>
+                    @if ($puedeGestionar)
+                        <span @class(['rounded-full px-2 py-0.5 text-xs font-medium', 'bg-ok/10 text-ok' => $cuenta->activa, 'bg-ink-faint/10 text-ink-faint' => ! $cuenta->activa])>
+                            {{ $cuenta->activa ? 'Activa' : 'Inactiva' }}
+                        </span>
+                    @endif
                 </div>
                 <div class="mt-3 flex items-center justify-between">
                     @if ($cuenta->getFirstMedia('qr'))
@@ -174,7 +192,9 @@ new #[Layout('layouts.app')] class extends Component
                     @else
                         <span class="text-xs text-ink-faint">Sin QR</span>
                     @endif
-                    <button wire:click="abrirModal({{ $cuenta->id }})" class="text-sm font-medium text-accent hover:underline">Editar</button>
+                    @if ($puedeGestionar)
+                        <button wire:click="abrirModal({{ $cuenta->id }})" class="text-sm font-medium text-accent hover:underline">Editar</button>
+                    @endif
                 </div>
             </div>
         @empty

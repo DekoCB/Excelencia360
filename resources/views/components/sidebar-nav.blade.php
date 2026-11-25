@@ -316,7 +316,9 @@
             </a>
         @endif
 
-        @can('tesoreria.gestionar')
+        {{-- Tesorería las gestiona; un estudiante solo las ve, para saber a
+             dónde depositar (misma ficha de Estudiante que exige mi-cuenta). --}}
+        @if (auth()->user()->can('tesoreria.gestionar') || (auth()->user()->can('pagos.ver_propio') && auth()->user()->estudiante))
             <a
                 href="{{ route('pagos.cuentas-bancarias') }}"
                 wire:navigate
@@ -329,7 +331,7 @@
                 <x-heroicon-o-building-library class="h-5 w-5 shrink-0" />
                 <span class="sidebar-label">Cuentas bancarias</span>
             </a>
-        @endcan
+        @endif
 
         @can('flujo_caja.ver')
             <a

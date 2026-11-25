@@ -10,6 +10,7 @@ use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
 use App\Modules\Pagos\Enums\EstadoPagoEnum;
 use App\Modules\Pagos\Models\ConceptoPago;
+use App\Modules\Pagos\Models\CuentaBancaria;
 use App\Modules\Pagos\Models\Cuota;
 use App\Modules\Pagos\Models\Pago;
 use App\Modules\Pagos\Models\PlanPago;
@@ -182,6 +183,33 @@ class PagosPermisosTest extends TestCase
         $this->actingAs($coordinador)
             ->get(route('pagos.cuentas-bancarias'))
             ->assertForbidden();
+    }
+
+    public function test_un_estudiante_puede_ver_las_cuentas_bancarias_activas_pero_no_gestionarlas(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::ESTUDIANTE->value);
+        Estudiante::factory()->create(['user_id' => $usuario->id]);
+
+        CuentaBancaria::factory()->create(['banco' => 'BCP', 'activa' => true]);
+        CuentaBancaria::factory()->create(['banco' => 'Interbank', 'activa' => false]);
+
+        $this->actingAs($usuario);
+
+        Volt::test('pagos.cuentas-bancarias')
+            ->assertOk()
+            ->assertSee('BCP')
+            ->assertDontSee('Interbank');
+
+        rescue(fn () => Volt::test('pagos.cuentas-bancarias')->call('abrirModal'), report: false);
+        rescue(fn () => Volt::test('pagos.cuentas-bancarias')
+            ->set('medio', 'billetera')
+            ->set('tipoBilletera', 'yape')
+            ->set('celular', '987654321')
+            ->set('titular', 'Otra')
+            ->call('guardar'), report: false);
+
+        $this->assertDatabaseCount('cuentas_bancarias', 2);
     }
 
     public function test_tesoreria_registra_una_billetera_digital_sin_datos_bancarios(): void
