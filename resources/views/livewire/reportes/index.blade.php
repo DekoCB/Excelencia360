@@ -48,6 +48,12 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $cursoId = '';
 
+    // Solo aplica al tipo "operativo" (asistencia): una fila por estudiante
+    // con el total/porcentaje (false, por defecto) o una fila por registro
+    // real de asistencia con su fecha (true) -- ver ReporteService::operativo()
+    // vs operativoDetalle().
+    public bool $detalleAsistencia = false;
+
     public string $franja = '';
 
     public function mount(): void
@@ -84,6 +90,7 @@ new #[Layout('layouts.app')] class extends Component
     public function updatingTipo(): void
     {
         $this->franja = '';
+        $this->detalleAsistencia = false;
     }
 
     /**
@@ -161,7 +168,9 @@ new #[Layout('layouts.app')] class extends Component
             'financiero' => $reportes->financiero($cicloId, $gradoId, $cursoId, $franja),
             'morosos' => $reportes->morosos($cicloId, $gradoId, $cursoId, $franja),
             'certificados' => $reportes->certificados($cicloId, $gradoId, $cursoId, $franja),
-            'operativo' => $reportes->operativo($cicloId, $gradoId, $cursoId, $franja),
+            'operativo' => $this->detalleAsistencia
+                ? $reportes->operativoDetalle($cicloId, $gradoId, $cursoId, $franja)
+                : $reportes->operativo($cicloId, $gradoId, $cursoId, $franja),
             'propio' => $reportes->propio(Auth::user(), $cicloId, $gradoId, $cursoId, $franja),
             default => ['columnas' => [], 'filas' => []],
         };
@@ -297,6 +306,21 @@ new #[Layout('layouts.app')] class extends Component
                         class="mt-1 block w-64"
                         :options="collect($franjasDisponibles)->mapWithKeys(fn ($opcion) => [$opcion['value'] => $opcion['label']])->prepend('Todos los horarios', '')"
                     />
+                </div>
+            @endif
+
+            @if ($tipo === 'operativo')
+                <div class="flex gap-1 rounded-md border border-border bg-surface-2 p-1">
+                    <button
+                        type="button"
+                        wire:click="$set('detalleAsistencia', false)"
+                        @class(['rounded px-3 py-1.5 text-sm font-medium', 'bg-accent text-white' => ! $detalleAsistencia, 'text-ink-dim' => $detalleAsistencia])
+                    >Resumen</button>
+                    <button
+                        type="button"
+                        wire:click="$set('detalleAsistencia', true)"
+                        @class(['rounded px-3 py-1.5 text-sm font-medium', 'bg-accent text-white' => $detalleAsistencia, 'text-ink-dim' => ! $detalleAsistencia])
+                    >Detalle</button>
                 </div>
             @endif
 

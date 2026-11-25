@@ -204,6 +204,42 @@ class HistorialEstudiantePermisosTest extends TestCase
             ->assertSee('S/ 120.00');
     }
 
+    public function test_la_pestana_financiero_muestra_pagos_sin_los_demas_bloques(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create(['dni' => '55667701', 'nombres' => 'Flor', 'apellidos' => 'Araujo Dias']);
+        Pago::factory()->aprobado()->create(['estudiante_id' => $estudiante->id, 'monto' => 90]);
+
+        $this->actingAs($coordinador);
+
+        Volt::test('historial-estudiante.index')
+            ->set('terminoBusqueda', 'Araujo Dias')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
+            ->set('tipo', 'financiero')
+            ->assertSee('Situación de pagos')
+            ->assertSee('S/ 90.00')
+            ->assertDontSee('Semestres cursados')
+            ->assertDontSee('Subidos al matricularse');
+    }
+
+    public function test_la_pestana_general_sigue_mostrando_todo_junto(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create(['dni' => '55667702', 'nombres' => 'Gino', 'apellidos' => 'Salazar Vidal']);
+        Pago::factory()->aprobado()->create(['estudiante_id' => $estudiante->id, 'monto' => 70]);
+
+        $this->actingAs($coordinador);
+
+        Volt::test('historial-estudiante.index')
+            ->set('terminoBusqueda', 'Salazar Vidal')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
+            ->assertSee('Semestres cursados')
+            ->assertSee('Situación de pagos')
+            ->assertSee('Documentos');
+    }
+
     public function test_seleccionar_estudiante_preselecciona_la_libreta_del_ciclo_mas_reciente(): void
     {
         $coordinador = User::factory()->create();

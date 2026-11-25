@@ -296,6 +296,24 @@ class ReporteServiceTest extends TestCase
         $this->assertCount(1, $reporte['filas']);
     }
 
+    public function test_reporte_operativo_detalle_trae_una_fila_por_registro_con_su_fecha(): void
+    {
+        $horario = Horario::factory()->create();
+        $estudiante = Estudiante::factory()->create();
+        Asistencia::factory()->create(['horario_id' => $horario->id, 'estudiante_id' => $estudiante->id, 'fecha' => '2026-03-10', 'estado' => 'presente']);
+        Asistencia::factory()->create(['horario_id' => $horario->id, 'estudiante_id' => $estudiante->id, 'fecha' => '2026-03-12', 'estado' => 'falta']);
+
+        $reporte = app(ReporteService::class)->operativoDetalle(null, null, null);
+
+        $this->assertSame(['Estudiante', 'Grado', 'Curso', 'Fecha', 'Estado'], $reporte['columnas']);
+        $this->assertCount(2, $reporte['filas']);
+        // sortByDesc('fecha'): la más reciente va primero.
+        $this->assertSame('12/03/2026', $reporte['filas'][0][3]);
+        $this->assertSame('Falta', $reporte['filas'][0][4]);
+        $this->assertSame('10/03/2026', $reporte['filas'][1][3]);
+        $this->assertSame('Presente', $reporte['filas'][1][4]);
+    }
+
     public function test_reporte_propio_solo_incluye_horarios_del_docente_aunque_se_filtre_por_otra_franja(): void
     {
         $docente = User::factory()->create();

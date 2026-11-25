@@ -14,6 +14,7 @@ use App\Modules\Matricula\Models\Matricula;
 use App\Modules\Pagos\Enums\EstadoCuotaEnum;
 use App\Modules\Pagos\Models\Cuota;
 use App\Modules\Pagos\Models\Pago;
+use Illuminate\Support\Carbon;
 
 /**
  * Constructor de reportes tabulares exportables. Cada método devuelve
@@ -171,6 +172,40 @@ class ReporteService
 
         return [
             'columnas' => ['Estudiante', 'Grado', 'Sesiones registradas', 'Asistencias', '% Asistencia'],
+            'filas' => $filas,
+        ];
+    }
+
+    /**
+     * Igual que operativo() pero una fila por registro real de asistencia
+     * (con su fecha), en vez de un resumen por estudiante -- para cuando
+     * hace falta ver CUÁNDO faltó o asistió cada quien, no solo el total.
+     *
+     * @return array{columnas: list<string>, filas: list<array<int, string|int|float>>}
+     */
+    public function operativoDetalle(?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja = null): array
+    {
+        $horarioIds = FiltroMatriculaAcademico::horarioIdsFiltrados($cicloId, $gradoId, $cursoId, $franja);
+
+        $filas = Asistencia::query()
+            ->with(['estudiante', 'horario.grado', 'horario.curso'])
+            ->when($horarioIds !== null, fn ($query) => $query->whereIn('horario_id', $horarioIds))
+            ->get()
+            ->filter(fn (Asistencia $asistencia) => $asistencia->estudiante !== null)
+            ->sortByDesc('fecha')
+            ->map(fn (Asistencia $asistencia) => [
+                $asistencia->estudiante->nombreCompleto(),
+                $asistencia->horario->grado->nombre,
+                $asistencia->horario->curso->nombre,
+                // $asistencia->fecha es un string "Y-m-d" sin cast a Carbon
+                // a propósito (ver Asistencia::$fecha) -- se reformatea acá
+                // solo para mostrar, sin tocar el modelo.
+                Carbon::parse($asistencia->fecha)->format('d/m/Y'),
+                $asistencia->estado->label(),
+            ])->values()->all();
+
+        return [
+            'columnas' => ['Estudiante', 'Grado', 'Curso', 'Fecha', 'Estado'],
             'filas' => $filas,
         ];
     }

@@ -18,6 +18,11 @@ new #[Layout('layouts.app')] class extends Component
 
     public ?int $cicloLibretaId = null;
 
+    // 'general' (todo junto, el mismo contenido que el PDF) | 'academico' |
+    // 'financiero' | 'documentos' -- mismo patrón visual que el selector de
+    // tipo del módulo Reportes (ver reportes/index.blade.php).
+    public string $tipo = 'general';
+
     public function mount(): void
     {
         $user = Auth::user();
@@ -220,13 +225,41 @@ new #[Layout('layouts.app')] class extends Component
                 No se encontró el estudiante seleccionado.
             </p>
         @else
-            <x-historial-estudiante.resumen
-                :historial="$historial"
-                :puede-exportar="$puedeExportar"
-                :ciclo-libreta="$cicloLibreta"
-                :cursos-libreta="$cursosLibreta"
-                :situacion-final-libreta="$situacionFinalLibreta"
-            />
+            <div class="flex gap-1 rounded-md border border-border bg-surface p-1 w-fit">
+                @foreach (['general' => 'General', 'academico' => 'Académico', 'financiero' => 'Financiero', 'documentos' => 'Documentos'] as $valor => $etiqueta)
+                    <button
+                        type="button"
+                        wire:click="$set('tipo', '{{ $valor }}')"
+                        @class(['rounded px-3 py-1.5 text-sm font-medium', 'bg-accent text-white' => $tipo === $valor, 'text-ink-dim' => $tipo !== $valor])
+                    >{{ $etiqueta }}</button>
+                @endforeach
+            </div>
+
+            @if ($tipo === 'general')
+                <x-historial-estudiante.resumen
+                    :historial="$historial"
+                    :puede-exportar="$puedeExportar"
+                    :ciclo-libreta="$cicloLibreta"
+                    :cursos-libreta="$cursosLibreta"
+                    :situacion-final-libreta="$situacionFinalLibreta"
+                />
+            @else
+                <x-historial-estudiante.encabezado :estudiante="$historial['estudiante']" />
+
+                @if ($tipo === 'academico')
+                    <x-historial-estudiante.academico
+                        :historial="$historial"
+                        :puede-exportar="$puedeExportar"
+                        :ciclo-libreta="$cicloLibreta"
+                        :cursos-libreta="$cursosLibreta"
+                        :situacion-final-libreta="$situacionFinalLibreta"
+                    />
+                @elseif ($tipo === 'financiero')
+                    <x-historial-estudiante.financiero :historial="$historial" />
+                @elseif ($tipo === 'documentos')
+                    <x-historial-estudiante.documentos :historial="$historial" />
+                @endif
+            @endif
         @endif
     </div>
 </div>
