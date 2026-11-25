@@ -48,7 +48,7 @@ class PagosSerieObservacionCuotaTest extends TestCase
         $matricula = Matricula::factory()->create();
         $planPago = PlanPago::factory()->create(['matricula_id' => $matricula->id]);
         $cuota = Cuota::factory()->create(['plan_pago_id' => $planPago->id, 'monto' => 80]);
-        $concepto = ConceptoPago::factory()->create(['tipo' => 'mensualidad']);
+        $concepto = ConceptoPago::factory()->mensualidad()->create();
 
         $this->actingAs($this->administrativo());
 
@@ -71,7 +71,7 @@ class PagosSerieObservacionCuotaTest extends TestCase
         $matricula = Matricula::factory()->create();
         PlanPago::factory()->create(['matricula_id' => $matricula->id])
             ->cuotas()->save(Cuota::factory()->make());
-        $concepto = ConceptoPago::factory()->create(['tipo' => 'certificado']);
+        $concepto = ConceptoPago::factory()->certificado()->create();
 
         $this->actingAs($this->administrativo());
 
@@ -94,7 +94,7 @@ class PagosSerieObservacionCuotaTest extends TestCase
         $matricula = Matricula::factory()->create();
         $planPago = PlanPago::factory()->create(['matricula_id' => $matricula->id]);
         Cuota::factory()->create(['plan_pago_id' => $planPago->id, 'monto' => 80]);
-        $concepto = ConceptoPago::factory()->create(['tipo' => 'mensualidad']);
+        $concepto = ConceptoPago::factory()->mensualidad()->create();
 
         $this->actingAs($this->administrativo());
 
@@ -126,7 +126,7 @@ class PagosSerieObservacionCuotaTest extends TestCase
         $matricula = Matricula::factory()->create();
         $planPago = PlanPago::factory()->create(['matricula_id' => $matricula->id]);
         Cuota::factory()->create(['plan_pago_id' => $planPago->id, 'monto' => 80]);
-        $concepto = ConceptoPago::factory()->create(['tipo' => 'mensualidad']);
+        $concepto = ConceptoPago::factory()->mensualidad()->create();
 
         $this->actingAs($this->administrativo());
 

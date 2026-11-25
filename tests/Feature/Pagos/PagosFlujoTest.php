@@ -77,7 +77,7 @@ class PagosFlujoTest extends TestCase
         $administrativo->assignRole(RolEnum::ADMINISTRATIVO->value);
 
         $estudiante = Estudiante::factory()->create();
-        $concepto = ConceptoPago::factory()->create(['tipo' => 'otro']);
+        $concepto = ConceptoPago::factory()->otro()->create();
 
         $this->actingAs($administrativo);
 
@@ -270,7 +270,7 @@ class PagosFlujoTest extends TestCase
         $usuario->assignRole(RolEnum::ESTUDIANTE->value);
         $estudiante = Estudiante::factory()->create(['user_id' => $usuario->id]);
         $matricula = Matricula::factory()->create(['estudiante_id' => $estudiante->id, 'fecha_matricula' => now()]);
-        ConceptoPago::factory()->create(['tipo' => 'mensualidad']);
+        ConceptoPago::factory()->mensualidad()->create();
 
         $plan = $this->app->make(PlanPagoService::class)->crear($matricula, NumeroCuotasEnum::UNA, 100.0);
         $cuota = $plan->cuotas()->firstOrFail();
@@ -305,7 +305,7 @@ class PagosFlujoTest extends TestCase
         $usuario->assignRole(RolEnum::ESTUDIANTE->value);
         $estudiante = Estudiante::factory()->create(['user_id' => $usuario->id]);
         $matricula = Matricula::factory()->create(['estudiante_id' => $estudiante->id, 'fecha_matricula' => now()]);
-        ConceptoPago::factory()->create(['tipo' => 'mensualidad']);
+        ConceptoPago::factory()->mensualidad()->create();
 
         $plan = $this->app->make(PlanPagoService::class)->crear($matricula, NumeroCuotasEnum::UNA, 80.0);
         $cuota = $plan->cuotas()->firstOrFail();
@@ -357,7 +357,7 @@ class PagosFlujoTest extends TestCase
 
         $estudiante = Estudiante::factory()->create();
         $matricula = Matricula::factory()->create(['estudiante_id' => $estudiante->id, 'fecha_matricula' => now()]);
-        $concepto = ConceptoPago::factory()->create(['tipo' => 'mensualidad']);
+        $concepto = ConceptoPago::factory()->mensualidad()->create();
 
         $plan = $this->app->make(PlanPagoService::class)->crear($matricula, NumeroCuotasEnum::UNA, 80.0);
         $cuota = $plan->cuotas()->firstOrFail();
@@ -386,7 +386,7 @@ class PagosFlujoTest extends TestCase
 
         $estudiante = Estudiante::factory()->create();
         $matricula = Matricula::factory()->create(['estudiante_id' => $estudiante->id, 'fecha_matricula' => now()]);
-        $concepto = ConceptoPago::factory()->create(['tipo' => 'mensualidad']);
+        $concepto = ConceptoPago::factory()->mensualidad()->create();
 
         $this->app->make(PlanPagoService::class)->crear($matricula, NumeroCuotasEnum::UNA, 80.0);
 
@@ -475,7 +475,7 @@ class PagosFlujoTest extends TestCase
         $tesoreria->assignRole(RolEnum::TESORERIA->value);
 
         $estudiante = Estudiante::factory()->create();
-        ConceptoPago::factory()->create(['tipo' => 'otro']);
+        ConceptoPago::factory()->otro()->create();
         $cargo = CargoAdicional::factory()->create(['estudiante_id' => $estudiante->id, 'concepto' => 'Convalidación', 'monto' => 80]);
 
         $this->actingAs($administrativo);

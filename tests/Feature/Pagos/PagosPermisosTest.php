@@ -9,11 +9,11 @@ use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
 use App\Modules\Pagos\Enums\EstadoPagoEnum;
-use App\Modules\Pagos\Enums\TipoConceptoEnum;
 use App\Modules\Pagos\Models\ConceptoPago;
 use App\Modules\Pagos\Models\Cuota;
 use App\Modules\Pagos\Models\Pago;
 use App\Modules\Pagos\Models\PlanPago;
+use App\Modules\Pagos\Models\TipoConceptoPago;
 use App\Modules\Pagos\Services\SolicitudCambioMontoService;
 use App\Shared\Enums\RolEnum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -108,6 +108,38 @@ class PagosPermisosTest extends TestCase
         $this->actingAs($coordinador)
             ->get(route('pagos.conceptos'))
             ->assertOk();
+    }
+
+    public function test_coordinador_puede_crear_y_editar_un_tipo_de_concepto(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+
+        $this->actingAs($coordinador);
+
+        Volt::test('pagos.conceptos')
+            ->set('vista', 'tipos')
+            ->call('abrirModalTipo')
+            ->set('nombreTipo', 'Seguro escolar')
+            ->call('guardarTipo')
+            ->assertHasNoErrors()
+            ->assertSee('Seguro escolar');
+
+        $tipo = TipoConceptoPago::query()->where('nombre', 'Seguro escolar')->firstOrFail();
+        $this->assertSame('seguro-escolar', $tipo->slug);
+
+        Volt::test('pagos.conceptos')
+            ->set('vista', 'tipos')
+            ->call('abrirModalTipo', $tipo->id)
+            ->set('nombreTipo', 'Seguro escolar anual')
+            ->set('activoTipo', false)
+            ->call('guardarTipo')
+            ->assertHasNoErrors();
+
+        $tipo->refresh();
+        $this->assertSame('Seguro escolar anual', $tipo->nombre);
+        $this->assertSame('seguro-escolar', $tipo->slug);
+        $this->assertFalse($tipo->activo);
     }
 
     public function test_un_docente_no_puede_gestionar_conceptos_de_pago(): void
@@ -244,7 +276,7 @@ class PagosPermisosTest extends TestCase
         $coordinador = User::factory()->create();
         $coordinador->assignRole(RolEnum::COORDINADOR->value);
 
-        $concepto = ConceptoPago::factory()->create(['tipo' => TipoConceptoEnum::CERTIFICADO, 'nombre' => 'Certificado de estudios']);
+        $concepto = ConceptoPago::factory()->certificado()->create(['nombre' => 'Certificado de estudios']);
         $estudiante = Estudiante::factory()->create(['nombres' => 'Rosa', 'apellidos' => 'Delgado']);
         Pago::factory()->create(['estudiante_id' => $estudiante->id, 'concepto_id' => $concepto->id, 'estado' => EstadoPagoEnum::PENDIENTE]);
 

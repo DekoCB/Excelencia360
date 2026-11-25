@@ -9,7 +9,6 @@ use App\Modules\Academico\Models\Horario;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Pagos\Enums\EstadoCuotaEnum;
 use App\Modules\Pagos\Enums\EstadoPagoEnum;
-use App\Modules\Pagos\Enums\TipoConceptoEnum;
 use App\Modules\Pagos\Models\CargoAdicional;
 use App\Modules\Pagos\Models\ConceptoPago;
 use App\Modules\Pagos\Models\Cuota;
@@ -105,7 +104,7 @@ class CobranzaService
         $filas = [];
 
         foreach ($conceptos as $concepto) {
-            $filasDelConcepto = $concepto->tipo === TipoConceptoEnum::MENSUALIDAD
+            $filasDelConcepto = $concepto->esMensualidad()
                 ? $this->deudoresMensualidad($concepto, $cicloId, $gradoId, $cursoId, $franja)
                 : $this->deudoresConceptoLibre($concepto, $cicloId, $gradoId, $cursoId, $franja);
 

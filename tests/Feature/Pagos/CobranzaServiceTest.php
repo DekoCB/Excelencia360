@@ -7,7 +7,6 @@ use App\Modules\Academico\Models\Horario;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
 use App\Modules\Pagos\Enums\EstadoPagoEnum;
-use App\Modules\Pagos\Enums\TipoConceptoEnum;
 use App\Modules\Pagos\Models\CargoAdicional;
 use App\Modules\Pagos\Models\ConceptoPago;
 use App\Modules\Pagos\Models\Cuota;
@@ -88,7 +87,7 @@ class CobranzaServiceTest extends TestCase
         $matriculaB = Matricula::factory()->create(['grado_id' => $horarioB->grado_id, 'ciclo_id' => $horarioB->ciclo_id]);
         Cuota::factory()->create(['plan_pago_id' => PlanPago::factory()->create(['matricula_id' => $matriculaB->id])->id]);
 
-        $concepto = ConceptoPago::factory()->create(['tipo' => TipoConceptoEnum::MENSUALIDAD]);
+        $concepto = ConceptoPago::factory()->mensualidad()->create();
 
         $reporte = app(CobranzaService::class)->deudoresPorConceptos([$concepto->id], $horarioA->ciclo_id, $horarioA->grado_id, null, null);
 
@@ -113,7 +112,7 @@ class CobranzaServiceTest extends TestCase
         $matriculaSinAsignar = Matricula::factory()->create(['grado_id' => $horarioA->grado_id, 'ciclo_id' => $horarioA->ciclo_id]);
         Cuota::factory()->create(['plan_pago_id' => PlanPago::factory()->create(['matricula_id' => $matriculaSinAsignar->id])->id]);
 
-        $concepto = ConceptoPago::factory()->create(['tipo' => TipoConceptoEnum::MENSUALIDAD]);
+        $concepto = ConceptoPago::factory()->mensualidad()->create();
 
         $reporte = app(CobranzaService::class)->deudoresPorConceptos([$concepto->id], $horarioA->ciclo_id, $horarioA->grado_id, $curso->id, null);
 
@@ -122,7 +121,7 @@ class CobranzaServiceTest extends TestCase
 
     public function test_deudores_por_concepto_libre_incluye_pagos_pendientes_y_rechazados_pero_no_aprobados(): void
     {
-        $concepto = ConceptoPago::factory()->create(['tipo' => TipoConceptoEnum::CERTIFICADO, 'nombre' => 'Certificado de estudios']);
+        $concepto = ConceptoPago::factory()->certificado()->create(['nombre' => 'Certificado de estudios']);
 
         $estudiantePendiente = Estudiante::factory()->create(['nombres' => 'Ana', 'apellidos' => 'Torres']);
         Pago::factory()->create(['estudiante_id' => $estudiantePendiente->id, 'concepto_id' => $concepto->id, 'estado' => EstadoPagoEnum::PENDIENTE]);
@@ -144,8 +143,8 @@ class CobranzaServiceTest extends TestCase
 
     public function test_deudores_por_conceptos_admite_mas_de_un_concepto(): void
     {
-        $conceptoA = ConceptoPago::factory()->create(['tipo' => TipoConceptoEnum::CERTIFICADO, 'nombre' => 'Certificado']);
-        $conceptoB = ConceptoPago::factory()->create(['tipo' => TipoConceptoEnum::CONSTANCIA, 'nombre' => 'Constancia']);
+        $conceptoA = ConceptoPago::factory()->certificado()->create(['nombre' => 'Certificado']);
+        $conceptoB = ConceptoPago::factory()->constancia()->create(['nombre' => 'Constancia']);
 
         $estudianteA = Estudiante::factory()->create();
         Pago::factory()->create(['estudiante_id' => $estudianteA->id, 'concepto_id' => $conceptoA->id, 'estado' => EstadoPagoEnum::PENDIENTE]);
@@ -163,7 +162,7 @@ class CobranzaServiceTest extends TestCase
 
     public function test_deudores_por_conceptos_sin_datos_devuelve_lista_vacia(): void
     {
-        $concepto = ConceptoPago::factory()->create(['tipo' => TipoConceptoEnum::MENSUALIDAD]);
+        $concepto = ConceptoPago::factory()->mensualidad()->create();
 
         $reporte = app(CobranzaService::class)->deudoresPorConceptos([$concepto->id], null, null, null, null);
 

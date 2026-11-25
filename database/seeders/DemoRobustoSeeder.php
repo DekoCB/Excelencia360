@@ -44,9 +44,9 @@ use App\Modules\Pagos\Enums\MetodoPagoEnum;
 use App\Modules\Pagos\Enums\NumeroCuotasEnum;
 use App\Modules\Pagos\Enums\SerieReciboEnum;
 use App\Modules\Pagos\Enums\TipoBilleteraEnum;
-use App\Modules\Pagos\Enums\TipoConceptoEnum;
 use App\Modules\Pagos\Models\ConceptoPago;
 use App\Modules\Pagos\Models\Cuota;
+use App\Modules\Pagos\Models\TipoConceptoPago;
 use App\Modules\Pagos\Services\BloqueoAccesoService;
 use App\Modules\Pagos\Services\ConceptoPagoService;
 use App\Modules\Pagos\Services\CuentaBancariaService;
@@ -564,12 +564,15 @@ class DemoRobustoSeeder extends Seeder
         $pagoService = app(PagoService::class);
         $bloqueoService = app(BloqueoAccesoService::class);
 
-        $conceptoMensualidad = $conceptoService->crear('Mensualidad', TipoConceptoEnum::MENSUALIDAD, 100.00);
-        $conceptoService->crear('Matrícula', TipoConceptoEnum::MATRICULA, 80.00);
-        $conceptoService->crear('Certificado de estudios', TipoConceptoEnum::CERTIFICADO, 60.00);
-        $conceptoService->crear('Constancia de matrícula', TipoConceptoEnum::CONSTANCIA, 20.00);
-        $conceptoService->crear('Penalidad por atraso', TipoConceptoEnum::PENALIDAD, 15.00);
-        $conceptoService->crear('Otros', TipoConceptoEnum::OTRO, 0.00);
+        $tiposPorSlug = TipoConceptoPago::query()->pluck('id', 'slug');
+        $tipoPorSlug = fn (string $slug) => TipoConceptoPago::query()->findOrFail($tiposPorSlug[$slug]);
+
+        $conceptoMensualidad = $conceptoService->crear('Mensualidad', $tipoPorSlug('mensualidad'), 100.00);
+        $conceptoService->crear('Matrícula', $tipoPorSlug('matricula'), 80.00);
+        $conceptoService->crear('Certificado de estudios', $tipoPorSlug('certificado'), 60.00);
+        $conceptoService->crear('Constancia de matrícula', $tipoPorSlug('constancia'), 20.00);
+        $conceptoService->crear('Penalidad por atraso', $tipoPorSlug('penalidad'), 15.00);
+        $conceptoService->crear('Otros', $tipoPorSlug('otro'), 0.00);
 
         $cuentaService->crear(MedioCuentaEnum::BANCO, 'BCP', '194-2345678-0-12', '00219400234567801277', null, null, 'CEBA E.I.R.L.', null);
         $cuentaService->crear(MedioCuentaEnum::BANCO, 'Interbank', '898-3012345678-9', '00389800301234567899', null, null, 'CEBA E.I.R.L.', null);

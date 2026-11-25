@@ -10,7 +10,6 @@ use App\Modules\Pagos\Enums\EstadoCuotaEnum;
 use App\Modules\Pagos\Enums\MetodoPagoEnum;
 use App\Modules\Pagos\Enums\NumeroCuotasEnum;
 use App\Modules\Pagos\Enums\SerieReciboEnum;
-use App\Modules\Pagos\Enums\TipoConceptoEnum;
 use App\Modules\Pagos\Models\CargoAdicional;
 use App\Modules\Pagos\Models\ConceptoPago;
 use App\Modules\Pagos\Models\Pago;
@@ -179,7 +178,7 @@ new #[Layout('layouts.app')] class extends Component
         }
 
         $concepto = ConceptoPago::query()->find($this->conceptoId);
-        if ($concepto?->tipo !== TipoConceptoEnum::MENSUALIDAD) {
+        if (! $concepto?->esMensualidad()) {
             return;
         }
 
@@ -260,14 +259,14 @@ new #[Layout('layouts.app')] class extends Component
             // "Otro" (mismo patrón de ancla ya usado en mi-cuenta.blade.php
             // para Mensualidad); el nombre que de verdad se muestra sale de
             // Pago::nombreConcepto(), no de este ancla.
-            $concepto = ConceptoPago::query()->where('tipo', TipoConceptoEnum::OTRO)->first()
+            $concepto = ConceptoPago::query()->whereHas('tipoConceptoPago', fn ($query) => $query->where('slug', 'otro'))->first()
                 ?? ConceptoPago::query()->firstOrFail();
             $cuota = null;
         } else {
             $cargoAdicional = null;
             $concepto = ConceptoPago::query()->findOrFail($this->conceptoId);
 
-            if ($concepto->tipo === TipoConceptoEnum::OTRO && trim($this->detalle) === '') {
+            if ($concepto->esOtro() && trim($this->detalle) === '') {
                 $this->addError('detalle', 'Escribe el concepto específico de este cobro.');
 
                 return;
@@ -277,7 +276,7 @@ new #[Layout('layouts.app')] class extends Component
             // CobranzaService::cuotaPendienteMasProxima()) -- el resto de
             // conceptos (Matrícula, Certificado, Otro...) no forman parte de
             // un plan de cuotas, así que el pago queda sin Cuota como antes.
-            $cuota = $concepto->tipo === TipoConceptoEnum::MENSUALIDAD
+            $cuota = $concepto->esMensualidad()
                 ? $cobranza->cuotaPendienteMasProxima($estudiante)
                 : null;
         }
@@ -392,7 +391,7 @@ new #[Layout('layouts.app')] class extends Component
         // estudiante y un concepto de tipo Mensualidad.
         $cuotaDetectada = null;
         if ($puedeRegistrar && $this->estudianteSeleccionadoId
-            && $conceptosActivos->firstWhere('id', (int) $this->conceptoId)?->tipo === TipoConceptoEnum::MENSUALIDAD) {
+            && $conceptosActivos->firstWhere('id', (int) $this->conceptoId)?->esMensualidad()) {
             $estudianteParaCuota = Estudiante::query()->find($this->estudianteSeleccionadoId);
             $cuotaDetectada = $estudianteParaCuota ? $cobranza->cuotaPendienteMasProxima($estudianteParaCuota) : null;
         }
@@ -452,7 +451,7 @@ new #[Layout('layouts.app')] class extends Component
             'resultadosBusqueda' => $resultadosBusqueda,
             'matriculasSinPlan' => $matriculasSinPlan,
             'conceptosActivos' => $conceptosActivos,
-            'mostrarDetalleLibre' => $conceptosActivos->firstWhere('id', (int) $this->conceptoId)?->tipo === TipoConceptoEnum::OTRO,
+            'mostrarDetalleLibre' => $conceptosActivos->firstWhere('id', (int) $this->conceptoId)?->esOtro() ?? false,
             'cuotaDetectada' => $cuotaDetectada,
             'cargosAdicionalesPendientes' => $cargosAdicionalesPendientes,
             'series' => SerieReciboEnum::cases(),

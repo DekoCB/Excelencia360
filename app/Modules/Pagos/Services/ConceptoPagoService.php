@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Pagos\Services;
 
-use App\Modules\Pagos\Enums\TipoConceptoEnum;
 use App\Modules\Pagos\Models\ConceptoPago;
+use App\Modules\Pagos\Models\TipoConceptoPago;
 use Illuminate\Database\Eloquent\Collection;
 
 class ConceptoPagoService
@@ -19,7 +19,7 @@ class ConceptoPagoService
      */
     public function listar(): Collection
     {
-        return ConceptoPago::query()->orderBy('nombre')->get();
+        return ConceptoPago::query()->with('tipoConceptoPago')->orderBy('nombre')->get();
     }
 
     /**
@@ -27,14 +27,14 @@ class ConceptoPagoService
      */
     public function activos(): Collection
     {
-        return ConceptoPago::query()->where('activo', true)->orderBy('nombre')->get();
+        return ConceptoPago::query()->with('tipoConceptoPago')->where('activo', true)->orderBy('nombre')->get();
     }
 
-    public function crear(string $nombre, TipoConceptoEnum $tipo, float $montoBase): ConceptoPago
+    public function crear(string $nombre, TipoConceptoPago $tipo, float $montoBase): ConceptoPago
     {
         return ConceptoPago::query()->create([
             'nombre' => $nombre,
-            'tipo' => $tipo,
+            'tipo_concepto_pago_id' => $tipo->id,
             'monto_base' => $montoBase,
             'activo' => true,
         ]);
@@ -46,11 +46,11 @@ class ConceptoPagoService
      * dirección (ver {@see SolicitudCambioMontoService}), para que nadie
      * pueda alterar precios de matrícula/pensión sin ese control.
      */
-    public function actualizar(ConceptoPago $concepto, string $nombre, TipoConceptoEnum $tipo, float $montoBase, bool $activo, ?int $solicitadoPor = null): ConceptoPago
+    public function actualizar(ConceptoPago $concepto, string $nombre, TipoConceptoPago $tipo, float $montoBase, bool $activo, ?int $solicitadoPor = null): ConceptoPago
     {
         $concepto->update([
             'nombre' => $nombre,
-            'tipo' => $tipo,
+            'tipo_concepto_pago_id' => $tipo->id,
             'activo' => $activo,
         ]);
 
