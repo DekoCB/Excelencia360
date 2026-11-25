@@ -46,6 +46,7 @@ class AulaVirtualProgramaEstudioTest extends TestCase
 
         Volt::test('aula-virtual.index')
             ->call('elegirModalidad', 'instituto')
+            ->call('seleccionarPeriodo', $ciclo->id)
             ->call('seleccionarPrograma', $programa->id)
             ->assertSee('Semestre 1')
             ->assertDontSee('Sección A')
@@ -69,6 +70,7 @@ class AulaVirtualProgramaEstudioTest extends TestCase
 
         Volt::test('aula-virtual.index')
             ->call('elegirModalidad', 'instituto')
+            ->call('seleccionarPeriodo', $ciclo->id)
             ->call('seleccionarPrograma', $programaA->id)
             ->assertSee('Semestre de A')
             ->assertDontSee('Semestre de B');
@@ -88,6 +90,7 @@ class AulaVirtualProgramaEstudioTest extends TestCase
 
         Volt::test('aula-virtual.index')
             ->call('elegirModalidad', 'instituto')
+            ->call('seleccionarPeriodo', $ciclo->id)
             ->call('seleccionarPrograma', $programa->id)
             ->call('seleccionarGrado', $grado->id)
             ->assertSee($curso->horario->curso->nombre);
@@ -107,6 +110,7 @@ class AulaVirtualProgramaEstudioTest extends TestCase
 
         Volt::test('aula-virtual.index')
             ->call('elegirModalidad', 'instituto')
+            ->call('seleccionarPeriodo', $ciclo->id)
             ->call('seleccionarPrograma', $programa->id)
             ->call('seleccionarGrado', $grado->id)
             ->call('volverASemestres')
@@ -128,6 +132,7 @@ class AulaVirtualProgramaEstudioTest extends TestCase
 
         Volt::test('aula-virtual.index')
             ->call('elegirModalidad', 'instituto')
+            ->call('seleccionarPeriodo', $ciclo->id)
             ->call('seleccionarPrograma', $programa->id)
             ->call('seleccionarGrado', $grado->id)
             ->call('volverAProgramas')
@@ -136,25 +141,55 @@ class AulaVirtualProgramaEstudioTest extends TestCase
             ->assertSee('Programa único');
     }
 
-    public function test_un_curso_de_un_periodo_distinto_al_actual_no_aparece(): void
+    /**
+     * Los Periodos académicos pueden solaparse (ver backlog de Periodo
+     * Académico libre) y ya no hay un único "actual" que se auto-detecte:
+     * el usuario elige explícitamente qué Periodo mirar (seleccionarPeriodo),
+     * y solo ese filtra los cursos que aparecen de ahí en adelante.
+     */
+    public function test_elegir_un_periodo_solo_muestra_los_cursos_de_ese_periodo(): void
     {
         $usuario = User::factory()->create();
         $usuario->assignRole(RolEnum::COORDINADOR->value);
 
-        $cicloActivo = Ciclo::factory()->activo()->create();
-        $cicloPasado = Ciclo::factory()->create(['estado' => 'cerrado']);
+        $cicloA = Ciclo::factory()->create();
+        $cicloB = Ciclo::factory()->create();
         $programa = ProgramaEstudio::factory()->create();
-        $gradoActual = Grado::factory()->create(['programa_estudio_id' => $programa->id, 'nombre' => 'Semestre vigente']);
-        $gradoPasado = Grado::factory()->create(['programa_estudio_id' => $programa->id, 'nombre' => 'Semestre pasado']);
-        $this->cursoVirtualDe($cicloActivo, $gradoActual);
-        $this->cursoVirtualDe($cicloPasado, $gradoPasado);
+        $gradoDeA = Grado::factory()->create(['programa_estudio_id' => $programa->id, 'nombre' => 'Semestre de A']);
+        $gradoDeB = Grado::factory()->create(['programa_estudio_id' => $programa->id, 'nombre' => 'Semestre de B']);
+        $this->cursoVirtualDe($cicloA, $gradoDeA);
+        $this->cursoVirtualDe($cicloB, $gradoDeB);
 
         $this->actingAs($usuario);
 
         Volt::test('aula-virtual.index')
             ->call('elegirModalidad', 'instituto')
+            ->call('seleccionarPeriodo', $cicloA->id)
             ->call('seleccionarPrograma', $programa->id)
-            ->assertSee('Semestre vigente')
-            ->assertDontSee('Semestre pasado');
+            ->assertSee('Semestre de A')
+            ->assertDontSee('Semestre de B');
+    }
+
+    public function test_volver_a_periodos_limpia_periodo_programa_y_grado(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+
+        $ciclo = Ciclo::factory()->create();
+        $programa = ProgramaEstudio::factory()->create();
+        $grado = Grado::factory()->create(['programa_estudio_id' => $programa->id]);
+        $this->cursoVirtualDe($ciclo, $grado);
+
+        $this->actingAs($usuario);
+
+        Volt::test('aula-virtual.index')
+            ->call('elegirModalidad', 'instituto')
+            ->call('seleccionarPeriodo', $ciclo->id)
+            ->call('seleccionarPrograma', $programa->id)
+            ->call('seleccionarGrado', $grado->id)
+            ->call('volverAPeriodos')
+            ->assertSet('cicloId', null)
+            ->assertSet('programaEstudioId', null)
+            ->assertSet('gradoId', null);
     }
 }

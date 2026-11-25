@@ -46,6 +46,7 @@ class AulaVirtualCursosPendientesTest extends TestCase
 
         Volt::test('aula-virtual.index')
             ->call('elegirModalidad', 'instituto')
+            ->call('seleccionarPeriodo', $ciclo->id)
             ->call('seleccionarPrograma', $grado->programa_estudio_id)
             ->call('seleccionarGrado', $grado->id)
             ->assertSee('Contabilidad II')
@@ -68,6 +69,7 @@ class AulaVirtualCursosPendientesTest extends TestCase
 
         Volt::test('aula-virtual.index')
             ->call('elegirModalidad', 'instituto')
+            ->call('seleccionarPeriodo', $ciclo->id)
             ->call('seleccionarPrograma', $grado->programa_estudio_id)
             ->call('seleccionarGrado', $grado->id)
             ->assertDontSee('Todavía no tiene horario asignado');

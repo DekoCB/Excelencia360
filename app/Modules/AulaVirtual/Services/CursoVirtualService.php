@@ -34,11 +34,33 @@ class CursoVirtualService
     }
 
     /**
+     * $cicloId explícito (elegido a mano en Aula Virtual, ver
+     * aula-virtual/index.blade.php) acota el catálogo a ESE periodo en vez
+     * de auto-detectar uno -- necesario desde que los periodos académicos
+     * pueden solaparse y ya no hay un único "actual" obvio. Sin él (otros
+     * llamadores, ej. el dashboard), se mantiene la auto-detección de
+     * siempre.
+     *
      * @return Collection<int, CursoVirtual>
      */
-    public function delDocente(int $docenteId): Collection
+    public function delDocente(int $docenteId, ?int $cicloId = null): Collection
     {
-        return $this->cursos->delDocente($docenteId, $this->cicloActualId());
+        return $this->cursos->delDocente($docenteId, $cicloId ?? $this->cicloActualId());
+    }
+
+    /**
+     * Igual que delDocente() pero sin acotar a ningún periodo -- para
+     * listar en qué Periodos académicos este docente tiene cursos
+     * virtuales de Instituto (ver aula-virtual/index.blade.php, paso
+     * "elige un periodo"). El repositorio ya trata $cicloId=null como
+     * "sin filtrar" (ver EloquentCursoVirtualRepository), así que esto
+     * deliberadamente evita el ?? cicloActualId() de delDocente().
+     *
+     * @return Collection<int, CursoVirtual>
+     */
+    public function delDocenteSinFiltrarPeriodo(int $docenteId): Collection
+    {
+        return $this->cursos->delDocente($docenteId, null);
     }
 
     /**
@@ -75,9 +97,20 @@ class CursoVirtualService
     /**
      * @return Collection<int, CursoVirtual>
      */
-    public function delEstudiante(Estudiante $estudiante): Collection
+    public function delEstudiante(Estudiante $estudiante, ?int $cicloId = null): Collection
     {
-        return $this->cursos->delEstudiante($estudiante, $this->cicloActualId());
+        return $this->cursos->delEstudiante($estudiante, $cicloId ?? $this->cicloActualId());
+    }
+
+    /**
+     * Igual que delEstudiante() pero sin acotar a ningún periodo -- mismo
+     * motivo que delDocenteSinFiltrarPeriodo().
+     *
+     * @return Collection<int, CursoVirtual>
+     */
+    public function delEstudianteSinFiltrarPeriodo(Estudiante $estudiante): Collection
+    {
+        return $this->cursos->delEstudiante($estudiante, null);
     }
 
     /**
@@ -86,9 +119,20 @@ class CursoVirtualService
      *
      * @return Collection<int, CursoVirtual>
      */
-    public function todos(): Collection
+    public function todos(?int $cicloId = null): Collection
     {
-        return $this->cursos->todos($this->cicloActualId());
+        return $this->cursos->todos($cicloId ?? $this->cicloActualId());
+    }
+
+    /**
+     * Igual que todos() pero sin acotar a ningún periodo -- mismo motivo
+     * que delDocenteSinFiltrarPeriodo().
+     *
+     * @return Collection<int, CursoVirtual>
+     */
+    public function todosSinFiltrarPeriodo(): Collection
+    {
+        return $this->cursos->todos(null);
     }
 
     /**

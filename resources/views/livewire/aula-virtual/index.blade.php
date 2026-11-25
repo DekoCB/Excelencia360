@@ -13,6 +13,11 @@ new #[Layout('layouts.app')] class extends Component
     /** @var 'instituto'|'curso_corto'|null */
     public ?string $modalidad = null;
 
+    // Primer nivel del drill-down de Instituto: con Periodos académicos que
+    // pueden solaparse (ver backlog de Periodo Académico libre) ya no hay
+    // un único "actual" que auto-detectar, así que se elige a mano.
+    public ?int $cicloId = null;
+
     public ?int $programaEstudioId = null;
 
     public ?int $gradoId = null;
@@ -33,6 +38,7 @@ new #[Layout('layouts.app')] class extends Component
     public function elegirModalidad(string $modalidad): void
     {
         $this->modalidad = $modalidad;
+        $this->cicloId = null;
         $this->programaEstudioId = null;
         $this->gradoId = null;
     }
@@ -40,6 +46,19 @@ new #[Layout('layouts.app')] class extends Component
     public function volverAModalidad(): void
     {
         $this->modalidad = null;
+        $this->cicloId = null;
+        $this->programaEstudioId = null;
+        $this->gradoId = null;
+    }
+
+    public function seleccionarPeriodo(int $cicloId): void
+    {
+        $this->cicloId = $cicloId;
+    }
+
+    public function volverAPeriodos(): void
+    {
+        $this->cicloId = null;
         $this->programaEstudioId = null;
         $this->gradoId = null;
     }
@@ -72,27 +91,36 @@ new #[Layout('layouts.app')] class extends Component
         // hasPermissionTo() no basta: Dirección tiene este permiso vía '*'
         // sin ser realmente docente, y quedaría viendo "sus" cursos (ninguno)
         // en vez de la vista de supervisión.
+        //
+        // Se trae SIN filtrar por periodo (delDocenteSinFiltrarPeriodo() y
+        // afines) para poder calcular qué Periodos académicos tienen
+        // contenido y ofrecerlos como primer paso del drill-down -- antes
+        // se auto-detectaba un único "periodo actual" (CursoVirtualService
+        // ::cicloActualId()), pero con periodos que pueden solaparse eso ya
+        // no alcanza.
         if ($user->hasPermissionTo('aula_virtual.gestionar_propio') && $user->hasRole(RolEnum::DOCENTE->value)) {
-            $cursos = $service->delDocente($user->id);
+            $cursos = $service->delDocenteSinFiltrarPeriodo($user->id);
             $rol = 'docente';
         } elseif ($user->hasPermissionTo('aula_virtual.ver_propio') && $user->estudiante) {
-            $cursos = $service->delEstudiante($user->estudiante);
+            $cursos = $service->delEstudianteSinFiltrarPeriodo($user->estudiante);
             $rol = 'estudiante';
         } else {
-            $cursos = $service->todos();
+            $cursos = $service->todosSinFiltrarPeriodo();
             $rol = 'supervisor';
         }
 
-        // Un curso corto no tiene Programa de Estudio ni Semestre -- se
-        // muestra aparte, como lista plana, en vez de forzarlo en el
-        // drill-down de Instituto.
-        $cursosInstituto = $cursos->reject(fn ($curso) => $curso->esDeCursoCorto());
+        // Un curso corto no tiene Periodo académico, Programa de Estudio ni
+        // Semestre -- se muestra aparte, como lista plana, en vez de
+        // forzarlo en el drill-down de Instituto.
+        $cursosInstitutoSinFiltrar = $cursos->reject(fn ($curso) => $curso->esDeCursoCorto());
         $cursosCortos = $cursos->filter(fn ($curso) => $curso->esDeCursoCorto())->sortBy(fn ($curso) => $curso->cursoAcademico()->nombre)->values();
 
-        // $cursosInstituto ya viene acotado al período de matrícula actual
-        // (ver CursoVirtualService::cicloActualId()) -- acá solo queda
-        // agrupar por Programa de Estudio y Semestre, sin pedirle al
-        // usuario que elija el período a mano.
+        $periodosDisponibles = $cursosInstitutoSinFiltrar->pluck('horario.ciclo')->unique('id')->sortByDesc('fecha_inicio')->values();
+
+        $cursosInstituto = $this->cicloId
+            ? $cursosInstitutoSinFiltrar->filter(fn ($curso) => $curso->horario->ciclo_id === $this->cicloId)
+            : collect();
+
         $programasDisponibles = $cursosInstituto->pluck('horario.grado.programaEstudio')->unique('id')->sortBy('nombre')->values();
 
         $gradosDisponibles = collect();
@@ -137,6 +165,7 @@ new #[Layout('layouts.app')] class extends Component
 
         return [
             'cursosCortos' => $cursosCortos,
+            'periodosDisponibles' => $periodosDisponibles,
             'programasDisponibles' => $programasDisponibles,
             'gradosDisponibles' => $gradosDisponibles,
             'grupos' => $grupos,
@@ -209,8 +238,32 @@ new #[Layout('layouts.app')] class extends Component
                 </p>
             @endforelse
         </div>
-    @elseif (! $programaEstudioId)
+    @elseif (! $cicloId)
         <button type="button" wire:click="volverAModalidad" class="mb-4 text-sm text-ink-faint hover:text-ink">← Instituto / Cursos cortos</button>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            @forelse ($periodosDisponibles as $periodo)
+                <button
+                    type="button"
+                    wire:click="seleccionarPeriodo({{ $periodo->id }})"
+                    class="block rounded-2xl border border-border bg-surface shadow-sm p-4 text-left transition hover:border-accent"
+                >
+                    <p class="font-display text-lg text-ink">{{ $periodo->nombre }}</p>
+                </button>
+            @empty
+                <p class="col-span-full py-8 text-center text-sm text-ink-faint">
+                    @if ($rol === 'docente')
+                        Todavía no tienes cursos con aula virtual activada.
+                    @elseif ($rol === 'estudiante')
+                        Todavía no hay cursos virtuales para tu matrícula.
+                    @else
+                        No hay cursos virtuales activos.
+                    @endif
+                </p>
+            @endforelse
+        </div>
+    @elseif (! $programaEstudioId)
+        <button type="button" wire:click="volverAPeriodos" class="mb-4 text-sm text-ink-faint hover:text-ink">← Periodo académico</button>
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             @forelse ($programasDisponibles as $programa)
