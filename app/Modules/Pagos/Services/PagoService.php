@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Pagos\Services;
 
+use App\Modules\FlujoCaja\Models\TurnoCaja;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Pagos\Enums\EstadoCuotaEnum;
 use App\Modules\Pagos\Enums\EstadoPagoEnum;
@@ -75,7 +76,11 @@ class PagoService
         // siempre la del momento en que Tesorería aprueba), que no se toca.
         $fecha = $fechaPago !== null ? Carbon::parse($fechaPago) : now();
 
-        return DB::transaction(function () use ($estudiante, $concepto, $detalle, $observacion, $cuota, $cargoAdicional, $montoTotal, $metodo, $registradoPor, $comprobante, $partes, $fecha) {
+        $turnoAbierto = $registradoPor !== null
+            ? TurnoCaja::query()->where('usuario_id', $registradoPor)->where('estado', 'abierto')->first()
+            : null;
+
+        return DB::transaction(function () use ($estudiante, $concepto, $detalle, $observacion, $cuota, $cargoAdicional, $montoTotal, $metodo, $registradoPor, $comprobante, $partes, $fecha, $turnoAbierto) {
             /** @var Pago $pago */
             $pago = Pago::query()->create([
                 'estudiante_id' => $estudiante->id,
@@ -89,6 +94,7 @@ class PagoService
                 'estado' => EstadoPagoEnum::PENDIENTE,
                 'registrado_por' => $registradoPor,
                 'fecha_pago' => $fecha,
+                'turno_caja_id' => $turnoAbierto?->id,
             ]);
 
             foreach ($partes as $parte) {

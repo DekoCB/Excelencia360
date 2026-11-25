@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace App\Modules\FlujoCaja\Services;
 
+use App\Models\User;
 use App\Modules\FlujoCaja\Enums\CategoriaEgresoEnum;
 use App\Modules\FlujoCaja\Models\Egreso;
+use App\Modules\FlujoCaja\Models\TurnoCaja;
 use App\Modules\Pagos\Enums\EstadoPagoEnum;
 use App\Modules\Pagos\Enums\MetodoPagoEnum;
 use App\Modules\Pagos\Models\Pago;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Ingresos = Pago aprobado (mismo criterio que ya usa el Dashboard, ver
@@ -25,8 +28,14 @@ class FlujoCajaService
      */
     public function registrarEgreso(array $datos, ?UploadedFile $comprobante, ?int $registradoPor): Egreso
     {
+        $turnoAbierto = $registradoPor !== null ? $this->turnoAbiertoDeUsuarioId($registradoPor) : null;
+
         /** @var Egreso $egreso */
-        $egreso = Egreso::query()->create([...$datos, 'registrado_por' => $registradoPor]);
+        $egreso = Egreso::query()->create([
+            ...$datos,
+            'registrado_por' => $registradoPor,
+            'turno_caja_id' => $turnoAbierto?->id,
+        ]);
 
         if ($comprobante) {
             $egreso->addMedia($comprobante)->toMediaCollection('comprobante');
@@ -35,19 +44,116 @@ class FlujoCajaService
         return $egreso;
     }
 
-    public function ingresosDelPeriodo(Carbon $inicio, Carbon $fin): float
+    public function ingresosDelPeriodo(Carbon $inicio, Carbon $fin, ?int $usuarioId = null): float
     {
         return (float) Pago::query()
             ->where('estado', EstadoPagoEnum::APROBADO)
             ->whereBetween('fecha_aprobacion', [$inicio, $fin])
+            ->when($usuarioId !== null, fn ($query) => $query->where('registrado_por', $usuarioId))
             ->sum('monto');
     }
 
-    public function egresosDelPeriodo(Carbon $inicio, Carbon $fin): float
+    public function egresosDelPeriodo(Carbon $inicio, Carbon $fin, ?int $usuarioId = null): float
     {
         return (float) Egreso::query()
             ->whereBetween('fecha_egreso', [$inicio, $fin])
+            ->when($usuarioId !== null, fn ($query) => $query->where('registrado_por', $usuarioId))
             ->sum('monto');
+    }
+
+    /**
+     * El turno abierto de un usuario (si tiene uno) -- cada Pago registrado
+     * y cada Egreso anotado mientras esté abierto se le vincula
+     * automáticamente (ver registrarEgreso() y PagoService::registrar()).
+     */
+    public function turnoAbiertoDe(User $usuario): ?TurnoCaja
+    {
+        return $this->turnoAbiertoDeUsuarioId($usuario->id);
+    }
+
+    private function turnoAbiertoDeUsuarioId(int $usuarioId): ?TurnoCaja
+    {
+        return TurnoCaja::query()
+            ->where('usuario_id', $usuarioId)
+            ->where('estado', 'abierto')
+            ->first();
+    }
+
+    public function abrirTurno(User $usuario, float $montoInicial): TurnoCaja
+    {
+        if ($this->turnoAbiertoDe($usuario) !== null) {
+            throw ValidationException::withMessages([
+                'montoInicial' => 'Ya tienes un turno de caja abierto.',
+            ]);
+        }
+
+        return TurnoCaja::query()->create([
+            'usuario_id' => $usuario->id,
+            'fecha' => now()->toDateString(),
+            'hora_apertura' => now(),
+            'monto_inicial' => $montoInicial,
+            'estado' => 'abierto',
+        ]);
+    }
+
+    public function cerrarTurno(TurnoCaja $turno, float $montoFinalDeclarado): TurnoCaja
+    {
+        $turno->update([
+            'hora_cierre' => now(),
+            'monto_final_declarado' => $montoFinalDeclarado,
+            'estado' => 'cerrado',
+        ]);
+
+        return $turno->refresh();
+    }
+
+    public function montoCalculadoDelTurno(TurnoCaja $turno): float
+    {
+        $ingresos = (float) Pago::query()
+            ->where('estado', EstadoPagoEnum::APROBADO)
+            ->where('turno_caja_id', $turno->id)
+            ->sum('monto');
+
+        $egresos = (float) Egreso::query()
+            ->where('turno_caja_id', $turno->id)
+            ->sum('monto');
+
+        return (float) $turno->monto_inicial + $ingresos - $egresos;
+    }
+
+    /**
+     * Mismo criterio y misma forma de retorno que movimientosDelPeriodo(),
+     * filtrado por turno en vez de por rango de fechas.
+     */
+    public function movimientosDelTurno(TurnoCaja $turno): SupportCollection
+    {
+        $ingresos = Pago::query()
+            ->where('estado', EstadoPagoEnum::APROBADO)
+            ->where('turno_caja_id', $turno->id)
+            ->with(['concepto', 'cargoAdicional', 'recibo'])
+            ->get()
+            ->map(fn (Pago $pago) => [
+                'tipo' => 'ingreso',
+                'fecha' => $pago->fecha_aprobacion ?? $pago->fecha_pago,
+                'concepto' => $pago->nombreConcepto().($pago->detalle ? " — {$pago->detalle}" : ''),
+                'metodo' => $pago->metodo->label(),
+                'monto' => (float) $pago->monto,
+                'comprobanteUrl' => $pago->recibo?->getFirstMediaUrl('pdf') ?: null,
+            ]);
+
+        $egresos = Egreso::query()
+            ->where('turno_caja_id', $turno->id)
+            ->get()
+            ->map(fn (Egreso $egreso) => [
+                'tipo' => 'egreso',
+                'fecha' => $egreso->fecha_egreso,
+                'concepto' => $egreso->categoria->label().($egreso->descripcion ? " — {$egreso->descripcion}" : ''),
+                'metodo' => $egreso->metodo->label(),
+                'monto' => (float) $egreso->monto,
+                'comprobanteUrl' => $egreso->getFirstMediaUrl('comprobante') ?: null,
+            ]);
+
+        return $ingresos->concat($egresos)->sortByDesc('fecha')->values();
     }
 
     /**
@@ -61,11 +167,12 @@ class FlujoCajaService
      * (string), "metodo" (string), "monto" (float) y "comprobanteUrl"
      * (?string).
      */
-    public function movimientosDelPeriodo(Carbon $inicio, Carbon $fin): SupportCollection
+    public function movimientosDelPeriodo(Carbon $inicio, Carbon $fin, ?int $usuarioId = null): SupportCollection
     {
         $ingresos = Pago::query()
             ->where('estado', EstadoPagoEnum::APROBADO)
             ->whereBetween('fecha_aprobacion', [$inicio, $fin])
+            ->when($usuarioId !== null, fn ($query) => $query->where('registrado_por', $usuarioId))
             ->with(['concepto', 'cargoAdicional', 'recibo'])
             ->get()
             ->map(fn (Pago $pago) => [
@@ -79,6 +186,7 @@ class FlujoCajaService
 
         $egresos = Egreso::query()
             ->whereBetween('fecha_egreso', [$inicio, $fin])
+            ->when($usuarioId !== null, fn ($query) => $query->where('registrado_por', $usuarioId))
             ->get()
             ->map(fn (Egreso $egreso) => [
                 'tipo' => 'egreso',
@@ -90,6 +198,23 @@ class FlujoCajaService
             ]);
 
         return $ingresos->concat($egresos)->sortByDesc('fecha')->values();
+    }
+
+    /**
+     * Los usuarios que han registrado al menos un Pago o Egreso -- opciones
+     * del filtro "por usuario" de la pantalla de Flujo de Caja.
+     *
+     * @return SupportCollection<int, User>
+     */
+    public function usuariosConMovimientos(): SupportCollection
+    {
+        $idsPagos = Pago::query()->whereNotNull('registrado_por')->distinct()->pluck('registrado_por');
+        $idsEgresos = Egreso::query()->whereNotNull('registrado_por')->distinct()->pluck('registrado_por');
+
+        return User::query()
+            ->whereIn('id', $idsPagos->concat($idsEgresos)->unique())
+            ->orderBy('name')
+            ->get();
     }
 
     /**

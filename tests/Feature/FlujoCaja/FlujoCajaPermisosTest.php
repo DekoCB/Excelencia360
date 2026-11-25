@@ -107,4 +107,52 @@ class FlujoCajaPermisosTest extends TestCase
         $this->assertArrayHasKey('download', $testable->effects);
         $this->assertSame('application/pdf', $testable->effects['download']['contentType']);
     }
+
+    public function test_tesoreria_abre_y_cierra_un_turno_de_caja_desde_la_ui(): void
+    {
+        $tesoreria = User::factory()->create();
+        $tesoreria->assignRole(RolEnum::TESORERIA->value);
+
+        $this->actingAs($tesoreria);
+
+        Volt::test('flujo-caja.index')
+            ->call('abrirModalTurno')
+            ->set('montoInicial', '100')
+            ->call('abrirTurno')
+            ->assertHasNoErrors()
+            ->assertSet('mostrarModalAbrirTurno', false);
+
+        $this->assertDatabaseHas('turnos_caja', [
+            'usuario_id' => $tesoreria->id,
+            'monto_inicial' => '100.00',
+            'estado' => 'abierto',
+        ]);
+
+        Volt::test('flujo-caja.index')
+            ->call('abrirModalCerrarTurno')
+            ->set('montoFinal', '100')
+            ->call('cerrarTurno')
+            ->assertHasNoErrors()
+            ->assertSet('mostrarModalCerrarTurno', false);
+
+        $this->assertDatabaseHas('turnos_caja', [
+            'usuario_id' => $tesoreria->id,
+            'estado' => 'cerrado',
+            'monto_final_declarado' => '100.00',
+        ]);
+    }
+
+    public function test_coordinador_no_puede_abrir_un_turno_de_caja(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+
+        $this->actingAs($coordinador);
+
+        rescue(fn () => Volt::test('flujo-caja.index')
+            ->set('montoInicial', '100')
+            ->call('abrirTurno'), report: false);
+
+        $this->assertDatabaseCount('turnos_caja', 0);
+    }
 }

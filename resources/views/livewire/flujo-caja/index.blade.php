@@ -16,7 +16,13 @@ new #[Layout('layouts.app')] class extends Component
 {
     use WithFileUploads;
 
+    public string $vista = 'mensual';
+
     public string $mes = '';
+
+    public string $fecha = '';
+
+    public string $usuarioId = '';
 
     public bool $mostrarModal = false;
 
@@ -32,10 +38,19 @@ new #[Layout('layouts.app')] class extends Component
 
     public $comprobante = null;
 
+    public bool $mostrarModalAbrirTurno = false;
+
+    public bool $mostrarModalCerrarTurno = false;
+
+    public string $montoInicial = '';
+
+    public string $montoFinal = '';
+
     public function mount(): void
     {
         Gate::authorize('flujo_caja.ver');
         $this->mes = now()->format('Y-m');
+        $this->fecha = now()->format('Y-m-d');
     }
 
     public function mesAnterior(): void
@@ -46,6 +61,61 @@ new #[Layout('layouts.app')] class extends Component
     public function mesSiguiente(): void
     {
         $this->mes = Carbon::parse("{$this->mes}-01")->addMonth()->format('Y-m');
+    }
+
+    public function diaAnterior(): void
+    {
+        $this->fecha = Carbon::parse($this->fecha)->subDay()->format('Y-m-d');
+    }
+
+    public function diaSiguiente(): void
+    {
+        $this->fecha = Carbon::parse($this->fecha)->addDay()->format('Y-m-d');
+    }
+
+    public function abrirModalTurno(): void
+    {
+        Gate::authorize('flujo_caja.gestionar');
+
+        $this->resetValidation();
+        $this->montoInicial = '';
+        $this->mostrarModalAbrirTurno = true;
+    }
+
+    public function abrirTurno(FlujoCajaService $service): void
+    {
+        Gate::authorize('flujo_caja.gestionar');
+
+        $this->validate(['montoInicial' => 'required|numeric|min:0']);
+
+        $service->abrirTurno(Auth::user(), (float) $this->montoInicial);
+
+        $this->mostrarModalAbrirTurno = false;
+        session()->flash('status', 'Turno de caja abierto.');
+    }
+
+    public function abrirModalCerrarTurno(): void
+    {
+        Gate::authorize('flujo_caja.gestionar');
+
+        $this->resetValidation();
+        $this->montoFinal = '';
+        $this->mostrarModalCerrarTurno = true;
+    }
+
+    public function cerrarTurno(FlujoCajaService $service): void
+    {
+        Gate::authorize('flujo_caja.gestionar');
+
+        $this->validate(['montoFinal' => 'required|numeric|min:0']);
+
+        $turno = $service->turnoAbiertoDe(Auth::user());
+        abort_if($turno === null, 404);
+
+        $service->cerrarTurno($turno, (float) $this->montoFinal);
+
+        $this->mostrarModalCerrarTurno = false;
+        session()->flash('status', 'Turno de caja cerrado.');
     }
 
     public function abrirModal(): void
@@ -88,20 +158,29 @@ new #[Layout('layouts.app')] class extends Component
      */
     private function datosDelPeriodo(FlujoCajaService $service): array
     {
-        $inicio = Carbon::parse("{$this->mes}-01")->startOfMonth();
-        $fin = $inicio->copy()->endOfMonth();
+        if ($this->vista === 'diario') {
+            $inicio = Carbon::parse($this->fecha)->startOfDay();
+            $fin = $inicio->copy()->endOfDay();
+            $mesLabel = ucfirst($inicio->translatedFormat('d \d\e F \d\e Y'));
+        } else {
+            $inicio = Carbon::parse("{$this->mes}-01")->startOfMonth();
+            $fin = $inicio->copy()->endOfMonth();
+            $mesLabel = ucfirst($inicio->translatedFormat('F Y'));
+        }
 
-        $ingresos = $service->ingresosDelPeriodo($inicio, $fin);
-        $egresos = $service->egresosDelPeriodo($inicio, $fin);
+        $usuarioId = $this->usuarioId !== '' ? (int) $this->usuarioId : null;
+
+        $ingresos = $service->ingresosDelPeriodo($inicio, $fin, $usuarioId);
+        $egresos = $service->egresosDelPeriodo($inicio, $fin, $usuarioId);
 
         return [
             'inicio' => $inicio,
             'fin' => $fin,
-            'mesLabel' => ucfirst($inicio->translatedFormat('F Y')),
+            'mesLabel' => $mesLabel,
             'ingresos' => $ingresos,
             'egresos' => $egresos,
             'saldoNeto' => $ingresos - $egresos,
-            'movimientos' => $service->movimientosDelPeriodo($inicio, $fin),
+            'movimientos' => $service->movimientosDelPeriodo($inicio, $fin, $usuarioId),
         ];
     }
 
@@ -129,6 +208,9 @@ new #[Layout('layouts.app')] class extends Component
         [$labelsIngresos, $datosIngresos] = $service->ingresosPorMes(6);
         [$labelsEgresos, $datosEgresos] = $service->egresosPorMes(6);
 
+        $puedeGestionar = Auth::user()->hasPermissionTo('flujo_caja.gestionar');
+        $turnoAbierto = $puedeGestionar ? $service->turnoAbiertoDe(Auth::user()) : null;
+
         return [
             ...$datos,
             'categorias' => CategoriaEgresoEnum::cases(),
@@ -137,7 +219,11 @@ new #[Layout('layouts.app')] class extends Component
             'datosIngresos' => $datosIngresos,
             'labelsEgresos' => $labelsEgresos,
             'datosEgresos' => $datosEgresos,
-            'puedeGestionar' => Auth::user()->hasPermissionTo('flujo_caja.gestionar'),
+            'puedeGestionar' => $puedeGestionar,
+            'usuarios' => $service->usuariosConMovimientos(),
+            'turnoAbierto' => $turnoAbierto,
+            'movimientosDelTurno' => $turnoAbierto ? $service->movimientosDelTurno($turnoAbierto) : null,
+            'montoCalculadoTurno' => $turnoAbierto ? $service->montoCalculadoDelTurno($turnoAbierto) : null,
         ];
     }
 }; ?>
@@ -152,15 +238,61 @@ new #[Layout('layouts.app')] class extends Component
         <x-alert class="mb-4">{{ session('status') }}</x-alert>
     @endif
 
+    @can('flujo_caja.gestionar')
+        <div class="mb-6 rounded-2xl border border-border bg-surface shadow-sm p-4">
+            @if ($turnoAbierto)
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <p class="font-display text-sm text-ink">Turno abierto desde {{ $turnoAbierto->hora_apertura->format('d/m/Y H:i') }}</p>
+                        <p class="mt-1 text-xs text-ink-faint">
+                            Monto inicial S/ {{ number_format((float) $turnoAbierto->monto_inicial, 2) }}
+                            · {{ $movimientosDelTurno->count() }} movimiento(s)
+                            · debería haber S/ {{ number_format($montoCalculadoTurno, 2) }} en caja
+                        </p>
+                    </div>
+                    <x-secondary-button type="button" wire:click="abrirModalCerrarTurno">Cerrar turno</x-secondary-button>
+                </div>
+            @else
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <p class="text-sm text-ink-dim">No tienes un turno de caja abierto.</p>
+                    <x-primary-button type="button" wire:click="abrirModalTurno">Abrir turno</x-primary-button>
+                </div>
+            @endif
+        </div>
+    @endcan
+
     <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div class="flex items-center gap-3">
-            <button type="button" wire:click="mesAnterior" class="rounded-md border border-border p-2 text-ink-faint transition hover:border-accent hover:text-accent">
-                <x-heroicon-o-chevron-left class="h-4 w-4" />
-            </button>
-            <p class="font-display text-lg capitalize text-ink">{{ $mesLabel }}</p>
-            <button type="button" wire:click="mesSiguiente" class="rounded-md border border-border p-2 text-ink-faint transition hover:border-accent hover:text-accent">
-                <x-heroicon-o-chevron-right class="h-4 w-4" />
-            </button>
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="flex overflow-hidden rounded-md border border-border">
+                <button type="button" wire:click="$set('vista', 'mensual')" @class(['px-3 py-1.5 text-xs font-medium transition', 'bg-accent text-white' => $vista === 'mensual', 'text-ink-dim hover:bg-surface-2' => $vista !== 'mensual'])>Mensual</button>
+                <button type="button" wire:click="$set('vista', 'diario')" @class(['px-3 py-1.5 text-xs font-medium transition', 'bg-accent text-white' => $vista === 'diario', 'text-ink-dim hover:bg-surface-2' => $vista !== 'diario'])>Diario</button>
+            </div>
+
+            @if ($vista === 'mensual')
+                <button type="button" wire:click="mesAnterior" class="rounded-md border border-border p-2 text-ink-faint transition hover:border-accent hover:text-accent">
+                    <x-heroicon-o-chevron-left class="h-4 w-4" />
+                </button>
+                <p class="font-display text-lg capitalize text-ink">{{ $mesLabel }}</p>
+                <button type="button" wire:click="mesSiguiente" class="rounded-md border border-border p-2 text-ink-faint transition hover:border-accent hover:text-accent">
+                    <x-heroicon-o-chevron-right class="h-4 w-4" />
+                </button>
+            @else
+                <button type="button" wire:click="diaAnterior" class="rounded-md border border-border p-2 text-ink-faint transition hover:border-accent hover:text-accent">
+                    <x-heroicon-o-chevron-left class="h-4 w-4" />
+                </button>
+                <p class="font-display text-lg capitalize text-ink">{{ $mesLabel }}</p>
+                <button type="button" wire:click="diaSiguiente" class="rounded-md border border-border p-2 text-ink-faint transition hover:border-accent hover:text-accent">
+                    <x-heroicon-o-chevron-right class="h-4 w-4" />
+                </button>
+            @endif
+
+            @if ($usuarios->isNotEmpty())
+                <x-select-input
+                    wire:model.live="usuarioId"
+                    class="text-sm"
+                    :options="collect(['' => 'Todos los usuarios'])->merge($usuarios->mapWithKeys(fn ($usuario) => [(string) $usuario->id => $usuario->name]))"
+                />
+            @endif
         </div>
 
         <div class="flex gap-2">
@@ -313,6 +445,82 @@ new #[Layout('layouts.app')] class extends Component
             <div class="mt-6 flex justify-end gap-3">
                 <x-secondary-button type="button" wire:click="$set('mostrarModal', false)">Cancelar</x-secondary-button>
                 <x-primary-button type="button" wire:click="registrarEgreso">Registrar</x-primary-button>
+            </div>
+        </div>
+    </div>
+
+    <div
+        x-show="$wire.mostrarModalAbrirTurno"
+        x-cloak
+        class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4"
+        x-transition:enter="ease-out duration-300"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="ease-in duration-200"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+    >
+        <div
+            x-show="$wire.mostrarModalAbrirTurno"
+            class="w-full max-w-sm rounded-2xl border border-border bg-surface-elevated p-6 shadow-lg"
+            x-transition:enter="ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+            x-transition:leave="ease-in duration-200"
+            x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+            x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+        >
+            <h2 class="font-display text-lg text-ink">Abrir turno de caja</h2>
+            <p class="mt-1 text-sm text-ink-dim">Indica cuánto dinero tienes en caja al empezar.</p>
+
+            <div class="mt-4">
+                <x-input-label for="montoInicial" value="Monto inicial (S/)" />
+                <x-text-input wire:model="montoInicial" id="montoInicial" type="number" step="0.01" min="0" class="mt-1 block w-full" />
+                <x-input-error :messages="$errors->get('montoInicial')" class="mt-1" />
+            </div>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <x-secondary-button type="button" wire:click="$set('mostrarModalAbrirTurno', false)">Cancelar</x-secondary-button>
+                <x-primary-button type="button" wire:click="abrirTurno">Abrir turno</x-primary-button>
+            </div>
+        </div>
+    </div>
+
+    <div
+        x-show="$wire.mostrarModalCerrarTurno"
+        x-cloak
+        class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4"
+        x-transition:enter="ease-out duration-300"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="ease-in duration-200"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+    >
+        <div
+            x-show="$wire.mostrarModalCerrarTurno"
+            class="w-full max-w-sm rounded-2xl border border-border bg-surface-elevated p-6 shadow-lg"
+            x-transition:enter="ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+            x-transition:leave="ease-in duration-200"
+            x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+            x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+        >
+            <h2 class="font-display text-lg text-ink">Cerrar turno de caja</h2>
+            @if ($turnoAbierto)
+                <p class="mt-1 text-sm text-ink-dim">Según el sistema, debería haber <span class="font-semibold text-ink">S/ {{ number_format($montoCalculadoTurno, 2) }}</span> en caja.</p>
+            @endif
+
+            <div class="mt-4">
+                <x-input-label for="montoFinal" value="Monto final en caja (S/)" />
+                <x-text-input wire:model="montoFinal" id="montoFinal" type="number" step="0.01" min="0" class="mt-1 block w-full" />
+                <x-input-error :messages="$errors->get('montoFinal')" class="mt-1" />
+            </div>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <x-secondary-button type="button" wire:click="$set('mostrarModalCerrarTurno', false)">Cancelar</x-secondary-button>
+                <x-primary-button type="button" wire:click="cerrarTurno">Cerrar turno</x-primary-button>
             </div>
         </div>
     </div>

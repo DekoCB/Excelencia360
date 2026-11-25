@@ -27,6 +27,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property MetodoPagoEnum $metodo
  * @property Carbon $fecha_egreso
  * @property int|null $registrado_por
+ * @property int|null $turno_caja_id
  */
 class Egreso extends Model implements HasMedia
 {
@@ -42,6 +43,7 @@ class Egreso extends Model implements HasMedia
         'metodo',
         'fecha_egreso',
         'registrado_por',
+        'turno_caja_id',
     ];
 
     protected function casts(): array
@@ -62,6 +64,11 @@ class Egreso extends Model implements HasMedia
     public function registradoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'registrado_por');
+    }
+
+    public function turnoCaja(): BelongsTo
+    {
+        return $this->belongsTo(TurnoCaja::class);
     }
 
     public function registerMediaCollections(): void

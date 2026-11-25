@@ -34,6 +34,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * @property Carbon $fecha_pago
  * @property Carbon|null $fecha_aprobacion
  * @property string|null $motivo_rechazo
+ * @property int|null $turno_caja_id
  * @property-read Estudiante|null $estudiante
  * @property-read ConceptoPago $concepto
  * @property-read Cuota|null $cuota
@@ -62,6 +63,7 @@ class Pago extends Model implements HasMedia
         'fecha_pago',
         'fecha_aprobacion',
         'motivo_rechazo',
+        'turno_caja_id',
     ];
 
     protected function casts(): array
