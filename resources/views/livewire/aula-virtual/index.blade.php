@@ -92,34 +92,41 @@ new #[Layout('layouts.app')] class extends Component
         // sin ser realmente docente, y quedaría viendo "sus" cursos (ninguno)
         // en vez de la vista de supervisión.
         //
-        // Se trae SIN filtrar por periodo (delDocenteSinFiltrarPeriodo() y
-        // afines) para poder calcular qué Periodos académicos tienen
-        // contenido y ofrecerlos como primer paso del drill-down -- antes
-        // se auto-detectaba un único "periodo actual" (CursoVirtualService
-        // ::cicloActualId()), pero con periodos que pueden solaparse eso ya
-        // no alcanza.
+        // Sin un Periodo académico elegido todavía, se trae SIN filtrar
+        // (delDocenteSinFiltrarPeriodo() y afines) para poder calcular qué
+        // periodos tienen contenido y ofrecerlos como primer paso del
+        // drill-down. Una vez elegido uno, se pasa a la versión que SÍ
+        // filtra en la consulta SQL -- sin esto, cada click del resto del
+        // drill-down (programa, semestre, curso) volvía a traer y procesar
+        // los cursos virtuales de TODOS los periodos académicos (cada
+        // click es un request nuevo a Livewire, así que with() se ejecuta
+        // de cero cada vez).
         if ($user->hasPermissionTo('aula_virtual.gestionar_propio') && $user->hasRole(RolEnum::DOCENTE->value)) {
-            $cursos = $service->delDocenteSinFiltrarPeriodo($user->id);
+            $cursos = $this->cicloId ? $service->delDocente($user->id, $this->cicloId) : $service->delDocenteSinFiltrarPeriodo($user->id);
             $rol = 'docente';
         } elseif ($user->hasPermissionTo('aula_virtual.ver_propio') && $user->estudiante) {
-            $cursos = $service->delEstudianteSinFiltrarPeriodo($user->estudiante);
+            $cursos = $this->cicloId ? $service->delEstudiante($user->estudiante, $this->cicloId) : $service->delEstudianteSinFiltrarPeriodo($user->estudiante);
             $rol = 'estudiante';
         } else {
-            $cursos = $service->todosSinFiltrarPeriodo();
+            $cursos = $this->cicloId ? $service->todos($this->cicloId) : $service->todosSinFiltrarPeriodo();
             $rol = 'supervisor';
         }
 
         // Un curso corto no tiene Periodo académico, Programa de Estudio ni
         // Semestre -- se muestra aparte, como lista plana, en vez de
         // forzarlo en el drill-down de Instituto.
-        $cursosInstitutoSinFiltrar = $cursos->reject(fn ($curso) => $curso->esDeCursoCorto());
+        $cursosDelPeriodo = $cursos->reject(fn ($curso) => $curso->esDeCursoCorto());
         $cursosCortos = $cursos->filter(fn ($curso) => $curso->esDeCursoCorto())->sortBy(fn ($curso) => $curso->cursoAcademico()->nombre)->values();
 
-        $periodosDisponibles = $cursosInstitutoSinFiltrar->pluck('horario.ciclo')->unique('id')->sortByDesc('fecha_inicio')->values();
+        // La lista completa de periodos solo hace falta en la pantalla
+        // "elige un periodo" (sin $cicloId todavía) -- una vez elegido uno,
+        // $cursosDelPeriodo ya viene acotado a ese periodo desde el
+        // servicio, así que no hay nada más que listar aquí.
+        $periodosDisponibles = $this->cicloId
+            ? collect()
+            : $cursosDelPeriodo->pluck('horario.ciclo')->unique('id')->sortByDesc('fecha_inicio')->values();
 
-        $cursosInstituto = $this->cicloId
-            ? $cursosInstitutoSinFiltrar->filter(fn ($curso) => $curso->horario->ciclo_id === $this->cicloId)
-            : collect();
+        $cursosInstituto = $this->cicloId ? $cursosDelPeriodo : collect();
 
         $programasDisponibles = $cursosInstituto->pluck('horario.grado.programaEstudio')->unique('id')->sortBy('nombre')->values();
 

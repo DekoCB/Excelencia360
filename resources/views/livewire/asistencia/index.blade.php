@@ -86,14 +86,21 @@ new #[Layout('layouts.app')] class extends Component
         // hasPermissionTo() no basta: Dirección tiene este permiso vía '*'
         // sin ser realmente docente, y quedaría viendo "sus" horarios
         // (ninguno) en vez de la vista de supervisión.
+        //
+        // Una vez elegido un Periodo académico, se pasa $this->cicloId al
+        // servicio para que el filtro ocurra en la consulta SQL -- sin
+        // esto, cada click del resto del drill-down (programa, semestre,
+        // curso) volvía a traer y procesar los horarios de TODOS los
+        // periodos académicos (cada click es un request nuevo a
+        // Livewire, así que with() se ejecuta de cero cada vez).
         if ($user->hasPermissionTo('asistencia.registrar') && $user->hasRole(RolEnum::DOCENTE->value)) {
-            $horarios = $service->horariosDelDocente($user->id);
+            $horarios = $service->horariosDelDocente($user->id, $this->cicloId);
             $rol = 'docente';
         } elseif ($user->hasPermissionTo('asistencia.ver_propio') && $user->estudiante) {
-            $horarios = $service->horariosDelEstudiante($user->estudiante);
+            $horarios = $service->horariosDelEstudiante($user->estudiante, $this->cicloId);
             $rol = 'estudiante';
         } else {
-            $horarios = $service->todos();
+            $horarios = $service->todos($this->cicloId);
             $rol = 'supervisor';
         }
 
@@ -103,9 +110,15 @@ new #[Layout('layouts.app')] class extends Component
         $horariosInstituto = $horarios->reject(fn ($horario) => $horario->esDeCursoCorto());
         $horariosCortos = $horarios->filter(fn ($horario) => $horario->esDeCursoCorto())->sortBy(fn ($horario) => $horario->curso->nombre)->values();
 
-        $gruposDisponibles = $horariosInstituto->pluck('ciclo')->unique('id')->sortByDesc('fecha_inicio')->values();
+        // La lista completa de periodos solo hace falta en la pantalla
+        // "elige un periodo" (sin $cicloId todavía) -- una vez elegido uno,
+        // $horariosInstituto ya viene acotado a ese periodo desde el
+        // servicio, así que no hay nada más que listar aquí.
+        $gruposDisponibles = $this->cicloId
+            ? collect()
+            : $horariosInstituto->pluck('ciclo')->unique('id')->sortByDesc('fecha_inicio')->values();
 
-        $delCiclo = $this->cicloId ? $horariosInstituto->where('ciclo_id', $this->cicloId) : collect();
+        $delCiclo = $this->cicloId ? $horariosInstituto : collect();
         $programasDisponibles = $delCiclo->pluck('grado.programaEstudio')->unique('id')->sortBy('nombre')->values();
 
         $gradosDisponibles = collect();

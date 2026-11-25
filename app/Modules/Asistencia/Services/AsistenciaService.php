@@ -29,12 +29,19 @@ class AsistenciaService
     private const MINUTOS_DE_TOLERANCIA = 15;
 
     /**
+     * $cicloId acota a un único Periodo académico (los cursos cortos, sin
+     * ciclo_id, siempre se incluyen igual) -- evita traer y procesar TODOS
+     * los horarios de TODOS los periodos en cada paso del drill-down una
+     * vez que el usuario ya eligió uno (ver asistencia/index.blade.php).
+     * Sin él (null), se mantiene el comportamiento de siempre: todo.
+     *
      * @return Collection<int, Horario>
      */
-    public function horariosDelDocente(int $docenteId): Collection
+    public function horariosDelDocente(int $docenteId, ?int $cicloId = null): Collection
     {
         return Horario::query()
             ->where('docente_id', $docenteId)
+            ->when($cicloId !== null, fn ($query) => $query->where(fn ($query) => $query->where('ciclo_id', $cicloId)->orWhereNull('ciclo_id')))
             ->with(['curso', 'grado.programaEstudio', 'ciclo', 'dias'])
             ->get();
     }
@@ -42,10 +49,11 @@ class AsistenciaService
     /**
      * @return Collection<int, Horario>
      */
-    public function horariosDelEstudiante(Estudiante $estudiante): Collection
+    public function horariosDelEstudiante(Estudiante $estudiante, ?int $cicloId = null): Collection
     {
         $matriculas = $estudiante->matriculas()
             ->where('estado', 'aprobada')
+            ->when($cicloId !== null, fn ($query) => $query->where('ciclo_id', $cicloId))
             ->get(['id', 'grado_id', 'ciclo_id']);
 
         $cursosCortoIds = $estudiante->cursosCortos()->where('estado', 'activo')->pluck('curso_id');
@@ -71,9 +79,12 @@ class AsistenciaService
     /**
      * @return Collection<int, Horario>
      */
-    public function todos(): Collection
+    public function todos(?int $cicloId = null): Collection
     {
-        return Horario::query()->with(['curso', 'grado.programaEstudio', 'ciclo', 'docente', 'dias'])->get();
+        return Horario::query()
+            ->when($cicloId !== null, fn ($query) => $query->where(fn ($query) => $query->where('ciclo_id', $cicloId)->orWhereNull('ciclo_id')))
+            ->with(['curso', 'grado.programaEstudio', 'ciclo', 'docente', 'dias'])
+            ->get();
     }
 
     /**
