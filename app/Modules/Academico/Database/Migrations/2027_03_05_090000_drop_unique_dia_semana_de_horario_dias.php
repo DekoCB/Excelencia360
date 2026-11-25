@@ -20,6 +20,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('horario_dias', function (Blueprint $table) {
+            // horario_id es columna de un foreignId(), y MySQL exige que
+            // algún índice lo respalde -- hoy es el unique compuesto que
+            // estamos quitando, así que primero hace falta uno propio.
+            $table->index('horario_id');
             $table->dropUnique(['horario_id', 'dia_semana']);
         });
     }
@@ -28,6 +32,7 @@ return new class extends Migration
     {
         Schema::table('horario_dias', function (Blueprint $table) {
             $table->unique(['horario_id', 'dia_semana']);
+            $table->dropIndex(['horario_id']);
         });
     }
 };
