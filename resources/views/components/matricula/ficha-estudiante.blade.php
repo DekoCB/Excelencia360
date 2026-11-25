@@ -145,12 +145,50 @@
                 <div><dt class="text-ink-faint">Correo</dt><dd class="text-ink">{{ $estudiante->email ?? '—' }}</dd></div>
                 <div class="sm:col-span-2"><dt class="text-ink-faint">Dirección</dt><dd class="text-ink">{{ $estudiante->direccion ?? '—' }}</dd></div>
                 <div><dt class="text-ink-faint">Estado</dt><dd class="text-ink">{{ $estudiante->estado->label() }}</dd></div>
-                <div><dt class="text-ink-faint">Semestre actual</dt><dd class="text-ink">{{ $estudiante->gradoActual?->nombre ?? '—' }}</dd></div>
-                <div>
-                    <dt class="text-ink-faint">Ciclos completados</dt>
-                    <dd class="text-ink">{{ $estudiante->ciclos_completados }}</dd>
-                </div>
             </dl>
+        @endif
+    </div>
+
+    {{--
+        Información académica: va justo después de Datos personales y antes
+        del QR/documentos -- antes el Semestre vivía dentro de "Datos
+        personales" y "Cursos actuales" aparecía más abajo, después del QR,
+        sin mostrar nunca el Programa de Estudio.
+    --}}
+    @php
+        $matriculaActual = $matriculas->first(fn ($matricula) => $matricula->estado->value !== 'anulada');
+        $cursosActuales = $matriculaActual ? ($cursosConHorarios[$matriculaActual->id] ?? collect()) : collect();
+    @endphp
+
+    <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
+        <h2 class="text-sm font-semibold text-ink">Información académica</h2>
+        <dl class="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+            <div><dt class="text-ink-faint">Programa de estudio</dt><dd class="text-ink">{{ $estudiante->gradoActual?->programaEstudio?->nombre ?? '—' }}</dd></div>
+            <div><dt class="text-ink-faint">Semestre actual</dt><dd class="text-ink">{{ $estudiante->gradoActual?->nombre ?? '—' }}</dd></div>
+            <div><dt class="text-ink-faint">Ciclos completados</dt><dd class="text-ink">{{ $estudiante->ciclos_completados }}</dd></div>
+        </dl>
+
+        @if ($matriculaActual)
+            <div class="mt-4 border-t border-border pt-4">
+                <h3 class="text-xs font-semibold uppercase tracking-wide text-ink-faint">Cursos actuales</h3>
+                <p class="mt-1 text-xs text-ink-faint">{{ $matriculaActual->ciclo->nombre }} · {{ $matriculaActual->grado->nombre }}</p>
+                <div class="mt-2 divide-y divide-border">
+                    @forelse ($cursosActuales as $entrada)
+                        <div class="py-2 text-sm">
+                            <span class="text-ink">{{ $entrada['curso']->nombre }}</span>
+                            @if ($entrada['asignado'])
+                                <span class="text-ink-faint"> · {{ $entrada['asignado']->docente?->name }} · {{ $entrada['asignado']->diasResumen() }}</span>
+                            @elseif ($entrada['ambiguo'])
+                                <span class="text-warn"> · Sin sección asignada</span>
+                            @elseif ($entrada['opciones']->isNotEmpty())
+                                <span class="text-ink-faint"> · {{ $entrada['opciones']->first()->docente?->name }} · {{ $entrada['opciones']->first()->diasResumen() }}</span>
+                            @endif
+                        </div>
+                    @empty
+                        <p class="py-2 text-sm text-ink-faint">Sin cursos con horario creado en este período todavía.</p>
+                    @endforelse
+                </div>
+            </div>
         @endif
     </div>
 
@@ -165,34 +203,6 @@
             >
         </div>
     </div>
-
-    @php
-        $matriculaActual = $matriculas->first(fn ($matricula) => $matricula->estado->value !== 'anulada');
-        $cursosActuales = $matriculaActual ? ($cursosConHorarios[$matriculaActual->id] ?? collect()) : collect();
-    @endphp
-
-    @if ($matriculaActual)
-        <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
-            <h2 class="text-sm font-semibold text-ink">Cursos actuales</h2>
-            <p class="mt-1 text-xs text-ink-faint">{{ $matriculaActual->ciclo->nombre }} · {{ $matriculaActual->grado->nombre }}</p>
-            <div class="mt-4 divide-y divide-border">
-                @forelse ($cursosActuales as $entrada)
-                    <div class="py-2 text-sm">
-                        <span class="text-ink">{{ $entrada['curso']->nombre }}</span>
-                        @if ($entrada['asignado'])
-                            <span class="text-ink-faint"> · {{ $entrada['asignado']->docente?->name }} · {{ $entrada['asignado']->diasResumen() }}</span>
-                        @elseif ($entrada['ambiguo'])
-                            <span class="text-warn"> · Sin sección asignada</span>
-                        @elseif ($entrada['opciones']->isNotEmpty())
-                            <span class="text-ink-faint"> · {{ $entrada['opciones']->first()->docente?->name }} · {{ $entrada['opciones']->first()->diasResumen() }}</span>
-                        @endif
-                    </div>
-                @empty
-                    <p class="py-2 text-sm text-ink-faint">Sin cursos con horario creado en este período todavía.</p>
-                @endforelse
-            </div>
-        </div>
-    @endif
 
     @if (count($cursosCortos) > 0 || auth()->user()->can('matricula.editar'))
         <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">

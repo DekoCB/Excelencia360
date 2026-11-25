@@ -1,4 +1,4 @@
-@props(['metodo'])
+@props(['metodo', 'autoIniciar' => false])
 
 {{--
     Lector de QR por cámara (ver resources/js/app.js, Alpine.data('lectorQr')
@@ -7,8 +7,13 @@
     -- así este componente es genérico y sirve tanto para escanear el QR
     de un estudiante (asistencia) como el de un docente (asistencia de
     docentes) sin duplicar la lógica de cámara/decodificación.
+
+    auto-iniciar: cuando la pantalla que lo usa ya dejó claro QUÉ se está
+    escaneando (ej. ya se eligió el horario antes de llegar aquí), pide la
+    cámara apenas se monta el componente en vez de esperar un click extra
+    en "Escanear QR".
 --}}
-<div x-data="lectorQr('{{ $metodo }}')" x-on:beforeunload.window="detener()">
+<div x-data="lectorQr('{{ $metodo }}')" x-on:beforeunload.window="detener()" @if ($autoIniciar) x-init="iniciar()" @endif>
     <div class="flex flex-wrap items-center gap-2">
         <x-secondary-button type="button" x-show="! activo" x-on:click="iniciar()">
             <x-heroicon-o-qr-code class="mr-1.5 h-4 w-4" />

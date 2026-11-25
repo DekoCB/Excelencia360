@@ -381,7 +381,7 @@ new #[Layout('layouts.app')] class extends Component
         @else
             @if ($puedeRegistrar && $fecha === now()->format('Y-m-d'))
                 <div class="mb-4">
-                    <x-qr-scanner metodo="escanearQr" />
+                    <x-qr-scanner metodo="escanearQr" :auto-iniciar="true" />
                 </div>
             @endif
 

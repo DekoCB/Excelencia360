@@ -269,6 +269,21 @@
             </p>
         </div>
 
+        @can('pagos.gestionar')
+            <a
+                href="{{ route('pagos.conceptos') }}"
+                wire:navigate
+                @class([
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+                    'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('pagos.conceptos'),
+                    'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('pagos.conceptos'),
+                ])
+            >
+                <x-heroicon-o-tag class="h-5 w-5 shrink-0" />
+                <span class="sidebar-label">Conceptos de pago</span>
+            </a>
+        @endcan
+
         @canany(['pagos.ver', 'pagos.registrar', 'pagos.gestionar', 'pagos.aprobar', 'pagos.rechazar'])
             <a
                 href="{{ route('pagos.index') }}"
@@ -300,21 +315,6 @@
                 <span class="sidebar-label">Mi estado de cuenta</span>
             </a>
         @endif
-
-        @can('pagos.gestionar')
-            <a
-                href="{{ route('pagos.conceptos') }}"
-                wire:navigate
-                @class([
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
-                    'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('pagos.conceptos'),
-                    'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('pagos.conceptos'),
-                ])
-            >
-                <x-heroicon-o-tag class="h-5 w-5 shrink-0" />
-                <span class="sidebar-label">Conceptos de pago</span>
-            </a>
-        @endcan
 
         @can('tesoreria.gestionar')
             <a

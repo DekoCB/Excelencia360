@@ -10,6 +10,7 @@ enum TipoIncidenciaEnum: string
     case DISCIPLINA = 'disciplina';
     case TAREA_NO_REALIZADA = 'tarea_no_realizada';
     case EVALUACION_NO_REALIZADA = 'evaluacion_no_realizada';
+    case OTRO = 'otro';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum TipoIncidenciaEnum: string
             self::DISCIPLINA => 'Disciplina',
             self::TAREA_NO_REALIZADA => 'Tarea no realizada',
             self::EVALUACION_NO_REALIZADA => 'Evaluación no realizada',
+            self::OTRO => 'Otro',
         };
     }
 

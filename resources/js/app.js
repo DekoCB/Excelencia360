@@ -166,12 +166,19 @@ document.addEventListener('alpine:init', () => {
         cuadroPendiente: null,
         ultimoCodigo: null,
         ultimoEscaneoEn: 0,
+        ultimoIntentoEn: 0,
 
         async iniciar() {
             this.error = null;
 
             try {
-                this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                // Topar la resolución pedida a la cámara: decodificar un QR
+                // no necesita más que esto, y pedir la resolución nativa
+                // (a veces 1080p+) hace que cada cuadro tarde mucho más en
+                // procesarse -- ver leerCuadro().
+                this.stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+                });
             } catch (e) {
                 this.error = 'No se pudo acceder a la cámara. Revisa los permisos del navegador.';
                 return;
@@ -193,21 +200,34 @@ document.addEventListener('alpine:init', () => {
         leerCuadro() {
             if (! this.activo) return;
 
-            const video = this.$refs.video;
+            // requestAnimationFrame por sí solo intenta hasta 60 veces por
+            // segundo -- de sobra para un QR estático en un carnet. Se
+            // limita el trabajo pesado (drawImage + getImageData + jsQR) a
+            // como mucho uno cada 120ms; rAF sigue programando el siguiente
+            // chequeo liviano sin bloquear el hilo de más de lo necesario.
+            const ahora = performance.now();
+            if (ahora - this.ultimoIntentoEn >= 120) {
+                this.ultimoIntentoEn = ahora;
 
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                const canvas = this.$refs.canvas;
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
+                const video = this.$refs.video;
 
-                const contexto = canvas.getContext('2d');
-                contexto.drawImage(video, 0, 0, canvas.width, canvas.height);
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    const canvas = this.$refs.canvas;
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
 
-                const imagen = contexto.getImageData(0, 0, canvas.width, canvas.height);
-                const resultado = jsQR(imagen.data, imagen.width, imagen.height);
+                    const contexto = canvas.getContext('2d');
+                    contexto.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-                if (resultado?.data) {
-                    this.alDetectar(resultado.data);
+                    const imagen = contexto.getImageData(0, 0, canvas.width, canvas.height);
+                    // dontInvert: el carnet impreso nunca trae el QR en
+                    // negativo, así que no hace falta que jsQR decodifique
+                    // cada cuadro dos veces (su default es intentar ambas).
+                    const resultado = jsQR(imagen.data, imagen.width, imagen.height, { inversionAttempts: 'dontInvert' });
+
+                    if (resultado?.data) {
+                        this.alDetectar(resultado.data);
+                    }
                 }
             }
 
