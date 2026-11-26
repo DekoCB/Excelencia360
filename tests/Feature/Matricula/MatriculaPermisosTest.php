@@ -81,9 +81,6 @@ class MatriculaPermisosTest extends TestCase
             ->assertHasNoErrors()
             ->assertSet('paso', 3)
             ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->create('dni.pdf', 100, 'application/pdf'))
-            ->call('avanzar')
-            ->assertHasNoErrors()
-            ->assertSet('paso', 4)
             ->call('confirmar')
             ->assertHasNoErrors()
             ->assertDispatched('estudiante-registrado');
@@ -120,9 +117,6 @@ class MatriculaPermisosTest extends TestCase
             ->assertHasNoErrors()
             ->assertSet('paso', 3)
             // Ningún documento subido en este paso -- todos son opcionales.
-            ->call('avanzar')
-            ->assertHasNoErrors()
-            ->assertSet('paso', 4)
             ->call('confirmar')
             ->assertHasNoErrors()
             ->assertDispatched('estudiante-registrado');
@@ -151,9 +145,6 @@ class MatriculaPermisosTest extends TestCase
             ->assertSet('paso', 3)
             ->set('dniEstudianteCaraArchivo', UploadedFile::fake()->image('dni-cara.jpg'))
             ->set('dniEstudianteReversoArchivo', UploadedFile::fake()->image('dni-reverso.jpg'))
-            ->call('avanzar')
-            ->assertHasNoErrors()
-            ->assertSet('paso', 4)
             ->call('confirmar')
             ->assertHasNoErrors()
             ->assertDispatched('estudiante-registrado');
@@ -309,8 +300,6 @@ class MatriculaPermisosTest extends TestCase
             ->call('avanzar')
             ->assertHasNoErrors()
             ->assertSet('paso', 3)
-            ->call('avanzar')
-            ->assertSet('paso', 4)
             ->call('confirmar')
             ->assertHasNoErrors()
             ->assertDispatched('estudiante-registrado');

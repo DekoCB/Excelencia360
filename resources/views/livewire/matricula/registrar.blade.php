@@ -1,13 +1,10 @@
 <?php
 
-use App\Modules\Academico\Models\Grado;
 use App\Modules\Matricula\DTOs\RegistrarApoderadoData;
 use App\Modules\Matricula\DTOs\RegistrarEstudianteData;
 use App\Modules\Matricula\Enums\EstadoCivilEnum;
 use App\Modules\Matricula\Enums\TipoDocumentoEnum;
-use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Services\DocumentoEstudianteService;
-use App\Modules\Matricula\Services\ExamenUbicacionService;
 use App\Modules\Matricula\Services\MatriculaService;
 use App\Shared\ValueObjects\Dni;
 use App\Shared\ValueObjects\Telefono;
@@ -19,9 +16,11 @@ use Livewire\WithFileUploads;
 
 /**
  * Registro de un estudiante nuevo (datos, apoderado si es menor,
- * documentos, examen de ubicación) -- sin matrícula: eso es lo único
- * que hace el módulo de Matrícula aparte (ver matricula/nueva/index.blade.php),
- * una vez que el estudiante ya está registrado.
+ * documentos) -- sin matrícula: eso es lo único que hace el módulo de
+ * Matrícula aparte (ver matricula/nueva/index.blade.php), una vez que
+ * el estudiante ya está registrado. El examen de ubicación ya no se
+ * pide acá (se sacó del wizard); sigue pudiendo registrarse después
+ * desde la ficha del estudiante si hace falta.
  */
 new class extends Component
 {
@@ -90,19 +89,6 @@ new class extends Component
     public string $colegioUbicacion = '';
 
     public string $colegioAnioEgreso = '';
-
-    // Paso 4 — examen de ubicación (opcional)
-    public bool $registrarExamen = false;
-
-    public string $examenFecha = '';
-
-    public string $examenCosto = '';
-
-    public string $examenResultado = '';
-
-    public string $examenGradoAsignadoId = '';
-
-    public string $examenObservaciones = '';
 
     public function mount(): void
     {
@@ -176,37 +162,27 @@ new class extends Component
 
             return;
         }
+    }
 
-        if ($this->paso === 3) {
-            // Todas las subidas de documentos son opcionales acá a propósito:
-            // si no se suben ahora, se pueden agregar después desde la ficha
-            // del estudiante.
-            $this->validate([
-                'dniEstudianteCaraArchivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:4096',
-                'dniEstudianteReversoArchivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:4096',
-                'dniApoderadoCaraArchivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:4096',
-                'dniApoderadoReversoArchivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:4096',
-                'certificadoArchivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:4096',
-                'constanciaArchivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:4096',
-                'colegioNombre' => 'nullable|string|max:150',
-                'colegioUbicacion' => 'nullable|string|max:150',
-                'colegioAnioEgreso' => 'nullable|integer|min:1950|max:'.now()->year,
-            ]);
-
-            $this->paso = 4;
-
-            return;
-        }
-
-        if ($this->paso === 4 && $this->registrarExamen) {
-            $this->validate([
-                'examenFecha' => 'required|date',
-                'examenCosto' => 'required|numeric|min:0',
-                'examenResultado' => 'nullable|string|max:30',
-                'examenGradoAsignadoId' => 'nullable|integer|exists:grados,id',
-                'examenObservaciones' => 'nullable|string',
-            ]);
-        }
+    /**
+     * El paso 3 (documentos e institución de procedencia) es el último
+     * del wizard -- a diferencia de los pasos 1 y 2, no avanza a nada
+     * más, así que su validación corre acá, justo antes de guardar, en
+     * vez de en avanzar().
+     */
+    private function validarPaso3(): void
+    {
+        $this->validate([
+            'dniEstudianteCaraArchivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:4096',
+            'dniEstudianteReversoArchivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:4096',
+            'dniApoderadoCaraArchivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:4096',
+            'dniApoderadoReversoArchivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:4096',
+            'certificadoArchivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:4096',
+            'constanciaArchivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:4096',
+            'colegioNombre' => 'nullable|string|max:150',
+            'colegioUbicacion' => 'nullable|string|max:150',
+            'colegioAnioEgreso' => 'nullable|integer|min:1950|max:'.now()->year,
+        ]);
     }
 
     public function retroceder(): void
@@ -228,11 +204,12 @@ new class extends Component
     public function confirmar(
         MatriculaService $matriculaService,
         DocumentoEstudianteService $documentoService,
-        ExamenUbicacionService $examenService,
     ): void {
         Gate::authorize('matricula.crear');
 
-        $estudiante = DB::transaction(function () use ($matriculaService, $documentoService, $examenService) {
+        $this->validarPaso3();
+
+        $estudiante = DB::transaction(function () use ($matriculaService, $documentoService) {
             $estudiante = $matriculaService->registrarEstudiante(new RegistrarEstudianteData(
                 nombres: $this->nombres,
                 apellidos: $this->apellidos,
@@ -290,16 +267,6 @@ new class extends Component
                 }
             }
 
-            if ($this->registrarExamen) {
-                $examenService->registrar($estudiante, [
-                    'fecha' => $this->examenFecha,
-                    'costo' => (float) $this->examenCosto,
-                    'resultado' => $this->examenResultado ?: null,
-                    'grado_asignado_id' => $this->examenGradoAsignadoId !== '' ? (int) $this->examenGradoAsignadoId : null,
-                    'observaciones' => $this->examenObservaciones ?: null,
-                ]);
-            }
-
             return $estudiante;
         });
 
@@ -310,7 +277,6 @@ new class extends Component
     {
         return [
             'estadosCiviles' => EstadoCivilEnum::cases(),
-            'todosLosGrados' => Grado::query()->where('activo', true)->with('programaEstudio')->orderBy('orden')->get(),
         ];
     }
 }; ?>
@@ -341,7 +307,7 @@ new class extends Component
         <div class="flex items-start justify-between gap-4">
             <div>
                 <h1 class="font-display text-2xl text-ink">Registrar estudiante</h1>
-                <p class="mt-1 text-sm text-ink-dim">Paso {{ $paso }} de 4</p>
+                <p class="mt-1 text-sm text-ink-dim">Paso {{ $paso }} de 3</p>
             </div>
             <button
                 type="button"
@@ -354,7 +320,7 @@ new class extends Component
         </div>
 
         <div class="mb-6 mt-4 flex gap-1">
-            @for ($i = 1; $i <= 4; $i++)
+            @for ($i = 1; $i <= 3; $i++)
                 <div @class(['h-1.5 flex-1 rounded-full', 'bg-accent' => $i <= $paso, 'bg-surface-2' => $i > $paso])></div>
             @endfor
         </div>
@@ -538,48 +504,6 @@ new class extends Component
             </div>
         @endif
 
-        {{-- Paso 4: Examen de ubicación --}}
-        @if ($paso === 4)
-            <h2 class="font-display text-lg text-ink">Examen de ubicación</h2>
-            <label class="mt-4 flex items-center gap-2 text-sm text-ink-dim">
-                <input type="checkbox" wire:model.live="registrarExamen" class="rounded border-border text-accent focus:ring-accent">
-                Este estudiante rindió examen de ubicación
-            </label>
-
-            @if ($registrarExamen)
-                <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                        <x-input-label for="examenFecha" value="Fecha" />
-                        <x-date-input wire:model="examenFecha" id="examenFecha" class="mt-1 block w-full" />
-                        <x-input-error :messages="$errors->get('examenFecha')" class="mt-1" />
-                    </div>
-                    <div>
-                        <x-input-label for="examenCosto" value="Costo (S/)" />
-                        <x-text-input wire:model="examenCosto" id="examenCosto" type="number" step="0.01" class="mt-1 block w-full" />
-                        <x-input-error :messages="$errors->get('examenCosto')" class="mt-1" />
-                    </div>
-                    <div>
-                        <x-input-label for="examenResultado" value="Resultado" />
-                        <x-text-input wire:model="examenResultado" id="examenResultado" class="mt-1 block w-full" placeholder="Ej. Apto" />
-                        <x-input-error :messages="$errors->get('examenResultado')" class="mt-1" />
-                    </div>
-                    <div>
-                        <x-input-label for="examenGradoAsignadoId" value="Programa y semestre asignado" />
-                        <x-select-input
-                            wire:model="examenGradoAsignadoId"
-                            id="examenGradoAsignadoId"
-                            class="mt-1 block w-full"
-                            :options="collect($todosLosGrados)->mapWithKeys(fn ($grado) => [$grado->id => $grado->programaEstudio->nombre.' — '.$grado->nombre])->prepend('Sin asignar', '')"
-                        />
-                    </div>
-                    <div class="sm:col-span-2">
-                        <x-input-label for="examenObservaciones" value="Observaciones" />
-                        <textarea wire:model="examenObservaciones" id="examenObservaciones" rows="2" class="mt-1 block w-full rounded-md border-border bg-surface text-sm text-ink focus:border-accent focus:ring-accent"></textarea>
-                    </div>
-                </div>
-            @endif
-        @endif
-
         <div class="mt-6 flex justify-between border-t border-border pt-4">
             @if ($paso > 1)
                 <x-secondary-button type="button" wire:click="retroceder">Atrás</x-secondary-button>
@@ -587,7 +511,7 @@ new class extends Component
                 <span></span>
             @endif
 
-            @if ($paso < 4)
+            @if ($paso < 3)
                 <x-primary-button type="button" wire:click="avanzar">Continuar</x-primary-button>
             @else
                 <x-primary-button type="button" wire:click="confirmar">Registrar estudiante</x-primary-button>

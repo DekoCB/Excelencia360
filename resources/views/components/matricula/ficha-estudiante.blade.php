@@ -192,15 +192,28 @@
         @endif
     </div>
 
+    @php
+        $qrDataUri = \App\Shared\Support\QrCode::pngBase64($estudiante->obtenerOCrearQrToken(), 220);
+    @endphp
     <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
         <h2 class="text-sm font-semibold text-ink">Código QR</h2>
         <p class="mt-1 text-xs text-ink-faint">Lo usa el docente/personal de oficina para registrar la asistencia del estudiante al escanearlo.</p>
         <div class="mt-4 inline-block rounded-xl border border-border bg-white p-3">
             <img
-                src="{{ \App\Shared\Support\QrCode::pngBase64($estudiante->obtenerOCrearQrToken(), 220) }}"
+                src="{{ $qrDataUri }}"
                 alt="Código QR de asistencia"
                 class="h-44 w-44"
             >
+        </div>
+        <div class="mt-3">
+            <a
+                href="{{ $qrDataUri }}"
+                download="qr-{{ \Illuminate\Support\Str::slug($estudiante->nombreCompleto()) }}.png"
+                class="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline"
+            >
+                <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
+                Descargar QR
+            </a>
         </div>
     </div>
 
