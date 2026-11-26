@@ -1380,6 +1380,28 @@ class MatriculaPermisosTest extends TestCase
         ]);
     }
 
+    public function test_agregar_un_cargo_adicional_con_fecha_de_vencimiento_pasada_se_ve_como_vencido(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+
+        $estudiante = Estudiante::factory()->create();
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.show', ['estudiante' => $estudiante])
+            ->call('mostrarFormularioCargo')
+            ->set('cargoConceptoNuevo', 'Convalidación')
+            ->set('cargoMontoNuevo', '60')
+            ->set('cargoFechaVencimientoNuevo', now()->subDays(3)->format('Y-m-d'))
+            ->call('guardarNuevoCargo')
+            ->assertHasNoErrors()
+            ->assertSee('Vencido');
+
+        $cargo = CargoAdicional::query()->where('estudiante_id', $estudiante->id)->where('concepto', 'Convalidación')->firstOrFail();
+        $this->assertTrue($cargo->fecha_vencimiento->isSameDay(now()->subDays(3)));
+    }
+
     public function test_no_se_puede_agregar_un_cargo_adicional_sin_el_permiso_de_gestionar_pagos(): void
     {
         $usuario = User::factory()->create();

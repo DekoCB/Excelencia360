@@ -12,8 +12,8 @@
     wire:model (cicloLibretaId) se resuelven contra el componente Livewire
     que lo incluya: cada uno debe implementarlos con ese mismo nombre.
 
-    Es el "reporte general": la suma de los 4 bloques (académico,
-    financiero, documentos) que historial-estudiante/index.blade.php
+    Es el "reporte general": la suma de los 5 bloques (académico,
+    financiero, asistencia, documentos) que historial-estudiante/index.blade.php
     también ofrece por separado como pestañas -- misma fuente para no
     duplicar marcado entre el PDF, el modo "General" y cada pestaña.
 --}}
@@ -28,5 +28,7 @@
 />
 
 <x-historial-estudiante.financiero :historial="$historial" />
+
+<x-historial-estudiante.asistencia :historial="$historial" />
 
 <x-historial-estudiante.documentos :historial="$historial" />

@@ -32,4 +32,12 @@ class CargoAdicionalFactory extends Factory
             'estado' => EstadoCuotaEnum::PAGADO,
         ]);
     }
+
+    public function vencido(): static
+    {
+        return $this->state(fn () => [
+            'estado' => EstadoCuotaEnum::PENDIENTE,
+            'fecha_vencimiento' => now()->subDays(5)->toDateString(),
+        ]);
+    }
 }

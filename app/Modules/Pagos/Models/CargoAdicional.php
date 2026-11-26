@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * Un cobro futuro puntual para un estudiante en particular (Convalidación,
@@ -25,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $estudiante_id
  * @property string $concepto
  * @property float $monto
+ * @property Carbon|null $fecha_vencimiento
  * @property EstadoCuotaEnum $estado
  * @property int|null $registrado_por
  * @property-read Estudiante $estudiante
@@ -40,6 +42,7 @@ class CargoAdicional extends Model
         'estudiante_id',
         'concepto',
         'monto',
+        'fecha_vencimiento',
         'estado',
         'registrado_por',
     ];
@@ -48,6 +51,7 @@ class CargoAdicional extends Model
     {
         return [
             'monto' => 'decimal:2',
+            'fecha_vencimiento' => 'date',
             'estado' => EstadoCuotaEnum::class,
         ];
     }
@@ -85,5 +89,16 @@ class CargoAdicional extends Model
     public function saldoPendiente(): float
     {
         return max(0.0, (float) $this->monto - $this->montoPagado());
+    }
+
+    /**
+     * Sin fecha de vencimiento (opcional, ver migración), nunca cuenta
+     * como vencido -- mismo criterio que Cuota::estaVencida().
+     */
+    public function estaVencido(): bool
+    {
+        return $this->estado === EstadoCuotaEnum::PENDIENTE
+            && $this->fecha_vencimiento !== null
+            && $this->fecha_vencimiento->isPast();
     }
 }

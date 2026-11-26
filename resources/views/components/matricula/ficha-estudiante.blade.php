@@ -24,6 +24,7 @@
     'agregandoCargo' => false,
     'cargoConceptoNuevo' => '',
     'cargoMontoNuevo' => '',
+    'cargoFechaVencimientoNuevo' => '',
     'editandoDatosPersonales' => false,
     'editNombres' => '',
     'editApellidos' => '',
@@ -650,9 +651,10 @@
                             <span @class([
                                 'shrink-0 rounded-full px-2 py-0.5 text-xs font-medium',
                                 'bg-ok/10 text-ok' => $cargo->estado->value === 'pagado',
-                                'bg-warn/10 text-warn' => $cargo->estado->value === 'pendiente',
+                                'bg-danger/10 text-danger' => $cargo->estaVencido(),
+                                'bg-warn/10 text-warn' => $cargo->estado->value === 'pendiente' && ! $cargo->estaVencido(),
                                 'bg-surface-2 text-ink-faint' => $cargo->estado->value === 'exonerado',
-                            ])>{{ $cargo->estado->label() }}</span>
+                            ])>{{ $cargo->estaVencido() ? 'Vencido' : $cargo->estado->label() }}</span>
                         </div>
                         <div class="mt-1 flex items-center justify-between gap-2">
                             <p class="text-ink-faint">
@@ -660,6 +662,9 @@
                                     Monto: S/ {{ number_format((float) $cargo->monto, 2) }} · pagado S/ {{ number_format($cargo->montoPagado(), 2) }} · saldo S/ {{ number_format($cargo->saldoPendiente(), 2) }}
                                 @else
                                     Monto: S/ {{ number_format((float) $cargo->monto, 2) }}
+                                @endif
+                                @if ($cargo->fecha_vencimiento)
+                                    · vence {{ $cargo->fecha_vencimiento->format('d/m/Y') }}
                                 @endif
                             </p>
 
@@ -701,11 +706,16 @@
                                 <label class="block text-xs text-ink-faint">Monto (S/)</label>
                                 <input type="number" step="0.01" min="0.01" wire:model="cargoMontoNuevo" class="mt-1 w-24 rounded-md border-border bg-surface text-xs text-ink focus:border-accent focus:ring-accent">
                             </div>
+                            <div>
+                                <label class="block text-xs text-ink-faint">Vence (opcional)</label>
+                                <input type="date" wire:model="cargoFechaVencimientoNuevo" class="mt-1 rounded-md border-border bg-surface text-xs text-ink focus:border-accent focus:ring-accent">
+                            </div>
                             <x-secondary-button type="submit">Guardar</x-secondary-button>
                             <button type="button" wire:click="cancelarNuevoCargo" class="text-xs text-ink-faint hover:text-ink">Cancelar</button>
                         </form>
                         <x-input-error :messages="$errors->get('cargoConceptoNuevo')" class="mt-1" />
                         <x-input-error :messages="$errors->get('cargoMontoNuevo')" class="mt-1" />
+                        <x-input-error :messages="$errors->get('cargoFechaVencimientoNuevo')" class="mt-1" />
                     @endif
                 </div>
             @endcan

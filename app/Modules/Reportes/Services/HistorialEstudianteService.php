@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Reportes\Services;
 
 use App\Modules\Academico\Models\Ciclo;
+use App\Modules\Asistencia\Models\Asistencia;
 use App\Modules\Certificados\Models\Certificado;
 use App\Modules\Evaluaciones\Models\Libreta;
 use App\Modules\Evaluaciones\Services\LibretaService;
@@ -55,6 +56,7 @@ class HistorialEstudianteService
      *     libretas: Collection<int, Libreta>,
      *     notasPorCiclo: SupportCollection<int, array{ciclo: Ciclo, cursos: SupportCollection}>,
      *     examenesUbicacion: Collection<int, ExamenUbicacion>,
+     *     asistencia: array{registros: Collection<int, Asistencia>, totalSesiones: int, totalPresentes: int, porcentaje: ?float},
      * }|null
      */
     private function porEstudiante(?Estudiante $estudiante): ?array
@@ -78,6 +80,35 @@ class HistorialEstudianteService
             'libretas' => $this->libretas->misLibretas($estudiante),
             'notasPorCiclo' => $this->notasPorCiclo($estudiante, $matriculas),
             'examenesUbicacion' => $estudiante->examenesUbicacion()->with('gradoAsignado')->latest('fecha')->get(),
+            'asistencia' => $this->asistenciaDelEstudiante($estudiante),
+        ];
+    }
+
+    /**
+     * Todas las asistencias del estudiante en cualquier curso/periodo, más
+     * recientes primero -- "presente" usa
+     * EstadoAsistenciaEnum::cuentaComoAsistio() (presente, tardanza o
+     * justificado), el mismo criterio que ya define ese enum.
+     *
+     * @return array{registros: Collection<int, Asistencia>, totalSesiones: int, totalPresentes: int, porcentaje: ?float}
+     */
+    private function asistenciaDelEstudiante(Estudiante $estudiante): array
+    {
+        $registros = Asistencia::query()
+            ->where('estudiante_id', $estudiante->id)
+            ->with(['horario.grado', 'horario.curso'])
+            ->get()
+            ->sortByDesc('fecha')
+            ->values();
+
+        $total = $registros->count();
+        $presentes = $registros->filter(fn (Asistencia $asistencia) => $asistencia->estado->cuentaComoAsistio())->count();
+
+        return [
+            'registros' => $registros,
+            'totalSesiones' => $total,
+            'totalPresentes' => $presentes,
+            'porcentaje' => $total > 0 ? round($presentes / $total * 100, 1) : null,
         ];
     }
 

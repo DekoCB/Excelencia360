@@ -1,7 +1,12 @@
-@props(['historial'])
+@props(['historial', 'puedeExportar' => false])
 
 <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
-    <h2 class="text-sm font-semibold text-ink">Documentos</h2>
+    <div class="flex items-center justify-between gap-4">
+        <h2 class="text-sm font-semibold text-ink">Documentos</h2>
+        @if ($puedeExportar)
+            <x-secondary-button type="button" wire:click="exportarDocumentosPdf">Exportar PDF</x-secondary-button>
+        @endif
+    </div>
 
     <h3 class="mt-4 text-xs font-semibold uppercase tracking-wide text-ink-faint">Subidos al matricularse</h3>
     <div class="mt-2 divide-y divide-border">

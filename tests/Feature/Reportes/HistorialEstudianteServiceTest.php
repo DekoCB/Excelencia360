@@ -3,6 +3,7 @@
 namespace Tests\Feature\Reportes;
 
 use App\Modules\Academico\Models\Horario;
+use App\Modules\Asistencia\Models\Asistencia;
 use App\Modules\Certificados\Models\Certificado;
 use App\Modules\Evaluaciones\Models\Calificacion;
 use App\Modules\Evaluaciones\Models\Evaluacion;
@@ -179,5 +180,34 @@ class HistorialEstudianteServiceTest extends TestCase
 
         $this->assertCount(1, $historial['notasPorCiclo']);
         $this->assertSame($matriculaAprobada->ciclo_id, $historial['notasPorCiclo']->first()['ciclo']->id);
+    }
+
+    public function test_la_asistencia_resume_sesiones_presentes_y_porcentaje(): void
+    {
+        $estudiante = Estudiante::factory()->create(['dni' => '66667777']);
+
+        Asistencia::factory()->create(['estudiante_id' => $estudiante->id, 'estado' => 'presente']);
+        Asistencia::factory()->create(['estudiante_id' => $estudiante->id, 'estado' => 'tardanza']);
+        Asistencia::factory()->create(['estudiante_id' => $estudiante->id, 'estado' => 'falta']);
+        Asistencia::factory()->create(['estudiante_id' => $estudiante->id, 'estado' => 'justificado']);
+
+        $historial = $this->service()->porDni('66667777');
+
+        $this->assertSame(4, $historial['asistencia']['totalSesiones']);
+        // presente, tardanza y justificado cuentan como "asistió" (ver
+        // EstadoAsistenciaEnum::cuentaComoAsistio()), falta no.
+        $this->assertSame(3, $historial['asistencia']['totalPresentes']);
+        $this->assertSame(75.0, $historial['asistencia']['porcentaje']);
+        $this->assertCount(4, $historial['asistencia']['registros']);
+    }
+
+    public function test_la_asistencia_sin_registros_tiene_porcentaje_nulo(): void
+    {
+        $estudiante = Estudiante::factory()->create(['dni' => '66668888']);
+
+        $historial = $this->service()->porDni('66668888');
+
+        $this->assertSame(0, $historial['asistencia']['totalSesiones']);
+        $this->assertNull($historial['asistencia']['porcentaje']);
     }
 }

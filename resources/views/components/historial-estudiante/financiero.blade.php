@@ -1,7 +1,12 @@
-@props(['historial'])
+@props(['historial', 'puedeExportar' => false])
 
 <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
-    <h2 class="text-sm font-semibold text-ink">Situación de pagos</h2>
+    <div class="flex items-center justify-between gap-4">
+        <h2 class="text-sm font-semibold text-ink">Situación de pagos</h2>
+        @if ($puedeExportar)
+            <x-secondary-button type="button" wire:click="exportarFinancieroPdf">Exportar PDF</x-secondary-button>
+        @endif
+    </div>
     <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div class="rounded-md bg-ok/10 p-3">
             <p class="text-xs font-medium uppercase tracking-wide text-ok">Pagado</p>
@@ -23,7 +28,10 @@
             @foreach ($historial['resumenPagos']['cuotasVencidas'] as $cuota)
                 <div class="flex items-center justify-between py-2 text-sm">
                     <span class="text-ink-dim">Cuota {{ $cuota->numero }} · {{ $cuota->planPago->matricula?->grado->nombre }} · {{ $cuota->planPago->matricula?->ciclo->nombre }}</span>
-                    <span class="text-danger">S/ {{ number_format((float) $cuota->monto, 2) }} · venció {{ $cuota->fecha_vencimiento->format('d/m/Y') }}</span>
+                    <span class="flex items-center gap-2">
+                        <span class="text-danger">S/ {{ number_format((float) $cuota->monto, 2) }} · venció {{ $cuota->fecha_vencimiento->format('d/m/Y') }}</span>
+                        <span class="rounded-full bg-danger/10 px-2 py-0.5 text-xs font-medium text-danger">Vencido</span>
+                    </span>
                 </div>
             @endforeach
         </div>
@@ -35,7 +43,10 @@
             @foreach ($historial['resumenPagos']['cuotasPendientes'] as $cuota)
                 <div class="flex items-center justify-between py-2 text-sm">
                     <span class="text-ink-dim">Cuota {{ $cuota->numero }} · {{ $cuota->planPago->matricula?->grado->nombre }} · {{ $cuota->planPago->matricula?->ciclo->nombre }}</span>
-                    <span class="text-warn">S/ {{ number_format($cuota->saldoPendiente(), 2) }} · vence {{ $cuota->fecha_vencimiento->format('d/m/Y') }}</span>
+                    <span class="flex items-center gap-2">
+                        <span class="text-warn">S/ {{ number_format($cuota->saldoPendiente(), 2) }} · vence {{ $cuota->fecha_vencimiento->format('d/m/Y') }}</span>
+                        <span class="rounded-full bg-warn/10 px-2 py-0.5 text-xs font-medium text-warn">Pendiente</span>
+                    </span>
                 </div>
             @endforeach
         </div>
@@ -46,8 +57,20 @@
         <div class="mt-2 divide-y divide-border">
             @foreach ($historial['resumenPagos']['cargosAdicionalesPendientes'] as $cargo)
                 <div class="flex items-center justify-between py-2 text-sm">
-                    <span class="text-ink-dim">{{ $cargo->concepto }}</span>
-                    <span class="text-warn">S/ {{ number_format($cargo->saldoPendiente(), 2) }} pendiente</span>
+                    <span class="text-ink-dim">
+                        {{ $cargo->concepto }}
+                        @if ($cargo->fecha_vencimiento)
+                            · vence {{ $cargo->fecha_vencimiento->format('d/m/Y') }}
+                        @endif
+                    </span>
+                    <span class="flex items-center gap-2">
+                        <span class="{{ $cargo->estaVencido() ? 'text-danger' : 'text-warn' }}">S/ {{ number_format($cargo->saldoPendiente(), 2) }} pendiente</span>
+                        <span @class([
+                            'rounded-full px-2 py-0.5 text-xs font-medium',
+                            'bg-danger/10 text-danger' => $cargo->estaVencido(),
+                            'bg-warn/10 text-warn' => ! $cargo->estaVencido(),
+                        ])>{{ $cargo->estaVencido() ? 'Vencido' : 'Pendiente' }}</span>
+                    </span>
                 </div>
             @endforeach
         </div>

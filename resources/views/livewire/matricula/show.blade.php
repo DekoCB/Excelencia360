@@ -60,6 +60,8 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $cargoMontoNuevo = '';
 
+    public string $cargoFechaVencimientoNuevo = '';
+
     public bool $editandoDatosPersonales = false;
 
     public string $editNombres = '';
@@ -468,6 +470,7 @@ new #[Layout('layouts.app')] class extends Component
         $this->agregandoCargo = false;
         $this->cargoConceptoNuevo = '';
         $this->cargoMontoNuevo = '';
+        $this->cargoFechaVencimientoNuevo = '';
     }
 
     public function guardarNuevoCargo(): void
@@ -477,12 +480,14 @@ new #[Layout('layouts.app')] class extends Component
         $this->validate([
             'cargoConceptoNuevo' => 'required|string|max:100',
             'cargoMontoNuevo' => 'required|numeric|min:0.01',
+            'cargoFechaVencimientoNuevo' => 'nullable|date',
         ]);
 
         CargoAdicional::query()->create([
             'estudiante_id' => $this->estudiante->id,
             'concepto' => $this->cargoConceptoNuevo,
             'monto' => (float) $this->cargoMontoNuevo,
+            'fecha_vencimiento' => $this->cargoFechaVencimientoNuevo ?: null,
             'estado' => EstadoCuotaEnum::PENDIENTE,
             'registrado_por' => Auth::id(),
         ]);
@@ -490,6 +495,7 @@ new #[Layout('layouts.app')] class extends Component
         $this->agregandoCargo = false;
         $this->cargoConceptoNuevo = '';
         $this->cargoMontoNuevo = '';
+        $this->cargoFechaVencimientoNuevo = '';
 
         session()->flash('status', 'Cargo adicional agregado.');
     }
@@ -598,6 +604,7 @@ new #[Layout('layouts.app')] class extends Component
         :agregando-cargo="$agregandoCargo"
         :cargo-concepto-nuevo="$cargoConceptoNuevo"
         :cargo-monto-nuevo="$cargoMontoNuevo"
+        :cargo-fecha-vencimiento-nuevo="$cargoFechaVencimientoNuevo"
         :editando-datos-personales="$editandoDatosPersonales"
         :edit-nombres="$editNombres"
         :edit-apellidos="$editApellidos"

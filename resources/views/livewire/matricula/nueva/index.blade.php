@@ -209,7 +209,7 @@ new #[Layout('layouts.app')] class extends Component
 
     public function agregarCargoAdicional(): void
     {
-        $this->cargosAdicionales[] = ['concepto' => '', 'monto' => ''];
+        $this->cargosAdicionales[] = ['concepto' => '', 'monto' => '', 'fecha_vencimiento' => ''];
     }
 
     public function quitarCargoAdicional(int $indice): void
@@ -263,6 +263,12 @@ new #[Layout('layouts.app')] class extends Component
 
             if ($tieneConcepto !== $tieneMonto) {
                 $this->addError("cargosAdicionales.{$indice}.concepto", 'Completa el concepto y el monto de este cargo, o quítalo.');
+
+                return;
+            }
+
+            if (($cargo['fecha_vencimiento'] ?? '') !== '' && ! strtotime($cargo['fecha_vencimiento'])) {
+                $this->addError("cargosAdicionales.{$indice}.fecha_vencimiento", 'Fecha inválida.');
 
                 return;
             }
@@ -334,6 +340,7 @@ new #[Layout('layouts.app')] class extends Component
                 'estudiante_id' => $estudiante->id,
                 'concepto' => $cargo['concepto'],
                 'monto' => (float) $cargo['monto'],
+                'fecha_vencimiento' => ($cargo['fecha_vencimiento'] ?? '') ?: null,
                 'estado' => EstadoCuotaEnum::PENDIENTE,
                 'registrado_por' => auth()->id(),
             ]);
@@ -640,6 +647,7 @@ new #[Layout('layouts.app')] class extends Component
                                     <tr>
                                         <th class="px-4 py-2 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Concepto</th>
                                         <th class="px-4 py-2 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Monto (S/)</th>
+                                        <th class="px-4 py-2 text-left font-mono text-xs uppercase tracking-wide text-ink-faint">Vence (opcional)</th>
                                         <th class="px-4 py-2"></th>
                                     </tr>
                                 </thead>
@@ -652,6 +660,9 @@ new #[Layout('layouts.app')] class extends Component
                                             </td>
                                             <td class="px-4 py-2">
                                                 <input type="number" step="0.01" min="0" wire:model="cargosAdicionales.{{ $indice }}.monto" class="w-28 rounded-md border-border bg-surface text-sm text-ink focus:border-accent focus:ring-accent">
+                                            </td>
+                                            <td class="px-4 py-2">
+                                                <input type="date" wire:model="cargosAdicionales.{{ $indice }}.fecha_vencimiento" class="rounded-md border-border bg-surface text-sm text-ink focus:border-accent focus:ring-accent">
                                             </td>
                                             <td class="px-4 py-2 text-right">
                                                 <button type="button" wire:click="quitarCargoAdicional({{ $indice }})" wire:loading.attr="disabled" class="text-xs text-danger hover:underline disabled:cursor-not-allowed disabled:opacity-50">Quitar</button>

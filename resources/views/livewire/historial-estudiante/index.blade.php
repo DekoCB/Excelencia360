@@ -92,6 +92,58 @@ new #[Layout('layouts.app')] class extends Component
     }
 
     /**
+     * Mismo patrón que exportarLibretaPdf(): descarga solo lo que muestra
+     * UNA pestaña, en vez del historial completo -- cada botón vive
+     * dentro del componente de esa pestaña (ver financiero.blade.php),
+     * resolviendo esta acción contra el componente Livewire que lo
+     * incluya (historial-estudiante/index.blade.php o mis-hijos.blade.php).
+     */
+    public function exportarFinancieroPdf(HistorialEstudianteService $servicio)
+    {
+        abort_unless(Auth::user()->hasPermissionTo('reportes.exportar'), 403);
+        abort_unless($this->estudianteSeleccionadoId !== null && $this->puedeVer($this->estudianteSeleccionadoId), 403);
+
+        $historial = $servicio->porId($this->estudianteSeleccionadoId);
+        abort_if($historial === null, 404);
+
+        return response()->streamDownload(
+            fn () => print (Pdf::loadView('pdf.historial-financiero', $historial)->output()),
+            "historial-financiero-{$historial['estudiante']->dni}.pdf",
+            ['Content-Type' => 'application/pdf'],
+        );
+    }
+
+    public function exportarDocumentosPdf(HistorialEstudianteService $servicio)
+    {
+        abort_unless(Auth::user()->hasPermissionTo('reportes.exportar'), 403);
+        abort_unless($this->estudianteSeleccionadoId !== null && $this->puedeVer($this->estudianteSeleccionadoId), 403);
+
+        $historial = $servicio->porId($this->estudianteSeleccionadoId);
+        abort_if($historial === null, 404);
+
+        return response()->streamDownload(
+            fn () => print (Pdf::loadView('pdf.historial-documentos', $historial)->output()),
+            "historial-documentos-{$historial['estudiante']->dni}.pdf",
+            ['Content-Type' => 'application/pdf'],
+        );
+    }
+
+    public function exportarAsistenciaPdf(HistorialEstudianteService $servicio)
+    {
+        abort_unless(Auth::user()->hasPermissionTo('reportes.exportar'), 403);
+        abort_unless($this->estudianteSeleccionadoId !== null && $this->puedeVer($this->estudianteSeleccionadoId), 403);
+
+        $historial = $servicio->porId($this->estudianteSeleccionadoId);
+        abort_if($historial === null, 404);
+
+        return response()->streamDownload(
+            fn () => print (Pdf::loadView('pdf.historial-asistencia', $historial)->output()),
+            "historial-asistencia-{$historial['estudiante']->dni}.pdf",
+            ['Content-Type' => 'application/pdf'],
+        );
+    }
+
+    /**
      * Aparte del PDF general de historial: la boleta de notas completa
      * (todos los períodos cursados), misma plantilla que ya usa
      * LibretaService::generar() para "Mi libreta"/la libreta que ve el
@@ -226,7 +278,7 @@ new #[Layout('layouts.app')] class extends Component
             </p>
         @else
             <div class="flex gap-1 rounded-md border border-border bg-surface p-1 w-fit">
-                @foreach (['general' => 'General', 'academico' => 'Académico', 'financiero' => 'Financiero', 'documentos' => 'Documentos'] as $valor => $etiqueta)
+                @foreach (['general' => 'General', 'academico' => 'Académico', 'financiero' => 'Financiero', 'asistencia' => 'Asistencia', 'documentos' => 'Documentos'] as $valor => $etiqueta)
                     <button
                         type="button"
                         wire:click="$set('tipo', '{{ $valor }}')"
@@ -255,9 +307,11 @@ new #[Layout('layouts.app')] class extends Component
                         :situacion-final-libreta="$situacionFinalLibreta"
                     />
                 @elseif ($tipo === 'financiero')
-                    <x-historial-estudiante.financiero :historial="$historial" />
+                    <x-historial-estudiante.financiero :historial="$historial" :puede-exportar="$puedeExportar" />
+                @elseif ($tipo === 'asistencia')
+                    <x-historial-estudiante.asistencia :historial="$historial" :puede-exportar="$puedeExportar" />
                 @elseif ($tipo === 'documentos')
-                    <x-historial-estudiante.documentos :historial="$historial" />
+                    <x-historial-estudiante.documentos :historial="$historial" :puede-exportar="$puedeExportar" />
                 @endif
             @endif
         @endif

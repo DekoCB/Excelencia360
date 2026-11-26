@@ -5,6 +5,7 @@ namespace Tests\Feature\Reportes;
 use App\Models\User;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Horario;
+use App\Modules\Asistencia\Models\Asistencia;
 use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Models\Calificacion;
 use App\Modules\Evaluaciones\Models\Evaluacion;
@@ -237,7 +238,77 @@ class HistorialEstudiantePermisosTest extends TestCase
             ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
             ->assertSee('Semestres cursados')
             ->assertSee('Situación de pagos')
+            ->assertSee('Sesiones registradas')
             ->assertSee('Documentos');
+    }
+
+    public function test_la_pestana_asistencia_muestra_asistencia_sin_los_demas_bloques(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create(['dni' => '55667703', 'nombres' => 'Rocio', 'apellidos' => 'Benavides Luna']);
+        Asistencia::factory()->create(['estudiante_id' => $estudiante->id, 'estado' => 'presente']);
+        Pago::factory()->aprobado()->create(['estudiante_id' => $estudiante->id, 'monto' => 90]);
+
+        $this->actingAs($coordinador);
+
+        Volt::test('historial-estudiante.index')
+            ->set('terminoBusqueda', 'Benavides Luna')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
+            ->set('tipo', 'asistencia')
+            ->assertSee('Sesiones registradas')
+            ->assertDontSee('Situación de pagos')
+            ->assertDontSee('Semestres cursados');
+    }
+
+    public function test_exportar_financiero_pdf_descarga_el_pdf(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create(['dni' => '55667704']);
+        Pago::factory()->aprobado()->create(['estudiante_id' => $estudiante->id, 'monto' => 90]);
+
+        $this->actingAs($coordinador);
+
+        $testable = Volt::test('historial-estudiante.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
+            ->call('exportarFinancieroPdf');
+
+        $this->assertArrayHasKey('download', $testable->effects);
+        $this->assertSame('application/pdf', $testable->effects['download']['contentType']);
+    }
+
+    public function test_exportar_documentos_pdf_descarga_el_pdf(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create(['dni' => '55667705']);
+
+        $this->actingAs($coordinador);
+
+        $testable = Volt::test('historial-estudiante.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
+            ->call('exportarDocumentosPdf');
+
+        $this->assertArrayHasKey('download', $testable->effects);
+        $this->assertSame('application/pdf', $testable->effects['download']['contentType']);
+    }
+
+    public function test_exportar_asistencia_pdf_descarga_el_pdf(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create(['dni' => '55667706']);
+        Asistencia::factory()->create(['estudiante_id' => $estudiante->id]);
+
+        $this->actingAs($coordinador);
+
+        $testable = Volt::test('historial-estudiante.index')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
+            ->call('exportarAsistenciaPdf');
+
+        $this->assertArrayHasKey('download', $testable->effects);
+        $this->assertSame('application/pdf', $testable->effects['download']['contentType']);
     }
 
     public function test_seleccionar_estudiante_preselecciona_la_libreta_del_ciclo_mas_reciente(): void
