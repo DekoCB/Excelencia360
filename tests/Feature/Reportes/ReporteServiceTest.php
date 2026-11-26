@@ -8,6 +8,7 @@ use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\Asistencia\Models\Asistencia;
 use App\Modules\Certificados\Models\Certificado;
+use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Models\Calificacion;
 use App\Modules\Evaluaciones\Models\Evaluacion;
 use App\Modules\Matricula\Models\Estudiante;
@@ -112,15 +113,94 @@ class ReporteServiceTest extends TestCase
         $this->assertSame('—', $reporte['filas'][0][1]);
     }
 
-    public function test_reporte_academico_marca_aprobado_desde_once(): void
+    /**
+     * Matricula al estudiante en el grado+ciclo del horario -- sin esto,
+     * EvaluacionService::estudiantesDelHorario() no lo cuenta y el
+     * reporte académico no le arma ninguna fila (ver
+     * ReporteService::academico(), que itera estudiantesDelHorario()
+     * por cada Horario filtrado, no las Calificacion directamente).
+     */
+    private function matricularEnHorario(Estudiante $estudiante, Horario $horario): Matricula
     {
-        $evaluacion = Evaluacion::factory()->create(['fecha' => now()]);
-        Calificacion::factory()->create(['evaluacion_id' => $evaluacion->id, 'nota_numerica' => 15]);
+        return Matricula::factory()->create([
+            'estudiante_id' => $estudiante->id,
+            'grado_id' => $horario->grado_id,
+            'ciclo_id' => $horario->ciclo_id,
+        ]);
+    }
+
+    public function test_reporte_academico_arma_el_desglose_completo_de_un_curso(): void
+    {
+        $horario = Horario::factory()->create();
+        $estudiante = Estudiante::factory()->create();
+        $this->matricularEnHorario($estudiante, $horario);
+
+        $criterio1U1 = Evaluacion::factory()->publicada()->create(['horario_id' => $horario->id, 'unidad' => 1]);
+        $criterio2U1 = Evaluacion::factory()->publicada()->create(['horario_id' => $horario->id, 'unidad' => 1]);
+        $examenFinal = Evaluacion::factory()->publicada()->create(['horario_id' => $horario->id, 'rol' => RolEvaluacionEnum::EXAMEN_FINAL, 'unidad' => null]);
+        $asistencia = Evaluacion::factory()->publicada()->create(['horario_id' => $horario->id, 'rol' => RolEvaluacionEnum::ASISTENCIA, 'unidad' => null]);
+
+        Calificacion::factory()->create(['evaluacion_id' => $criterio1U1->id, 'estudiante_id' => $estudiante->id, 'nota_numerica' => 14]);
+        Calificacion::factory()->create(['evaluacion_id' => $criterio2U1->id, 'estudiante_id' => $estudiante->id, 'nota_numerica' => 16]);
+        Calificacion::factory()->create(['evaluacion_id' => $examenFinal->id, 'estudiante_id' => $estudiante->id, 'nota_numerica' => 15]);
+        Calificacion::factory()->create(['evaluacion_id' => $asistencia->id, 'estudiante_id' => $estudiante->id, 'nota_numerica' => 18]);
 
         $reporte = app(ReporteService::class)->academico(null, null, null);
 
-        $this->assertCount(1, $reporte['filas']);
-        $this->assertSame('Aprobado', $reporte['filas'][0][5]);
+        $this->assertSame(['Estudiante', 'Grado', 'Curso', 'Componente', 'Nota'], $reporte['columnas']);
+
+        $componentes = array_column($reporte['filas'], 3);
+        $notas = array_column($reporte['filas'], 4);
+
+        // Sin Unidad 2 calificada, su "Prom II Unidad" queda null ("—") --
+        // Examen Final sí llega, así que Promedio Final también queda null
+        // (promedioFinalDelEstudiante() exige los 4 componentes completos).
+        $this->assertSame(
+            ['Criterio 1 U1', 'Criterio 2 U1', 'Prom I Unidad', 'Prom II Unidad', 'Examen Final', 'Asistencia', 'Examen Sustitutorio', 'Examen Aplazado', 'Promedio Final'],
+            $componentes,
+        );
+        $this->assertSame(['14.00', '16.00', '15.00', '—', '15.00', '18.00', '—', '—', '—'], $notas);
+
+        // Ni docente ni "Resultado Aprobado/Desaprobado" en ninguna fila --
+        // el formato nuevo no tiene esas columnas.
+        foreach ($reporte['filas'] as $fila) {
+            $this->assertCount(5, $fila);
+        }
+    }
+
+    public function test_reporte_academico_calcula_el_promedio_final_cuando_estan_los_4_componentes(): void
+    {
+        $horario = Horario::factory()->create();
+        $estudiante = Estudiante::factory()->create();
+        $this->matricularEnHorario($estudiante, $horario);
+
+        Calificacion::factory()->create([
+            'evaluacion_id' => Evaluacion::factory()->publicada()->create(['horario_id' => $horario->id, 'unidad' => 1])->id,
+            'estudiante_id' => $estudiante->id,
+            'nota_numerica' => 16,
+        ]);
+        Calificacion::factory()->create([
+            'evaluacion_id' => Evaluacion::factory()->publicada()->create(['horario_id' => $horario->id, 'unidad' => 2])->id,
+            'estudiante_id' => $estudiante->id,
+            'nota_numerica' => 14,
+        ]);
+        Calificacion::factory()->create([
+            'evaluacion_id' => Evaluacion::factory()->publicada()->create(['horario_id' => $horario->id, 'rol' => RolEvaluacionEnum::EXAMEN_FINAL, 'unidad' => null])->id,
+            'estudiante_id' => $estudiante->id,
+            'nota_numerica' => 15,
+        ]);
+        Calificacion::factory()->create([
+            'evaluacion_id' => Evaluacion::factory()->publicada()->create(['horario_id' => $horario->id, 'rol' => RolEvaluacionEnum::ASISTENCIA, 'unidad' => null])->id,
+            'estudiante_id' => $estudiante->id,
+            'nota_numerica' => 18,
+        ]);
+
+        $reporte = app(ReporteService::class)->academico(null, null, null);
+
+        $filaPromedioFinal = collect($reporte['filas'])->firstWhere(3, 'Promedio Final');
+
+        // 0.2*16 + 0.2*14 + 0.2*18 + 0.4*15 = 15.60
+        $this->assertSame('15.60', $filaPromedioFinal[4]);
     }
 
     public function test_reporte_financiero_lista_pagos(): void
@@ -250,24 +330,48 @@ class ReporteServiceTest extends TestCase
     {
         $horarioA = $this->horarioConFranja(FranjaHorarioEnum::LUNES_VIERNES);
         $horarioB = $this->horarioConFranja(FranjaHorarioEnum::SABADOS_DOMINGOS);
-        Calificacion::factory()->create(['evaluacion_id' => Evaluacion::factory()->create(['horario_id' => $horarioA->id])->id]);
-        Calificacion::factory()->create(['evaluacion_id' => Evaluacion::factory()->create(['horario_id' => $horarioB->id])->id]);
+        $estudianteA = Estudiante::factory()->create();
+        $estudianteB = Estudiante::factory()->create();
+        $this->matricularEnHorario($estudianteA, $horarioA);
+        $this->matricularEnHorario($estudianteB, $horarioB);
+
+        Calificacion::factory()->create([
+            'evaluacion_id' => Evaluacion::factory()->publicada()->create(['horario_id' => $horarioA->id])->id,
+            'estudiante_id' => $estudianteA->id,
+        ]);
+        Calificacion::factory()->create([
+            'evaluacion_id' => Evaluacion::factory()->publicada()->create(['horario_id' => $horarioB->id])->id,
+            'estudiante_id' => $estudianteB->id,
+        ]);
 
         $reporte = app(ReporteService::class)->academico(null, null, null, FranjaHorarioEnum::LUNES_VIERNES->value);
 
-        $this->assertCount(1, $reporte['filas']);
+        $this->assertTrue(collect($reporte['filas'])->every(fn ($fila) => $fila[0] === $estudianteA->nombreCompleto()));
+        $this->assertTrue(collect($reporte['filas'])->contains(fn ($fila) => $fila[0] === $estudianteA->nombreCompleto()));
     }
 
     public function test_reporte_academico_filtra_por_grupo_grado_y_curso(): void
     {
         $horarioA = Horario::factory()->create();
         $horarioB = Horario::factory()->create();
-        Calificacion::factory()->create(['evaluacion_id' => Evaluacion::factory()->create(['horario_id' => $horarioA->id])->id]);
-        Calificacion::factory()->create(['evaluacion_id' => Evaluacion::factory()->create(['horario_id' => $horarioB->id])->id]);
+        $estudianteA = Estudiante::factory()->create();
+        $estudianteB = Estudiante::factory()->create();
+        $this->matricularEnHorario($estudianteA, $horarioA);
+        $this->matricularEnHorario($estudianteB, $horarioB);
+
+        Calificacion::factory()->create([
+            'evaluacion_id' => Evaluacion::factory()->publicada()->create(['horario_id' => $horarioA->id])->id,
+            'estudiante_id' => $estudianteA->id,
+        ]);
+        Calificacion::factory()->create([
+            'evaluacion_id' => Evaluacion::factory()->publicada()->create(['horario_id' => $horarioB->id])->id,
+            'estudiante_id' => $estudianteB->id,
+        ]);
 
         $reporte = app(ReporteService::class)->academico($horarioA->ciclo_id, $horarioA->grado_id, $horarioA->curso_id);
 
-        $this->assertCount(1, $reporte['filas']);
+        $this->assertTrue(collect($reporte['filas'])->every(fn ($fila) => $fila[0] === $estudianteA->nombreCompleto()));
+        $this->assertTrue(collect($reporte['filas'])->contains(fn ($fila) => $fila[0] === $estudianteA->nombreCompleto()));
     }
 
     public function test_reporte_operativo_filtra_por_franja(): void

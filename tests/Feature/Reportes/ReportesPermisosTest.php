@@ -147,8 +147,20 @@ class ReportesPermisosTest extends TestCase
         $horarioMartes = $this->horarioConFranja(FranjaHorarioEnum::SABADOS_DOMINGOS, [
             'curso_id' => Curso::factory()->create(['nombre' => 'Curso Martes']),
         ]);
-        Calificacion::factory()->create(['evaluacion_id' => Evaluacion::factory()->create(['horario_id' => $horarioLunes->id])->id]);
-        Calificacion::factory()->create(['evaluacion_id' => Evaluacion::factory()->create(['horario_id' => $horarioMartes->id])->id]);
+
+        $estudianteLunes = Estudiante::factory()->create();
+        Matricula::factory()->create(['estudiante_id' => $estudianteLunes->id, 'grado_id' => $horarioLunes->grado_id, 'ciclo_id' => $horarioLunes->ciclo_id]);
+        $estudianteMartes = Estudiante::factory()->create();
+        Matricula::factory()->create(['estudiante_id' => $estudianteMartes->id, 'grado_id' => $horarioMartes->grado_id, 'ciclo_id' => $horarioMartes->ciclo_id]);
+
+        Calificacion::factory()->create([
+            'evaluacion_id' => Evaluacion::factory()->publicada()->create(['horario_id' => $horarioLunes->id])->id,
+            'estudiante_id' => $estudianteLunes->id,
+        ]);
+        Calificacion::factory()->create([
+            'evaluacion_id' => Evaluacion::factory()->publicada()->create(['horario_id' => $horarioMartes->id])->id,
+            'estudiante_id' => $estudianteMartes->id,
+        ]);
 
         $coordinador = User::factory()->create();
         $coordinador->assignRole(RolEnum::COORDINADOR->value);

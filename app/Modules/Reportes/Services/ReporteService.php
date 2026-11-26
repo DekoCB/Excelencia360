@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Modules\Reportes\Services;
 
 use App\Models\User;
+use App\Modules\Academico\Models\Horario;
 use App\Modules\Academico\Support\FiltroMatriculaAcademico;
 use App\Modules\Asistencia\Models\Asistencia;
 use App\Modules\Certificados\Models\Certificado;
-use App\Modules\Evaluaciones\Models\Calificacion;
+use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Models\Evaluacion;
+use App\Modules\Evaluaciones\Services\EvaluacionService;
+use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
 use App\Modules\Pagos\Enums\EstadoCuotaEnum;
 use App\Modules\Pagos\Models\Cuota;
@@ -29,6 +32,10 @@ use Illuminate\Support\Carbon;
  */
 class ReporteService
 {
+    public function __construct(
+        private readonly EvaluacionService $evaluaciones,
+    ) {}
+
     /**
      * @return array{columnas: list<string>, filas: list<array<int, string|int|float>>}
      */
@@ -56,32 +63,90 @@ class ReporteService
     }
 
     /**
+     * Una fila por componente de evaluación (Criterios de cada Unidad,
+     * Promedio de Unidad, Examen Final, Asistencia, Sustitutorio,
+     * Aplazado, Promedio Final) de cada curso de cada estudiante --
+     * mismo formato que el "Estado académico detalle" que ya maneja la
+     * institución en otro sistema, reutilizando el motor de notas ya
+     * construido (ver EvaluacionService::desgloseDelEstudiante()/
+     * promedioFinalDelEstudiante()) en vez de recalcular la fórmula acá.
+     * Sin columna de docente a propósito.
+     *
      * @return array{columnas: list<string>, filas: list<array<int, string|int|float>>}
      */
     public function academico(?int $cicloId, ?int $gradoId, ?int $cursoId, ?string $franja = null): array
     {
         $horarioIds = FiltroMatriculaAcademico::horarioIdsFiltrados($cicloId, $gradoId, $cursoId, $franja);
 
-        $calificaciones = Calificacion::query()
-            ->with(['estudiante', 'evaluacion.horario.grado', 'evaluacion.horario.curso'])
-            ->when($horarioIds !== null, fn ($query) => $query->whereHas(
-                'evaluacion',
-                fn ($sub) => $sub->whereIn('horario_id', $horarioIds),
-            ))
-            ->latest('id')
+        $horarios = Horario::query()
+            ->with(['grado', 'curso'])
+            ->whereNotNull('ciclo_id')
+            ->when($horarioIds !== null, fn ($query) => $query->whereIn('id', $horarioIds))
             ->get();
 
+        $filas = [];
+
+        foreach ($horarios as $horario) {
+            foreach ($this->evaluaciones->estudiantesDelHorario($horario) as $estudiante) {
+                $filasEstudiante = $this->filasAcademicoDelEstudiante($estudiante, $horario);
+
+                if ($filasEstudiante !== []) {
+                    array_push($filas, ...$filasEstudiante);
+                }
+            }
+        }
+
         return [
-            'columnas' => ['Estudiante', 'Grado', 'Curso', 'Evaluación', 'Nota', 'Resultado'],
-            'filas' => $calificaciones->map(fn (Calificacion $calificacion) => [
-                $calificacion->estudiante?->nombreCompleto() ?? '—',
-                $calificacion->evaluacion->horario->grado->nombre,
-                $calificacion->evaluacion->horario->curso->nombre,
-                $calificacion->evaluacion->nombre,
-                number_format((float) $calificacion->nota_numerica, 2),
-                (float) $calificacion->nota_numerica >= 11 ? 'Aprobado' : 'Desaprobado',
-            ])->all(),
+            'columnas' => ['Estudiante', 'Grado', 'Curso', 'Componente', 'Nota'],
+            'filas' => $filas,
         ];
+    }
+
+    /**
+     * @return list<array{0: string, 1: string, 2: string, 3: string, 4: string}>
+     */
+    private function filasAcademicoDelEstudiante(Estudiante $estudiante, Horario $horario): array
+    {
+        $calificaciones = $this->evaluaciones->misCalificaciones($estudiante, $horario);
+
+        if ($calificaciones->isEmpty()) {
+            return [];
+        }
+
+        $desglose = $this->evaluaciones->desgloseDelEstudiante($estudiante, $horario);
+        $promedioFinal = $this->evaluaciones->promedioFinalDelEstudiante($estudiante, $horario);
+
+        $filas = [];
+        $agregar = function (string $componente, ?float $nota) use (&$filas, $estudiante, $horario) {
+            $filas[] = [
+                $estudiante->nombreCompleto(),
+                $horario->grado->nombre,
+                $horario->curso->nombre,
+                $componente,
+                $nota !== null ? number_format($nota, 2) : '—',
+            ];
+        };
+
+        foreach ([1 => 'I', 2 => 'II'] as $unidad => $romano) {
+            $criterios = $calificaciones
+                ->filter(fn ($calificacion) => $calificacion->evaluacion->rol === RolEvaluacionEnum::CRITERIO && $calificacion->evaluacion->unidad === $unidad)
+                ->sortBy(fn ($calificacion) => $calificacion->evaluacion->id)
+                ->values();
+
+            foreach ($criterios as $indice => $calificacion) {
+                $agregar('Criterio '.($indice + 1)." U{$unidad}", (float) $calificacion->nota_numerica);
+            }
+
+            $agregar("Prom {$romano} Unidad", $desglose["unidad{$unidad}"]);
+        }
+
+        $agregar('Examen Final', $desglose['examenFinal']);
+        $agregar('Asistencia', $desglose['asistencia']);
+        $agregar('Examen Sustitutorio', $desglose['sustitutorio']);
+        $agregar('Examen Aplazado', $desglose['aplazado']);
+        $agregar('Promedio Final', $promedioFinal);
+
+        return $filas;
     }
 
     /**
