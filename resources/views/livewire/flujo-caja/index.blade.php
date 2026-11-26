@@ -3,11 +3,13 @@
 use App\Modules\FlujoCaja\Enums\CategoriaEgresoEnum;
 use App\Modules\FlujoCaja\Services\FlujoCajaService;
 use App\Modules\Pagos\Enums\MetodoPagoEnum;
+use App\Shared\Enums\TurnoDiaEnum;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
@@ -44,7 +46,11 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $montoInicial = '';
 
+    public string $turnoNuevo = '';
+
     public string $montoFinal = '';
+
+    public bool $verTurnosCerrados = false;
 
     public function mount(): void
     {
@@ -79,6 +85,7 @@ new #[Layout('layouts.app')] class extends Component
 
         $this->resetValidation();
         $this->montoInicial = '';
+        $this->turnoNuevo = '';
         $this->mostrarModalAbrirTurno = true;
     }
 
@@ -86,9 +93,12 @@ new #[Layout('layouts.app')] class extends Component
     {
         Gate::authorize('flujo_caja.gestionar');
 
-        $this->validate(['montoInicial' => 'required|numeric|min:0']);
+        $this->validate([
+            'montoInicial' => 'required|numeric|min:0',
+            'turnoNuevo' => ['required', Rule::in(array_column(TurnoDiaEnum::cases(), 'value'))],
+        ]);
 
-        $service->abrirTurno(Auth::user(), (float) $this->montoInicial);
+        $service->abrirTurno(Auth::user(), (float) $this->montoInicial, TurnoDiaEnum::from($this->turnoNuevo));
 
         $this->mostrarModalAbrirTurno = false;
         session()->flash('status', 'Turno de caja abierto.');
@@ -210,11 +220,13 @@ new #[Layout('layouts.app')] class extends Component
 
         $puedeGestionar = Auth::user()->hasPermissionTo('flujo_caja.gestionar');
         $turnoAbierto = $puedeGestionar ? $service->turnoAbiertoDe(Auth::user()) : null;
+        $usuarioIdFiltro = $this->usuarioId !== '' ? (int) $this->usuarioId : null;
 
         return [
             ...$datos,
             'categorias' => CategoriaEgresoEnum::cases(),
             'metodos' => MetodoPagoEnum::seleccionables(),
+            'turnosDia' => TurnoDiaEnum::cases(),
             'labelsIngresos' => $labelsIngresos,
             'datosIngresos' => $datosIngresos,
             'labelsEgresos' => $labelsEgresos,
@@ -224,6 +236,17 @@ new #[Layout('layouts.app')] class extends Component
             'turnoAbierto' => $turnoAbierto,
             'movimientosDelTurno' => $turnoAbierto ? $service->movimientosDelTurno($turnoAbierto) : null,
             'montoCalculadoTurno' => $turnoAbierto ? $service->montoCalculadoDelTurno($turnoAbierto) : null,
+            'turnosCerrados' => ($puedeGestionar && $this->verTurnosCerrados)
+                ? $service->turnosCerrados($usuarioIdFiltro)->map(function ($turnoCerrado) use ($service) {
+                    $montoCalculado = $service->montoCalculadoDelTurno($turnoCerrado);
+
+                    return [
+                        'turno' => $turnoCerrado,
+                        'montoCalculado' => $montoCalculado,
+                        'diferencia' => (float) $turnoCerrado->monto_final_declarado - $montoCalculado,
+                    ];
+                })
+                : collect(),
         ];
     }
 }; ?>
@@ -243,7 +266,10 @@ new #[Layout('layouts.app')] class extends Component
             @if ($turnoAbierto)
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                        <p class="font-display text-sm text-ink">Turno abierto desde {{ $turnoAbierto->hora_apertura->format('d/m/Y H:i') }}</p>
+                        <p class="font-display text-sm text-ink">
+                            Turno de {{ $turnoAbierto->turno?->label() ?? '—' }} abierto por {{ $turnoAbierto->usuario->name }}
+                            desde {{ $turnoAbierto->hora_apertura->format('d/m/Y H:i') }}
+                        </p>
                         <p class="mt-1 text-xs text-ink-faint">
                             Monto inicial S/ {{ number_format((float) $turnoAbierto->monto_inicial, 2) }}
                             · {{ $movimientosDelTurno->count() }} movimiento(s)
@@ -334,6 +360,46 @@ new #[Layout('layouts.app')] class extends Component
             <x-chart-canvas type="line" :labels="$labelsEgresos" :data="$datosEgresos" label="Egresos (S/)" color="#DC2626" />
         </div>
     </div>
+
+    @can('flujo_caja.gestionar')
+        <div class="mb-6 rounded-2xl border border-border bg-surface shadow-sm">
+            <div class="flex items-center justify-between gap-4 border-b border-border px-4 py-3">
+                <h2 class="font-display text-sm text-ink">Turnos cerrados</h2>
+                <button type="button" wire:click="$set('verTurnosCerrados', {{ $verTurnosCerrados ? 'false' : 'true' }})" class="text-xs font-medium text-accent hover:underline">
+                    {{ $verTurnosCerrados ? 'Ocultar' : 'Ver turnos cerrados' }}
+                </button>
+            </div>
+            @if ($verTurnosCerrados)
+                <div class="divide-y divide-border">
+                    @forelse ($turnosCerrados as $fila)
+                        @php $turnoCerrado = $fila['turno']; @endphp
+                        <div class="flex flex-wrap items-center justify-between gap-4 px-4 py-3 text-sm">
+                            <div>
+                                <p class="text-ink">
+                                    Turno de {{ $turnoCerrado->turno?->label() ?? '—' }} · {{ $turnoCerrado->usuario->name }}
+                                </p>
+                                <p class="text-xs text-ink-faint">
+                                    {{ $turnoCerrado->hora_apertura->format('d/m/Y H:i') }} — {{ $turnoCerrado->hora_cierre->format('H:i') }}
+                                    · apertura S/ {{ number_format((float) $turnoCerrado->monto_inicial, 2) }}
+                                    · declarado S/ {{ number_format((float) $turnoCerrado->monto_final_declarado, 2) }}
+                                    · calculado S/ {{ number_format($fila['montoCalculado'], 2) }}
+                                </p>
+                            </div>
+                            <span @class([
+                                'rounded-full px-2 py-0.5 text-xs font-medium',
+                                'bg-ok/10 text-ok' => abs($fila['diferencia']) < 0.01,
+                                'bg-danger/10 text-danger' => abs($fila['diferencia']) >= 0.01,
+                            ])>
+                                {{ abs($fila['diferencia']) < 0.01 ? 'Cuadrado' : ($fila['diferencia'] > 0 ? 'Sobra' : 'Falta').' S/ '.number_format(abs($fila['diferencia']), 2) }}
+                            </span>
+                        </div>
+                    @empty
+                        <p class="px-4 py-8 text-center text-sm text-ink-faint">Sin turnos cerrados todavía.</p>
+                    @endforelse
+                </div>
+            @endif
+        </div>
+    @endcan
 
     <div class="rounded-2xl border border-border bg-surface shadow-sm">
         <div class="border-b border-border px-4 py-3">
@@ -471,7 +537,19 @@ new #[Layout('layouts.app')] class extends Component
             x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
         >
             <h2 class="font-display text-lg text-ink">Abrir turno de caja</h2>
-            <p class="mt-1 text-sm text-ink-dim">Indica cuánto dinero tienes en caja al empezar.</p>
+            <p class="mt-1 text-sm text-ink-dim">Indica el turno y cuánto dinero tienes en caja al empezar.</p>
+
+            <div class="mt-4">
+                <x-input-label for="turnoNuevo" value="Turno" />
+                <x-select-input
+                    wire:model="turnoNuevo"
+                    id="turnoNuevo"
+                    class="mt-1 block w-full"
+                    placeholder="Selecciona…"
+                    :options="collect($turnosDia)->mapWithKeys(fn ($turno) => [$turno->value => $turno->label()])"
+                />
+                <x-input-error :messages="$errors->get('turnoNuevo')" class="mt-1" />
+            </div>
 
             <div class="mt-4">
                 <x-input-label for="montoInicial" value="Monto inicial (S/)" />

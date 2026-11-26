@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\FlujoCaja\Database\Factories\TurnoCajaFactory;
 use App\Modules\Identidad\Support\Auditable;
 use App\Modules\Pagos\Models\Pago;
+use App\Shared\Enums\TurnoDiaEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,6 +26,7 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int $usuario_id
+ * @property TurnoDiaEnum|null $turno
  * @property Carbon $fecha
  * @property Carbon $hora_apertura
  * @property float $monto_inicial
@@ -42,6 +44,7 @@ class TurnoCaja extends Model
 
     protected $fillable = [
         'usuario_id',
+        'turno',
         'fecha',
         'hora_apertura',
         'monto_inicial',
@@ -53,6 +56,7 @@ class TurnoCaja extends Model
     protected function casts(): array
     {
         return [
+            'turno' => TurnoDiaEnum::class,
             'fecha' => 'date',
             'hora_apertura' => 'datetime',
             'hora_cierre' => 'datetime',

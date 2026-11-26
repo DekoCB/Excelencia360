@@ -11,6 +11,8 @@ use App\Modules\FlujoCaja\Models\TurnoCaja;
 use App\Modules\Pagos\Enums\EstadoPagoEnum;
 use App\Modules\Pagos\Enums\MetodoPagoEnum;
 use App\Modules\Pagos\Models\Pago;
+use App\Shared\Enums\TurnoDiaEnum;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection as SupportCollection;
@@ -79,7 +81,7 @@ class FlujoCajaService
             ->first();
     }
 
-    public function abrirTurno(User $usuario, float $montoInicial): TurnoCaja
+    public function abrirTurno(User $usuario, float $montoInicial, TurnoDiaEnum $turno): TurnoCaja
     {
         if ($this->turnoAbiertoDe($usuario) !== null) {
             throw ValidationException::withMessages([
@@ -89,6 +91,7 @@ class FlujoCajaService
 
         return TurnoCaja::query()->create([
             'usuario_id' => $usuario->id,
+            'turno' => $turno,
             'fecha' => now()->toDateString(),
             'hora_apertura' => now(),
             'monto_inicial' => $montoInicial,
@@ -198,6 +201,24 @@ class FlujoCajaService
             ]);
 
         return $ingresos->concat($egresos)->sortByDesc('fecha')->values();
+    }
+
+    /**
+     * Turnos cerrados, más reciente primero -- para el reporte de
+     * apertura/cierre: cada fila ya trae listo lo necesario (monto
+     * inicial, declarado, calculado y la diferencia) sin que la vista
+     * tenga que recalcular nada.
+     *
+     * @return Collection<int, TurnoCaja>
+     */
+    public function turnosCerrados(?int $usuarioId = null): Collection
+    {
+        return TurnoCaja::query()
+            ->where('estado', 'cerrado')
+            ->when($usuarioId !== null, fn ($query) => $query->where('usuario_id', $usuarioId))
+            ->with('usuario')
+            ->latest('hora_cierre')
+            ->get();
     }
 
     /**

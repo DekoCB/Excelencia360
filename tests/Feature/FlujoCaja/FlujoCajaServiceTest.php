@@ -12,6 +12,7 @@ use App\Modules\Pagos\Enums\MetodoPagoEnum;
 use App\Modules\Pagos\Models\ConceptoPago;
 use App\Modules\Pagos\Models\Pago;
 use App\Modules\Pagos\Services\PagoService;
+use App\Shared\Enums\TurnoDiaEnum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -122,7 +123,7 @@ class FlujoCajaServiceTest extends TestCase
     {
         $cajero = User::factory()->create();
 
-        $turno = $this->service()->abrirTurno($cajero, 100.0);
+        $turno = $this->service()->abrirTurno($cajero, 100.0, TurnoDiaEnum::MANANA);
 
         $this->assertDatabaseHas('turnos_caja', [
             'id' => $turno->id,
@@ -132,7 +133,7 @@ class FlujoCajaServiceTest extends TestCase
         ]);
 
         $this->expectException(ValidationException::class);
-        $this->service()->abrirTurno($cajero, 50.0);
+        $this->service()->abrirTurno($cajero, 50.0, TurnoDiaEnum::TARDE);
     }
 
     public function test_turno_abierto_de_devuelve_null_si_no_tiene_uno(): void
@@ -141,7 +142,7 @@ class FlujoCajaServiceTest extends TestCase
 
         $this->assertNull($this->service()->turnoAbiertoDe($cajero));
 
-        $turno = $this->service()->abrirTurno($cajero, 100.0);
+        $turno = $this->service()->abrirTurno($cajero, 100.0, TurnoDiaEnum::MANANA);
 
         $this->assertTrue($this->service()->turnoAbiertoDe($cajero)->is($turno));
     }
@@ -149,7 +150,7 @@ class FlujoCajaServiceTest extends TestCase
     public function test_registrar_egreso_y_registrar_pago_quedan_ligados_al_turno_abierto(): void
     {
         $cajero = User::factory()->create();
-        $turno = $this->service()->abrirTurno($cajero, 100.0);
+        $turno = $this->service()->abrirTurno($cajero, 100.0, TurnoDiaEnum::MANANA);
 
         $egreso = $this->service()->registrarEgreso([
             'categoria' => CategoriaEgresoEnum::OTRO,
@@ -179,7 +180,7 @@ class FlujoCajaServiceTest extends TestCase
     public function test_cerrar_turno_calcula_el_monto_esperado_y_guarda_lo_declarado(): void
     {
         $cajero = User::factory()->create();
-        $turno = $this->service()->abrirTurno($cajero, 100.0);
+        $turno = $this->service()->abrirTurno($cajero, 100.0, TurnoDiaEnum::MANANA);
 
         Pago::factory()->aprobado()->create(['monto' => 50, 'registrado_por' => $cajero->id, 'turno_caja_id' => $turno->id]);
         Egreso::factory()->create(['monto' => 20, 'registrado_por' => $cajero->id, 'turno_caja_id' => $turno->id]);
@@ -196,7 +197,7 @@ class FlujoCajaServiceTest extends TestCase
     public function test_movimientos_del_turno_solo_trae_los_de_ese_turno(): void
     {
         $cajero = User::factory()->create();
-        $turno = $this->service()->abrirTurno($cajero, 100.0);
+        $turno = $this->service()->abrirTurno($cajero, 100.0, TurnoDiaEnum::MANANA);
 
         Pago::factory()->aprobado()->create(['monto' => 50, 'turno_caja_id' => $turno->id]);
         Pago::factory()->aprobado()->create(['monto' => 999]);

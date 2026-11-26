@@ -118,12 +118,14 @@ class FlujoCajaPermisosTest extends TestCase
         Volt::test('flujo-caja.index')
             ->call('abrirModalTurno')
             ->set('montoInicial', '100')
+            ->set('turnoNuevo', 'manana')
             ->call('abrirTurno')
             ->assertHasNoErrors()
             ->assertSet('mostrarModalAbrirTurno', false);
 
         $this->assertDatabaseHas('turnos_caja', [
             'usuario_id' => $tesoreria->id,
+            'turno' => 'manana',
             'monto_inicial' => '100.00',
             'estado' => 'abierto',
         ]);
@@ -151,6 +153,7 @@ class FlujoCajaPermisosTest extends TestCase
 
         rescue(fn () => Volt::test('flujo-caja.index')
             ->set('montoInicial', '100')
+            ->set('turnoNuevo', 'manana')
             ->call('abrirTurno'), report: false);
 
         $this->assertDatabaseCount('turnos_caja', 0);
