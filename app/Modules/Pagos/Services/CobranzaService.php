@@ -77,6 +77,21 @@ class CobranzaService
     }
 
     /**
+     * Deuda total real, sin importar el ciclo: a diferencia de
+     * BloqueoAccesoService::tieneCuotasVencidasEnCicloActual() (que solo
+     * mira cuotas VENCIDAS del ciclo activo), esta exige no tener ninguna
+     * Cuota ni CargoAdicional pendiente de NINGÚN ciclo -- la usa
+     * CONSTANCIA_NO_ADEUDAR, el único documento que de verdad certifica
+     * "no debe nada".
+     */
+    public function estudianteNoAdeuda(Estudiante $estudiante): bool
+    {
+        $deuda = $this->deudaDeEstudiante($estudiante);
+
+        return $deuda['cuotasPendientes']->isEmpty() && $deuda['cargosAdicionalesPendientes']->isEmpty();
+    }
+
+    /**
      * La cuota de mensualidad que le toca pagar a continuación a un
      * estudiante (la de vencimiento más próximo, sin importar si ya venció
      * o no) -- usada por "Registrar pago" para vincular automáticamente el

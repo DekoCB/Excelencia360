@@ -252,6 +252,27 @@ class ConstanciasPermisosTest extends TestCase
         ]);
     }
 
+    public function test_coordinador_puede_emitir_una_constancia_de_no_adeudar_directamente(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create();
+
+        $this->actingAs($coordinador);
+
+        Volt::test('constancias.index')
+            ->set('tab', 'emitir')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
+            ->set('tipoDocumentoEmitir', TipoDocumentoEnum::CONSTANCIA_NO_ADEUDAR->value)
+            ->call('emitir')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('certificados', [
+            'estudiante_id' => $estudiante->id,
+            'tipo' => TipoDocumentoEnum::CONSTANCIA_NO_ADEUDAR->value,
+        ]);
+    }
+
     public function test_coordinador_emite_una_constancia_desde_una_solicitud(): void
     {
         $coordinador = User::factory()->create();

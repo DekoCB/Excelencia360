@@ -164,6 +164,17 @@ class PlantillaCertificado extends Model
                 'pie_nota' => $pieNota,
                 'color_acento' => $colorAcentoConstancia,
             ],
+            TipoDocumentoEnum::CONSTANCIA_NO_ADEUDAR => [
+                'institucion' => $institucion,
+                'titulo' => 'Constancia de no adeudar',
+                'cuerpo' => 'Por medio de la presente hacemos constar que el(la) alumno(a) {{estudiante}}, '
+                    .'identificado(a) con DNI N.° {{dni}}, de nacionalidad peruana, no registra deuda '
+                    .'pendiente alguna con esta institución a la fecha de emisión del presente documento.'
+                    ."\n\n"
+                    .'Se expide el presente a solicitud de la parte interesada para los fines que estime conveniente.',
+                'pie_nota' => $pieNota,
+                'color_acento' => $colorAcentoConstancia,
+            ],
             TipoDocumentoEnum::LIBRETA_NOTAS => [
                 'institucion' => $institucion,
                 'titulo' => 'Libreta de notas',

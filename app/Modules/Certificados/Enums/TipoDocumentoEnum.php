@@ -22,6 +22,7 @@ enum TipoDocumentoEnum: string
     case CONSTANCIA_EGRESADO = 'constancia_egresado';
     case CONSTANCIA_PRACTICAS_PREPROFESIONALES = 'constancia_practicas_preprofesionales';
     case CONSTANCIA_PRACTICAS_PROFESIONALES = 'constancia_practicas_profesionales';
+    case CONSTANCIA_NO_ADEUDAR = 'constancia_no_adeudar';
     case LIBRETA_NOTAS = 'libreta_notas';
 
     public function label(): string
@@ -36,6 +37,7 @@ enum TipoDocumentoEnum: string
             self::CONSTANCIA_EGRESADO => 'Constancia de egresado',
             self::CONSTANCIA_PRACTICAS_PREPROFESIONALES => 'Constancia de prácticas preprofesionales',
             self::CONSTANCIA_PRACTICAS_PROFESIONALES => 'Constancia de prácticas profesionales',
+            self::CONSTANCIA_NO_ADEUDAR => 'Constancia de no adeudar',
             self::LIBRETA_NOTAS => 'Libreta de notas',
         };
     }
@@ -48,6 +50,16 @@ enum TipoDocumentoEnum: string
     public function esCapacitacion(): bool
     {
         return $this === self::CERTIFICADO_CAPACITACION;
+    }
+
+    /**
+     * A diferencia de las demás constancias, esta exige no tener NINGUNA
+     * deuda pendiente (cualquier ciclo, cuotas y cargos adicionales) --
+     * ver CobranzaService::estudianteNoAdeuda().
+     */
+    public function esNoAdeudar(): bool
+    {
+        return $this === self::CONSTANCIA_NO_ADEUDAR;
     }
 
     /**
@@ -93,6 +105,7 @@ enum TipoDocumentoEnum: string
             self::CONSTANCIA_BUENA_CONDUCTA,
             self::CONSTANCIA_PRACTICAS_PREPROFESIONALES,
             self::CONSTANCIA_PRACTICAS_PROFESIONALES,
+            self::CONSTANCIA_NO_ADEUDAR,
         ];
     }
 }

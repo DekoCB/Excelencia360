@@ -4,6 +4,7 @@ use App\Modules\Certificados\Enums\TipoDocumentoEnum;
 use App\Modules\Certificados\Services\CertificadoService;
 use App\Modules\Matricula\Models\Matricula;
 use App\Modules\Pagos\Services\BloqueoAccesoService;
+use App\Modules\Pagos\Services\CobranzaService;
 use App\Shared\Enums\MetodoEntregaEnum;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -37,7 +38,7 @@ new #[Layout('layouts.app')] class extends Component
         $this->tipoDocumento = TipoDocumentoEnum::CONSTANCIA_ESTUDIOS->value;
     }
 
-    public function solicitar(CertificadoService $service, BloqueoAccesoService $bloqueos): void
+    public function solicitar(CertificadoService $service, BloqueoAccesoService $bloqueos, CobranzaService $cobranza): void
     {
         $estudiante = Auth::user()->estudiante;
         abort_unless($estudiante !== null, 403);
@@ -53,6 +54,18 @@ new #[Layout('layouts.app')] class extends Component
                 ? 'required|email|max:150'
                 : 'nullable|email|max:150',
         ]);
+
+        // La Constancia de no adeudar exige un check más estricto que el
+        // resto (ver CobranzaService::estudianteNoAdeuda()): cualquier
+        // cuota o cargo adicional pendiente, de cualquier ciclo, la
+        // bloquea -- no solo las vencidas del ciclo actual.
+        if (TipoDocumentoEnum::from($this->tipoDocumento)->esNoAdeudar()) {
+            if (! $cobranza->estudianteNoAdeuda($estudiante)) {
+                $this->addError('tipoDocumento', 'Tienes pagos pendientes, no puedes solicitar esta constancia todavía. Revisa Mi estado de cuenta.');
+
+                return;
+            }
+        }
 
         $matricula = $this->matriculaId !== '' ? Matricula::query()->findOrFail($this->matriculaId) : null;
 
@@ -71,7 +84,7 @@ new #[Layout('layouts.app')] class extends Component
         session()->flash('status', 'Solicitud enviada. Te avisaremos cuando tu documento esté listo.');
     }
 
-    public function with(CertificadoService $certificados, BloqueoAccesoService $bloqueos): array
+    public function with(CertificadoService $certificados, BloqueoAccesoService $bloqueos, CobranzaService $cobranza): array
     {
         $estudiante = Auth::user()->estudiante;
 
@@ -91,6 +104,7 @@ new #[Layout('layouts.app')] class extends Component
                 ->latest('fecha_matricula')
                 ->get(),
             'tieneDeudaCicloActual' => $bloqueos->tieneCuotasVencidasEnCicloActual($estudiante),
+            'puedeNoAdeudar' => $cobranza->estudianteNoAdeuda($estudiante),
         ];
     }
 }; ?>
@@ -120,12 +134,15 @@ new #[Layout('layouts.app')] class extends Component
                 <div>
                     <x-input-label for="tipoDocumento" value="Constancia" />
                     <x-select-input
-                        wire:model="tipoDocumento"
+                        wire:model.live="tipoDocumento"
                         id="tipoDocumento"
                         class="mt-1 block w-full"
                         :options="collect($tiposDocumento)->mapWithKeys(fn ($tipo) => [$tipo->value => $tipo->label()])"
                     />
                     <x-input-error :messages="$errors->get('tipoDocumento')" class="mt-1" />
+                    @if ($tipoDocumento === \App\Modules\Certificados\Enums\TipoDocumentoEnum::CONSTANCIA_NO_ADEUDAR->value && ! $puedeNoAdeudar)
+                        <p class="mt-1 text-xs text-danger">Tienes pagos pendientes (cuotas o cargos adicionales) — no puedes solicitar esta constancia todavía.</p>
+                    @endif
                 </div>
                 <div>
                     <x-input-label for="matriculaId" value="Matrícula (opcional)" />
@@ -153,7 +170,10 @@ new #[Layout('layouts.app')] class extends Component
                 <x-documentos.eleccion-entrega :metodo-actual="$metodoEntrega" />
 
                 <div class="flex justify-end">
-                    <x-primary-button type="submit">Solicitar</x-primary-button>
+                    <x-primary-button
+                        type="submit"
+                        :disabled="$tipoDocumento === \App\Modules\Certificados\Enums\TipoDocumentoEnum::CONSTANCIA_NO_ADEUDAR->value && ! $puedeNoAdeudar"
+                    >Solicitar</x-primary-button>
                 </div>
             </form>
         @endif

@@ -4,9 +4,11 @@ namespace Tests\Feature\Certificados;
 
 use App\Models\User;
 use App\Modules\Academico\Models\Ciclo;
+use App\Modules\Certificados\Enums\TipoDocumentoEnum;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Matricula\Models\Matricula;
+use App\Modules\Pagos\Models\CargoAdicional;
 use App\Modules\Pagos\Models\Cuota;
 use App\Modules\Pagos\Models\PlanPago;
 use App\Shared\Enums\RolEnum;
@@ -96,5 +98,71 @@ class SolicitudCertificadoBloqueoTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertDatabaseCount('solicitudes_certificado', 1);
+    }
+
+    public function test_un_estudiante_sin_ninguna_deuda_puede_solicitar_constancia_de_no_adeudar(): void
+    {
+        [$usuario, $estudiante] = $this->estudiante();
+
+        $cicloActivo = Ciclo::factory()->activo()->create();
+        $matricula = Matricula::factory()->create(['estudiante_id' => $estudiante->id, 'ciclo_id' => $cicloActivo->id]);
+        PlanPago::factory()->create(['matricula_id' => $matricula->id]);
+
+        $this->actingAs($usuario);
+
+        Volt::test('constancias.mis-constancias')
+            ->set('tipoDocumento', TipoDocumentoEnum::CONSTANCIA_NO_ADEUDAR->value)
+            ->set('motivo', 'Trámite laboral')
+            ->set('metodoEntrega', 'fisica')
+            ->call('solicitar')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('solicitudes_certificado', ['tipo' => TipoDocumentoEnum::CONSTANCIA_NO_ADEUDAR->value]);
+    }
+
+    /**
+     * A diferencia de los demás documentos (ver
+     * test_una_cuota_vencida_de_un_ciclo_distinto_al_actual_no_bloquea_la_solicitud),
+     * la Constancia de no adeudar SÍ se bloquea por una cuota pendiente de
+     * CUALQUIER ciclo, no solo vencidas del ciclo activo -- ver
+     * CobranzaService::estudianteNoAdeuda().
+     */
+    public function test_una_cuota_pendiente_de_un_ciclo_no_activo_bloquea_la_constancia_de_no_adeudar(): void
+    {
+        [$usuario, $estudiante] = $this->estudiante();
+
+        Ciclo::factory()->activo()->create();
+        $cicloNoActivo = Ciclo::factory()->create();
+        $matricula = Matricula::factory()->create(['estudiante_id' => $estudiante->id, 'ciclo_id' => $cicloNoActivo->id]);
+        $plan = PlanPago::factory()->create(['matricula_id' => $matricula->id]);
+        Cuota::factory()->create(['plan_pago_id' => $plan->id, 'numero' => 1]);
+
+        $this->actingAs($usuario);
+
+        Volt::test('constancias.mis-constancias')
+            ->set('tipoDocumento', TipoDocumentoEnum::CONSTANCIA_NO_ADEUDAR->value)
+            ->set('motivo', 'Trámite laboral')
+            ->set('metodoEntrega', 'fisica')
+            ->call('solicitar')
+            ->assertHasErrors(['tipoDocumento']);
+
+        $this->assertDatabaseCount('solicitudes_certificado', 0);
+    }
+
+    public function test_un_cargo_adicional_pendiente_bloquea_la_constancia_de_no_adeudar(): void
+    {
+        [$usuario, $estudiante] = $this->estudiante();
+        CargoAdicional::factory()->create(['estudiante_id' => $estudiante->id]);
+
+        $this->actingAs($usuario);
+
+        Volt::test('constancias.mis-constancias')
+            ->set('tipoDocumento', TipoDocumentoEnum::CONSTANCIA_NO_ADEUDAR->value)
+            ->set('motivo', 'Trámite laboral')
+            ->set('metodoEntrega', 'fisica')
+            ->call('solicitar')
+            ->assertHasErrors(['tipoDocumento']);
+
+        $this->assertDatabaseCount('solicitudes_certificado', 0);
     }
 }
