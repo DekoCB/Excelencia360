@@ -36,12 +36,11 @@ class HorarioFormTest extends TestCase
     }
 
     /**
-     * @return array{dia: string, horaInicioHora: string, horaInicioMinuto: string, horaInicioAmPm: string, horaFinHora: string, horaFinMinuto: string, horaFinAmPm: string}
+     * @return array{horaInicioHora: string, horaInicioMinuto: string, horaInicioAmPm: string, horaFinHora: string, horaFinMinuto: string, horaFinAmPm: string}
      */
-    private function bloqueInstituto(string $dia, string $horaInicio, string $minutoInicio, string $horaFin, string $minutoFin): array
+    private function bloqueInstituto(string $horaInicio, string $minutoInicio, string $horaFin, string $minutoFin): array
     {
         return [
-            'dia' => $dia,
             'horaInicioHora' => $horaInicio,
             'horaInicioMinuto' => $minutoInicio,
             'horaInicioAmPm' => '',
@@ -70,9 +69,10 @@ class HorarioFormTest extends TestCase
             ->set('cursoId', (string) $curso->id)
             ->set('docenteId', (string) $docente->id)
             ->set('aulaId', (string) $aula->id)
-            ->set('bloques', [
-                $this->bloqueInstituto('sabado', '09', '00', '11', '00'),
-                $this->bloqueInstituto('domingo', '09', '00', '11', '00'),
+            ->set('diasBloques', ['sabado', 'domingo'])
+            ->set('bloquesPorDia', [
+                'sabado' => [$this->bloqueInstituto('09', '00', '11', '00')],
+                'domingo' => [$this->bloqueInstituto('09', '00', '11', '00')],
             ])
             ->call('guardar')
             ->assertHasNoErrors();
@@ -106,9 +106,12 @@ class HorarioFormTest extends TestCase
             ->set('cursoId', (string) $curso->id)
             ->set('docenteId', (string) $docente->id)
             ->set('aulaId', (string) $aula->id)
-            ->set('bloques', [
-                $this->bloqueInstituto('lunes', '08', '00', '10', '00'),
-                $this->bloqueInstituto('lunes', '14', '00', '16', '00'),
+            ->set('diasBloques', ['lunes'])
+            ->set('bloquesPorDia', [
+                'lunes' => [
+                    $this->bloqueInstituto('08', '00', '10', '00'),
+                    $this->bloqueInstituto('14', '00', '16', '00'),
+                ],
             ])
             ->call('guardar')
             ->assertHasNoErrors();
@@ -141,9 +144,12 @@ class HorarioFormTest extends TestCase
             ->set('cursoId', (string) $curso->id)
             ->set('docenteId', (string) $docente->id)
             ->set('aulaId', (string) $aula->id)
-            ->set('bloques', [
-                $this->bloqueInstituto('lunes', '08', '00', '10', '00'),
-                $this->bloqueInstituto('lunes', '09', '00', '11', '00'),
+            ->set('diasBloques', ['lunes'])
+            ->set('bloquesPorDia', [
+                'lunes' => [
+                    $this->bloqueInstituto('08', '00', '10', '00'),
+                    $this->bloqueInstituto('09', '00', '11', '00'),
+                ],
             ])
             ->call('guardar')
             ->assertSee('se cruzan en horas');
@@ -169,7 +175,8 @@ class HorarioFormTest extends TestCase
             ->set('cursoId', (string) $curso->id)
             ->set('docenteId', (string) $docente->id)
             ->set('aulaId', (string) $aula->id)
-            ->set('bloques', [$this->bloqueInstituto('lunes', '08', '7', '10', '52')])
+            ->set('diasBloques', ['lunes'])
+            ->set('bloquesPorDia', ['lunes' => [$this->bloqueInstituto('08', '7', '10', '52')]])
             ->call('guardar')
             ->assertHasNoErrors();
 
@@ -276,9 +283,10 @@ class HorarioFormTest extends TestCase
             ->set('cursoId', (string) Curso::factory()->hasAttached($gradoExistente)->create()->id)
             ->set('docenteId', (string) User::factory()->create()->id)
             ->set('aulaId', (string) $existente->aula_id)
-            ->set('bloques', [
-                $this->bloqueInstituto('sabado', '19', '00', '21', '00'),
-                $this->bloqueInstituto('domingo', '19', '00', '21', '00'),
+            ->set('diasBloques', ['sabado', 'domingo'])
+            ->set('bloquesPorDia', [
+                'sabado' => [$this->bloqueInstituto('19', '00', '21', '00')],
+                'domingo' => [$this->bloqueInstituto('19', '00', '21', '00')],
             ])
             ->call('guardar')
             ->assertSee('ya está ocupada');
@@ -303,9 +311,10 @@ class HorarioFormTest extends TestCase
             ->set('cursoId', (string) $curso->id)
             ->set('docenteId', (string) User::factory()->create()->id)
             ->set('aulaId', (string) Aula::factory()->create()->id)
-            ->set('bloques', [
-                $this->bloqueInstituto('sabado', '18', '00', '20', '00'),
-                $this->bloqueInstituto('domingo', '18', '00', '20', '00'),
+            ->set('diasBloques', ['sabado', 'domingo'])
+            ->set('bloquesPorDia', [
+                'sabado' => [$this->bloqueInstituto('18', '00', '20', '00')],
+                'domingo' => [$this->bloqueInstituto('18', '00', '20', '00')],
             ])
             ->call('guardar')
             ->assertHasErrors('cursoId');
@@ -334,7 +343,7 @@ class HorarioFormTest extends TestCase
         $this->assertSame(0, Horario::query()->count());
     }
 
-    public function test_no_deja_guardar_con_hora_definida_sin_ningun_bloque(): void
+    public function test_no_deja_guardar_con_hora_definida_sin_ningun_dia_marcado(): void
     {
         $this->actingAs($this->actorCoordinador());
 
@@ -348,9 +357,9 @@ class HorarioFormTest extends TestCase
             ->set('cursoId', (string) Curso::factory()->create()->id)
             ->set('docenteId', (string) User::factory()->create()->id)
             ->set('aulaId', (string) Aula::factory()->create()->id)
-            ->set('bloques', [])
+            ->set('diasBloques', [])
             ->call('guardar')
-            ->assertHasErrors('bloques');
+            ->assertHasErrors('diasBloques');
 
         $this->assertSame(0, Horario::query()->count());
     }
@@ -374,14 +383,15 @@ class HorarioFormTest extends TestCase
             ->set('cursoId', (string) $curso->id)
             ->set('docenteId', (string) $docente->id)
             ->set('aulaId', (string) $aula->id)
-            ->set('bloques', [
-                $this->bloqueInstituto('lunes', '18', '00', '20', '00'),
-                $this->bloqueInstituto('martes', '18', '00', '20', '00'),
-                $this->bloqueInstituto('miercoles', '18', '00', '20', '00'),
-                $this->bloqueInstituto('jueves', '18', '00', '20', '00'),
-                $this->bloqueInstituto('viernes', '18', '00', '20', '00'),
-                $this->bloqueInstituto('sabado', '10', '00', '12', '00'),
-                $this->bloqueInstituto('domingo', '10', '00', '12', '00'),
+            ->set('diasBloques', ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'])
+            ->set('bloquesPorDia', [
+                'lunes' => [$this->bloqueInstituto('18', '00', '20', '00')],
+                'martes' => [$this->bloqueInstituto('18', '00', '20', '00')],
+                'miercoles' => [$this->bloqueInstituto('18', '00', '20', '00')],
+                'jueves' => [$this->bloqueInstituto('18', '00', '20', '00')],
+                'viernes' => [$this->bloqueInstituto('18', '00', '20', '00')],
+                'sabado' => [$this->bloqueInstituto('10', '00', '12', '00')],
+                'domingo' => [$this->bloqueInstituto('10', '00', '12', '00')],
             ])
             ->call('guardar')
             ->assertHasNoErrors();
@@ -395,6 +405,30 @@ class HorarioFormTest extends TestCase
         $this->assertSame('12:00:00', $sabado->hora_fin);
         $this->assertSame('18:00:00', $lunes->hora_inicio);
         $this->assertSame('20:00:00', $lunes->hora_fin);
+    }
+
+    public function test_cambiar_a_un_curso_con_franjas_restringidas_limpia_los_dias_ya_no_permitidos(): void
+    {
+        $this->actingAs($this->actorCoordinador());
+
+        $cursoSinRestriccion = Curso::factory()->create();
+        $cursoFinDeSemana = Curso::factory()->create(['franjas_permitidas' => ['sabados_domingos']]);
+
+        $testable = Volt::test('academico.horarios.index')
+            ->call('abrirModal')
+            ->set('cursoId', (string) $cursoSinRestriccion->id)
+            ->set('diasBloques', ['lunes', 'sabado'])
+            ->set('bloquesPorDia', [
+                'lunes' => [$this->bloqueInstituto('08', '00', '10', '00')],
+                'sabado' => [$this->bloqueInstituto('09', '00', '11', '00')],
+            ])
+            ->set('cursoId', (string) $cursoFinDeSemana->id);
+
+        // "lunes" ya no está permitido para este curso -- se quita tanto de
+        // la lista de marcados como de sus bloques; "sabado" sigue intacto.
+        $testable->assertSet('diasBloques', ['sabado']);
+        $this->assertArrayNotHasKey('lunes', $testable->get('bloquesPorDia'));
+        $this->assertSame('09', $testable->get('bloquesPorDia')['sabado'][0]['horaInicioHora']);
     }
 
     public function test_arrastrar_una_tarjeta_en_la_pestana_editar_mueve_el_dia(): void
@@ -443,9 +477,9 @@ class HorarioFormTest extends TestCase
 
         Volt::test('academico.horarios.index')
             ->call('abrirModalEditar', $horario->id)
-            ->assertSet('bloques.0.dia', 'lunes')
-            ->assertSet('bloques.0.horaInicioHora', '18')
-            ->set('bloques.0.horaFinHora', '21')
+            ->assertSet('diasBloques', ['lunes'])
+            ->assertSet('bloquesPorDia.lunes.0.horaInicioHora', '18')
+            ->set('bloquesPorDia.lunes.0.horaFinHora', '21')
             ->call('guardar')
             ->assertHasNoErrors();
 
@@ -470,8 +504,8 @@ class HorarioFormTest extends TestCase
 
         Volt::test('academico.horarios.index')
             ->call('abrirModalEditar', $horario->id)
-            ->call('agregarBloque')
-            ->set('bloques.1', $this->bloqueInstituto('lunes', '14', '00', '16', '00'))
+            ->call('agregarBloque', 'lunes')
+            ->set('bloquesPorDia.lunes.1', $this->bloqueInstituto('14', '00', '16', '00'))
             ->call('guardar')
             ->assertHasNoErrors();
 

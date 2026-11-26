@@ -285,17 +285,16 @@ class HorarioCursoCortoTest extends TestCase
             ->set('docenteId', (string) $docente->id)
             ->set('aulaId', (string) $aula->id)
             ->set('conHoraDefinida', true)
-            ->set('bloques', [
-                [
-                    'dia' => 'sabado',
+            ->set('diasBloques', ['sabado', 'domingo'])
+            ->set('bloquesPorDia', [
+                'sabado' => [[
                     'horaInicioHora' => '04', 'horaInicioMinuto' => '00', 'horaInicioAmPm' => 'PM',
                     'horaFinHora' => '05', 'horaFinMinuto' => '00', 'horaFinAmPm' => 'PM',
-                ],
-                [
-                    'dia' => 'domingo',
+                ]],
+                'domingo' => [[
                     'horaInicioHora' => '09', 'horaInicioMinuto' => '00', 'horaInicioAmPm' => 'AM',
                     'horaFinHora' => '10', 'horaFinMinuto' => '00', 'horaFinAmPm' => 'AM',
-                ],
+                ]],
             ])
             ->call('guardar')
             ->assertHasNoErrors();
