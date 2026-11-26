@@ -42,6 +42,32 @@ function aplicarColoresDeTema(config) {
     return config;
 }
 
+/**
+ * Beep corto de confirmación de asistencia (ver asistencia/show.blade.php):
+ * generado con Web Audio en vez de un archivo de audio, para una
+ * notificación más perceptible que el texto solo.
+ */
+window.sonidoConfirmacion = function () {
+    try {
+        const contexto = new (window.AudioContext || window.webkitAudioContext)();
+        const oscilador = contexto.createOscillator();
+        const ganancia = contexto.createGain();
+
+        oscilador.type = 'sine';
+        oscilador.frequency.value = 880;
+        ganancia.gain.setValueAtTime(0.2, contexto.currentTime);
+        ganancia.gain.exponentialRampToValueAtTime(0.001, contexto.currentTime + 0.3);
+
+        oscilador.connect(ganancia);
+        ganancia.connect(contexto.destination);
+
+        oscilador.start();
+        oscilador.stop(contexto.currentTime + 0.3);
+    } catch (e) {
+        // Sin Web Audio disponible: la confirmación visual sigue sin sonido.
+    }
+};
+
 document.addEventListener('alpine:init', () => {
     /**
      * Reemplaza el confirm() nativo del navegador (wire:confirm) por un

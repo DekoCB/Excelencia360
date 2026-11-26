@@ -172,6 +172,8 @@ new #[Layout('layouts.app')] class extends Component
             'estado' => $asistencia->estado->label(),
             'esTardanza' => $asistencia->estado === EstadoAsistenciaEnum::TARDANZA,
         ];
+
+        $this->dispatch('asistencia-confirmada');
     }
 
     public function abrirSolicitud(int $asistenciaId): void
@@ -264,7 +266,7 @@ new #[Layout('layouts.app')] class extends Component
     }
 }; ?>
 
-<div>
+<div x-data="{ confirmado: false }" x-on:asistencia-confirmada.window="confirmado = true; window.sonidoConfirmacion?.(); setTimeout(() => confirmado = false, 2500)">
     <x-slot name="header">
         <a href="{{ route('asistencia.index') }}" wire:navigate class="text-sm text-ink-faint hover:text-ink">← Asistencia</a>
         <div class="mt-1 flex items-center gap-2">
@@ -350,7 +352,7 @@ new #[Layout('layouts.app')] class extends Component
         @if ($ultimoEscaneado)
             <div
                 @class([
-                    'mb-4 rounded-md border px-4 py-3 text-sm',
+                    'relative mb-4 overflow-hidden rounded-md border px-4 py-3 text-sm',
                     'border-warn/30 bg-warn/10' => $ultimoEscaneado['esTardanza'],
                     'border-accent/30 bg-accent-soft' => ! $ultimoEscaneado['esTardanza'],
                 ])
@@ -365,6 +367,20 @@ new #[Layout('layouts.app')] class extends Component
                         · {{ implode(', ', $ultimoEscaneado['cursos']) }}
                     @endif
                 </p>
+
+                <div
+                    x-show="confirmado"
+                    x-transition:enter="ease-out duration-300"
+                    x-transition:enter-start="opacity-0 scale-50"
+                    x-transition:enter-end="opacity-100 scale-100"
+                    x-transition:leave="ease-in duration-300"
+                    x-transition:leave-start="opacity-100 scale-100"
+                    x-transition:leave-end="opacity-0 scale-50"
+                    class="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 bg-ok/90 text-white"
+                >
+                    <x-heroicon-o-check-circle class="h-8 w-8" />
+                    <span class="font-display text-xl">Confirmado</span>
+                </div>
             </div>
         @endif
 
@@ -379,15 +395,39 @@ new #[Layout('layouts.app')] class extends Component
                 </p>
             </div>
         @else
+            <div x-data="{ busquedaManual: '' }">
             @if ($puedeRegistrar && $fecha === now()->format('Y-m-d'))
                 <div class="mb-4">
                     <x-qr-scanner metodo="escanearQr" :auto-iniciar="true" />
+                    <button
+                        type="button"
+                        x-on:click="$refs.busquedaManual.focus(); $refs.busquedaManual.scrollIntoView({ behavior: 'smooth', block: 'center' })"
+                        class="mt-2 text-xs font-medium text-accent hover:underline"
+                    >
+                        ¿El estudiante olvidó su fotocheck?
+                    </button>
+                </div>
+            @endif
+
+            @if ($puedeRegistrar || $puedeSupervisar)
+                <div class="mb-3">
+                    <x-text-input
+                        x-ref="busquedaManual"
+                        x-model="busquedaManual"
+                        type="text"
+                        placeholder="Buscar estudiante por nombre o DNI…"
+                        class="block w-full text-sm"
+                    />
                 </div>
             @endif
 
             <div class="divide-y divide-border rounded-2xl border border-border bg-surface shadow-sm">
                 @forelse ($estudiantes as $estudiante)
-                <div class="px-4 py-3 text-sm" x-data="{ estado: @entangle('estados.'.$estudiante->id) }">
+                <div
+                    class="px-4 py-3 text-sm"
+                    x-data="{ estado: @entangle('estados.'.$estudiante->id) }"
+                    data-busqueda="{{ Str::lower($estudiante->nombreCompleto().' '.$estudiante->dni) }}"
+                    x-show="busquedaManual.trim() === '' || $el.dataset.busqueda.includes(busquedaManual.trim().toLowerCase())"
                     <div class="flex items-center justify-between gap-4">
                         <p class="text-ink">{{ $estudiante->nombreCompleto() }}</p>
 
@@ -454,6 +494,7 @@ new #[Layout('layouts.app')] class extends Component
                     <x-primary-button type="button" wire:click="guardar">Guardar asistencia</x-primary-button>
                 </div>
             @endif
+            </div>
         @endif
     @elseif ($miResumen)
         <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
