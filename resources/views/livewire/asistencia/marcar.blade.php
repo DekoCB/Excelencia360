@@ -58,7 +58,7 @@ new #[Layout('layouts.app')] class extends Component
 
 <div>
     <x-slot name="header">
-        <a href="{{ route('asistencia.index') }}" wire:navigate class="text-sm text-ink-faint hover:text-ink">← Asistencia</a>
+        <a href="{{ route('aula-virtual.index') }}" wire:navigate class="text-sm text-ink-faint hover:text-ink">← Aula Virtual</a>
         <h1 class="mt-1 font-display text-2xl text-ink">Marcar mi asistencia</h1>
         <p class="mt-1 text-sm text-ink-dim">Confirma tu DNI para registrarte en la clase que tienes en este momento.</p>
     </x-slot>
@@ -69,7 +69,7 @@ new #[Layout('layouts.app')] class extends Component
                 <x-heroicon-o-check-circle class="mx-auto h-10 w-10 text-ok" />
                 <p class="mt-3 font-display text-lg text-ink">Quedaste marcado como {{ $resultado['estado'] }}</p>
                 <p class="mt-1 text-sm text-ink-dim">{{ $resultado['curso'] }}</p>
-                <a href="{{ route('asistencia.index') }}" wire:navigate class="mt-4 inline-block text-sm font-medium text-accent hover:underline">Volver a Asistencia</a>
+                <a href="{{ route('aula-virtual.index') }}" wire:navigate class="mt-4 inline-block text-sm font-medium text-accent hover:underline">Ir a Aula Virtual</a>
             </div>
         @elseif ($horarioEnCurso)
             <div class="rounded-2xl border border-border bg-surface shadow-sm p-6">
@@ -97,7 +97,7 @@ new #[Layout('layouts.app')] class extends Component
                 <x-heroicon-o-clock class="mx-auto h-10 w-10 text-ink-faint" />
                 <p class="mt-3 font-display text-lg text-ink">No tienes ninguna clase en este momento</p>
                 <p class="mt-1 text-sm text-ink-dim">Podrás marcar tu asistencia desde que empiece tu sesión y hasta que termine.</p>
-                <a href="{{ route('asistencia.index') }}" wire:navigate class="mt-4 inline-block text-sm font-medium text-accent hover:underline">Ver mis horarios</a>
+                <a href="{{ route('aula-virtual.index') }}" wire:navigate class="mt-4 inline-block text-sm font-medium text-accent hover:underline">Ver mis horarios</a>
             </div>
         @endif
     </div>

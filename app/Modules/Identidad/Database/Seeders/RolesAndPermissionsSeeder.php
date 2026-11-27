@@ -52,6 +52,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'tramites.crear', 'tramites.ver_propio', 'tramites.gestionar',
             'calendario.ver', 'calendario.gestionar',
             'asistencia_docentes.ver', 'asistencia_docentes.registrar',
+            'asistencia_general.ver', 'asistencia_general.registrar',
             'biblioteca.ver', 'biblioteca.gestionar',
             'egresados.ver',
         ],
@@ -68,6 +69,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'tramites.crear', 'tramites.ver_propio', 'tramites.gestionar',
             'calendario.ver', 'calendario.gestionar',
             'asistencia_docentes.ver', 'asistencia_docentes.registrar',
+            'asistencia_general.ver', 'asistencia_general.registrar',
             'biblioteca.ver', 'biblioteca.gestionar',
         ],
 
@@ -165,6 +167,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'tramites.crear', 'tramites.ver_propio', 'tramites.gestionar',
         'calendario.ver', 'calendario.gestionar',
         'asistencia_docentes.ver', 'asistencia_docentes.registrar', 'asistencia_docentes.ver_propio',
+        'asistencia_general.ver', 'asistencia_general.registrar',
         'biblioteca.ver', 'biblioteca.gestionar', 'biblioteca.ver_propio',
         'egresados.ver',
     ];

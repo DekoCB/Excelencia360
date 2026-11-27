@@ -3,6 +3,7 @@
 namespace Tests\Feature\AulaVirtual;
 
 use App\Models\User;
+use App\Modules\Academico\Models\Curso;
 use App\Modules\Academico\Models\Horario;
 use App\Modules\AulaVirtual\Enums\TipoClaseGrabadaEnum;
 use App\Modules\AulaVirtual\Models\CursoVirtual;
@@ -115,6 +116,31 @@ class AulaVirtualPermisosTest extends TestCase
             'autor_id' => $usuario->id,
             'contenido' => 'Mi respuesta',
         ]);
+    }
+
+    public function test_el_docente_dueno_ve_la_pestana_asistencia_y_puede_registrarla(): void
+    {
+        $docente = User::factory()->create();
+        $docente->assignRole(RolEnum::DOCENTE->value);
+        $curso = $this->cursoDelDocente($docente);
+
+        $this->actingAs($docente)
+            ->get(route('aula-virtual.show', $curso))
+            ->assertOk()
+            ->assertSee('Asistencia');
+    }
+
+    public function test_un_curso_corto_sin_horario_no_muestra_la_pestana_asistencia(): void
+    {
+        $docente = User::factory()->create();
+        $docente->assignRole(RolEnum::DOCENTE->value);
+        $cursoCorto = Curso::factory()->capacitacion()->conDocente($docente)->create();
+        $curso = CursoVirtual::factory()->deCursoCorto($cursoCorto)->create();
+
+        $this->actingAs($docente)
+            ->get(route('aula-virtual.show', $curso))
+            ->assertOk()
+            ->assertDontSee("\$set('tab', 'asistencia')", false);
     }
 
     public function test_un_estudiante_no_matriculado_en_ese_grado_y_ciclo_no_puede_ver_el_curso(): void

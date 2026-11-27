@@ -20,6 +20,13 @@ new #[Layout('layouts.app')] class extends Component
 
     public Horario $horario;
 
+    /**
+     * true cuando se usa embebido dentro de la pestaña "Asistencia" de Aula
+     * Virtual (ver aula-virtual/show.blade.php) -- oculta el header de
+     * página propio, que ahí lo da el curso.
+     */
+    public bool $embebido = false;
+
     public string $fecha = '';
 
     /** @var array<int, string> */
@@ -52,11 +59,12 @@ new #[Layout('layouts.app')] class extends Component
 
     public $solicitudDocumento = null;
 
-    public function mount(Horario $horario, AsistenciaService $service): void
+    public function mount(Horario $horario, AsistenciaService $service, bool $embebido = false): void
     {
         Gate::authorize('asistencia.ver-horario', $horario);
 
         $this->horario = $horario;
+        $this->embebido = $embebido;
         $this->fecha = now()->format('Y-m-d');
 
         if ($this->puedeVerRegistros()) {
@@ -267,21 +275,23 @@ new #[Layout('layouts.app')] class extends Component
 }; ?>
 
 <div x-data="{ confirmado: false }" x-on:asistencia-confirmada.window="confirmado = true; window.sonidoConfirmacion?.(); setTimeout(() => confirmado = false, 2500)">
-    <x-slot name="header">
-        <a href="{{ route('asistencia.index') }}" wire:navigate class="text-sm text-ink-faint hover:text-ink">← Asistencia</a>
-        <div class="mt-1 flex items-center gap-2">
-            <h1 class="font-display text-2xl text-ink">{{ $horario->curso->nombre }}</h1>
-        </div>
-        <p class="mt-1 text-sm text-ink-dim">
-            @if ($horario->esDeCursoCorto())
-                Curso corto ·
-            @else
-                {{ $horario->grado->nombre }} · {{ $horario->ciclo->nombre }} ·
-            @endif
-            {{ $horario->docente->name }} ·
-            {{ $horario->diasResumen() }}
-        </p>
-    </x-slot>
+    @if (! $embebido)
+        <x-slot name="header">
+            <a href="{{ route('aula-virtual.index') }}" wire:navigate class="text-sm text-ink-faint hover:text-ink">← Aula Virtual</a>
+            <div class="mt-1 flex items-center gap-2">
+                <h1 class="font-display text-2xl text-ink">{{ $horario->curso->nombre }}</h1>
+            </div>
+            <p class="mt-1 text-sm text-ink-dim">
+                @if ($horario->esDeCursoCorto())
+                    Curso corto ·
+                @else
+                    {{ $horario->grado->nombre }} · {{ $horario->ciclo->nombre }} ·
+                @endif
+                {{ $horario->docente->name }} ·
+                {{ $horario->diasResumen() }}
+            </p>
+        </x-slot>
+    @endif
 
     @if ($puedeRegistrar && $solicitudesPendientes->isNotEmpty())
         <div class="mb-4 rounded-lg border border-warn/30 bg-warn/10 p-4">

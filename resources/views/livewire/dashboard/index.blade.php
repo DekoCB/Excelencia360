@@ -584,7 +584,7 @@ new #[Layout('layouts.app')] class extends Component
         @if ($esDocente)
             <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
                 <x-dashboard.stat-card
-                    href="{{ route('asistencia.index') }}"
+                    href="{{ route('aula-virtual.index') }}"
                     label="Mis horarios"
                     :value="$misHorarios"
                     icon="calendar-days"
@@ -604,7 +604,7 @@ new #[Layout('layouts.app')] class extends Component
                     <p class="mt-3 font-mono text-xs uppercase tracking-wide text-ink-faint">Evaluaciones</p>
                     <p class="mt-0.5 font-display text-sm text-accent">Registrar notas →</p>
                 </a>
-                <a href="{{ route('asistencia.index') }}" wire:navigate class="rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md">
+                <a href="{{ route('aula-virtual.index') }}" wire:navigate class="rounded-2xl border border-border bg-surface p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md">
                     <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 text-accent">
                         <x-heroicon-o-clipboard-document-list class="h-5 w-5" />
                     </span>

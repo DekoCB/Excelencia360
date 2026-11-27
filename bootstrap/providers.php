@@ -3,6 +3,7 @@
 use App\Modules\Academico\Providers\AcademicoServiceProvider;
 use App\Modules\Asistencia\Providers\AsistenciaServiceProvider;
 use App\Modules\AsistenciaDocentes\Providers\AsistenciaDocentesServiceProvider;
+use App\Modules\AsistenciaGeneral\Providers\AsistenciaGeneralServiceProvider;
 use App\Modules\AulaVirtual\Providers\AulaVirtualServiceProvider;
 use App\Modules\Biblioteca\Providers\BibliotecaServiceProvider;
 use App\Modules\Calendario\Providers\CalendarioServiceProvider;
@@ -52,6 +53,7 @@ return [
     TramitesServiceProvider::class,
     CalendarioServiceProvider::class,
     AsistenciaDocentesServiceProvider::class,
+    AsistenciaGeneralServiceProvider::class,
     BibliotecaServiceProvider::class,
     EgresadosServiceProvider::class,
 ];

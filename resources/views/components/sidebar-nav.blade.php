@@ -171,18 +171,20 @@
         </a>
     @endcanany
 
-    @canany(['asistencia.ver', 'asistencia.registrar', 'asistencia.ver_propio'])
+    {{-- Asistencia por curso vive dentro de Aula Virtual (ver aula-virtual/show.blade.php, pestaña "Asistencia") -- ya no tiene entrada propia acá. asistencia.marcar sigue siendo standalone para que el estudiante escanee el QR sin entrar al curso. En su lugar va Asistencia General (portería del Instituto). --}}
+
+    @canany(['asistencia_general.ver', 'asistencia_general.registrar'])
         <a
-            href="{{ route('asistencia.index') }}"
+            href="{{ route('asistencia-general.index') }}"
             wire:navigate
             @class([
                 'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
-                'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('asistencia.*'),
-                'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('asistencia.*'),
+                'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('asistencia-general.*'),
+                'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('asistencia-general.*'),
             ])
         >
-            <x-heroicon-o-clipboard-document-check class="h-5 w-5 shrink-0" />
-            <span class="sidebar-label">Asistencia</span>
+            <x-heroicon-o-identification class="h-5 w-5 shrink-0" />
+            <span class="sidebar-label">Asistencia general</span>
         </a>
     @endcanany
 

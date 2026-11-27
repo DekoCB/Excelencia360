@@ -17,6 +17,7 @@ use App\Modules\AulaVirtual\Services\PlantillaCursoVirtualService;
 use App\Modules\AulaVirtual\Services\PublicacionService;
 use App\Modules\AulaVirtual\Services\SeccionService;
 use App\Modules\AulaVirtual\Services\TareaService;
+use App\Modules\Academico\Models\Horario;
 use App\Modules\Evaluaciones\Enums\RolEvaluacionEnum;
 use App\Modules\Evaluaciones\Enums\TipoEvaluacionEnum;
 use App\Modules\Evaluaciones\Services\EvaluacionService;
@@ -542,6 +543,16 @@ new #[Layout('layouts.app')] class extends Component
             $evaluacionesDelCurso = $evaluacionesDelCurso->filter->estaPublicada();
         }
 
+        // Asistencia (ver asistencia/show.blade.php, embebida como pestaña):
+        // un curso académico resuelve su Horario directo; uno corto no tiene
+        // esa relación, así que se busca el Horario sin ciclo que comparte
+        // su curso_id (mismo criterio que AsistenciaService).
+        $horarioParaAsistencia = $this->curso->esDeCursoCorto()
+            ? Horario::query()->where('curso_id', $this->curso->curso_id)->whereNull('ciclo_id')->first()
+            : $this->curso->horario;
+
+        $puedeVerAsistencia = $horarioParaAsistencia !== null && Gate::allows('asistencia.ver-horario', $horarioParaAsistencia);
+
         return [
             'puedeGestionar' => $puedeGestionar,
             'puedeGestionarPortada' => $user->hasRole('coordinador') || $user->hasRole('direccion'),
@@ -560,6 +571,8 @@ new #[Layout('layouts.app')] class extends Component
             'rolesEvaluacion' => RolEvaluacionEnum::cases(),
             'cursosRelacionados' => $cursos->cursosVirtualesRelacionados($this->curso),
             'plantillasDisponibles' => $this->curso->esDeCursoCorto() ? new Collection : $plantillas->listarPorCurso($this->curso->cursoAcademico()),
+            'horarioParaAsistencia' => $horarioParaAsistencia,
+            'puedeVerAsistencia' => $puedeVerAsistencia,
         ];
     }
 }; ?>
@@ -633,6 +646,9 @@ new #[Layout('layouts.app')] class extends Component
         if ($curso->esDeCursoCorto()) {
             unset($tabsDisponibles['evaluaciones']);
         }
+        if ($puedeVerAsistencia) {
+            $tabsDisponibles['asistencia'] = 'Asistencia';
+        }
     @endphp
     <div class="mb-6 flex gap-1 border-b border-border">
         @foreach ($tabsDisponibles as $valor => $etiqueta)
@@ -652,7 +668,7 @@ new #[Layout('layouts.app')] class extends Component
     {{-- Secciones: bloques de contenido con nombre y/o fecha (estilo Moodle),
          compartidos por Materiales/Clases grabadas/Tareas/Foros -- no aplica
          a Publicaciones, que es un muro sin clasificar. --}}
-    @if ($tab !== 'publicaciones')
+    @if (! in_array($tab, ['publicaciones', 'asistencia']))
         <div class="mb-6 rounded-2xl border border-border bg-surface shadow-sm p-4">
             <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold uppercase tracking-wide text-ink-faint">Secciones</p>
@@ -1261,6 +1277,18 @@ new #[Layout('layouts.app')] class extends Component
                 @endforelse
             </div>
         </div>
+    @endif
+
+    @if ($tab === 'asistencia' && $horarioParaAsistencia)
+        @if (Auth::user()->estudiante && ! $puedeGestionar)
+            <div class="mb-4">
+                <a href="{{ route('asistencia.marcar') }}" wire:navigate class="text-sm font-medium text-accent hover:underline">
+                    Marcar mi asistencia →
+                </a>
+            </div>
+        @endif
+
+        <livewire:asistencia.show :horario="$horarioParaAsistencia" :embebido="true" wire:key="asistencia-{{ $horarioParaAsistencia->id }}" />
     @endif
 
     @can('manage', $curso)

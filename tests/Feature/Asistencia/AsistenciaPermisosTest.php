@@ -173,43 +173,6 @@ class AsistenciaPermisosTest extends TestCase
         $this->assertNotNull($asistencia->getFirstMedia('justificante'));
     }
 
-    public function test_coordinador_puede_ver_el_listado(): void
-    {
-        $coordinador = User::factory()->create();
-        $coordinador->assignRole(RolEnum::COORDINADOR->value);
-
-        $this->actingAs($coordinador)
-            ->get(route('asistencia.index'))
-            ->assertOk();
-    }
-
-    public function test_un_usuario_sin_permisos_de_asistencia_no_puede_ver_el_listado(): void
-    {
-        $usuario = User::factory()->create();
-        $usuario->assignRole(RolEnum::TESORERIA->value);
-
-        $this->actingAs($usuario)
-            ->get(route('asistencia.index'))
-            ->assertForbidden();
-    }
-
-    /**
-     * Dirección tiene asistencia.registrar vía '*' sin ser docente: debía
-     * mostrar la vista de supervisión, no la de "tus horarios" (vacía).
-     */
-    public function test_direccion_ve_la_supervision_general_no_la_vista_de_docente(): void
-    {
-        $direccion = User::factory()->create();
-        $direccion->assignRole(RolEnum::DIRECCION->value);
-        Horario::factory()->create();
-
-        $this->actingAs($direccion)
-            ->get(route('asistencia.index'))
-            ->assertOk()
-            ->assertSee('Supervisión de asistencia')
-            ->assertDontSee('Todavía no tienes horarios asignados este ciclo.');
-    }
-
     public function test_un_estudiante_solicita_justificar_su_falta(): void
     {
         $docente = User::factory()->create();
