@@ -69,6 +69,29 @@ class AsistenciaGeneralPermisosTest extends TestCase
         $this->assertNotNull($registro->refresh()->hora_salida);
     }
 
+    public function test_marcar_olvido_su_fotocheck_deja_la_anotacion_en_el_registro_manual(): void
+    {
+        $administrativo = User::factory()->create();
+        $administrativo->assignRole(RolEnum::ADMINISTRATIVO->value);
+        $estudiante = Estudiante::factory()->create(['nombres' => 'Carla', 'apellidos' => 'Rios', 'dni' => '87654321']);
+
+        $this->actingAs($administrativo);
+
+        Volt::test('asistencia-general.index')
+            ->set('busqueda', 'Carla')
+            ->set('turnoElegido', 'tarde')
+            ->set('olvidoFotocheck', true)
+            ->call('registrarIngreso', Estudiante::class, $estudiante->id)
+            ->assertHasNoErrors()
+            ->assertSet('olvidoFotocheck', false);
+
+        $this->assertDatabaseHas('asistencias_generales', [
+            'persona_type' => Estudiante::class,
+            'persona_id' => $estudiante->id,
+            'observacion' => 'Olvidó su fotocheck: registrado a mano.',
+        ]);
+    }
+
     public function test_escanear_el_qr_de_un_estudiante_registra_su_ingreso_y_un_segundo_escaneo_su_salida(): void
     {
         $administrativo = User::factory()->create();

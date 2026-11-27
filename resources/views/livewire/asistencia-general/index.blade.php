@@ -26,6 +26,12 @@ new #[Layout('layouts.app')] class extends Component
     public string $turnoElegido = '';
 
     /**
+     * Checkbox del registro manual (buscador, no QR) -- deja constancia
+     * de que se registró a mano porque la persona olvidó su fotocheck.
+     */
+    public bool $olvidoFotocheck = false;
+
+    /**
      * Resultado del último escaneo/registro, para la tarjeta de
      * confirmación con sonido + animación (mismo patrón que
      * asistencia/show.blade.php).
@@ -51,9 +57,15 @@ new #[Layout('layouts.app')] class extends Component
         /** @var \Illuminate\Database\Eloquent\Model $persona */
         $persona = $personaType::query()->findOrFail($personaId);
 
-        $service->registrarIngreso($persona, TurnoDiaEnum::from($this->turnoElegido), Auth::user());
+        $service->registrarIngreso(
+            $persona,
+            TurnoDiaEnum::from($this->turnoElegido),
+            Auth::user(),
+            $this->olvidoFotocheck ? 'Olvidó su fotocheck: registrado a mano.' : null,
+        );
 
         $this->busqueda = '';
+        $this->olvidoFotocheck = false;
         $this->confirmar($persona, 'ingreso');
         session()->flash('status', 'Ingreso registrado.');
     }
@@ -201,6 +213,11 @@ new #[Layout('layouts.app')] class extends Component
                 <x-text-input wire:model.live.debounce.300ms="busqueda" id="busqueda" type="text" class="mt-1 block w-full" placeholder="Ej. Juan Pérez o 12345678" />
             </div>
 
+            <label class="mt-2 flex items-center gap-1.5 text-xs text-ink-faint">
+                <input type="checkbox" wire:model="olvidoFotocheck" class="rounded border-border text-accent focus:ring-accent">
+                Olvidó su fotocheck (registro manual)
+            </label>
+
             @if ($busqueda !== '')
                 <div class="mt-4 divide-y divide-border rounded-lg border border-border">
                     @forelse ($resultados as $resultado)
@@ -252,6 +269,9 @@ new #[Layout('layouts.app')] class extends Component
                                 · registrado por {{ $registro->registradoPor->name }}
                             @endif
                         </p>
+                        @if ($registro->observacion)
+                            <p class="mt-0.5 text-xs text-warn">{{ $registro->observacion }}</p>
+                        @endif
                     </div>
                     <x-badge :variant="$registro->estaAbierta() ? 'warn' : 'ok'">
                         {{ $registro->estaAbierta() ? 'Dentro' : 'Salió' }}

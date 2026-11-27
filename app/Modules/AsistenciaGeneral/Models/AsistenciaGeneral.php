@@ -29,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property TurnoDiaEnum $turno
  * @property Carbon $hora_ingreso
  * @property Carbon|null $hora_salida
+ * @property string|null $observacion
  * @property int|null $registrado_por
  * @property-read Estudiante|User|Personal|null $persona
  * @property-read User|null $registradoPor
@@ -47,6 +48,7 @@ class AsistenciaGeneral extends Model
         'turno',
         'hora_ingreso',
         'hora_salida',
+        'observacion',
         'registrado_por',
     ];
 

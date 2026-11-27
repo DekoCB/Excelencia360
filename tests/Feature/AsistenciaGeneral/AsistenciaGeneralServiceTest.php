@@ -72,11 +72,27 @@ class AsistenciaGeneralServiceTest extends TestCase
             'persona_type' => Estudiante::class,
             'persona_id' => $estudiante->id,
             'turno' => 'manana',
+            'registrado_por' => $registrador->id,
         ]);
         $this->assertNull($registro->hora_salida);
 
         $this->expectException(ValidationException::class);
         $this->service()->registrarIngreso($estudiante, TurnoDiaEnum::TARDE, $registrador);
+    }
+
+    public function test_registrar_ingreso_guarda_la_observacion_de_fotocheck_olvidado(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $registrador = User::factory()->create();
+
+        $registro = $this->service()->registrarIngreso(
+            $estudiante,
+            TurnoDiaEnum::MANANA,
+            $registrador,
+            'Olvidó su fotocheck: registrado a mano.',
+        );
+
+        $this->assertSame('Olvidó su fotocheck: registrado a mano.', $registro->observacion);
     }
 
     public function test_registrar_salida_cierra_el_registro_abierto(): void

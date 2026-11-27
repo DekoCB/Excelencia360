@@ -107,7 +107,7 @@ class AsistenciaGeneralService
             ->first();
     }
 
-    public function registrarIngreso(Model $persona, TurnoDiaEnum $turno, User $registradoPor): AsistenciaGeneral
+    public function registrarIngreso(Model $persona, TurnoDiaEnum $turno, User $registradoPor, ?string $observacion = null): AsistenciaGeneral
     {
         if ($this->registroAbiertoDe($persona) !== null) {
             throw ValidationException::withMessages([
@@ -121,6 +121,8 @@ class AsistenciaGeneralService
             'fecha' => now()->toDateString(),
             'turno' => $turno,
             'hora_ingreso' => now(),
+            'observacion' => $observacion,
+            'registrado_por' => $registradoPor->id,
         ]);
     }
 
