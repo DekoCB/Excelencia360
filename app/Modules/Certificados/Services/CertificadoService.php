@@ -87,6 +87,8 @@ class CertificadoService
     ): Certificado {
         $tipo = $solicitud !== null ? $solicitud->tipo : $tipo;
 
+        $this->rechazarSiYaExisteUnoVigente($estudiante, $tipo, $curso);
+
         return DB::transaction(function () use ($estudiante, $matricula, $solicitud, $observaciones, $emisor, $tipo, $curso, $numeroRegistro, $nota) {
             $certificado = $this->crearConNumeroUnico([
                 'estudiante_id' => $estudiante->id,
@@ -156,6 +158,36 @@ class CertificadoService
             'observaciones' => null,
             'registrado_por' => $emisor->id,
         ]);
+    }
+
+    /**
+     * Rechaza una emisión directa cuando el estudiante ya tiene un
+     * documento vigente del mismo tipo (y, para capacitación, del mismo
+     * curso) -- "vigente" excluye los duplicados intencionales (ver
+     * duplicar(), que reemite el mismo numero_registro/codigo_verificacion
+     * a propósito y no pasa por emitir(), así que nunca choca con esta
+     * regla). Cubre individual y masivo por igual: ambos flujos masivos
+     * (emitirCapacitacionDesdeFilas/confirmarImportacionCapacitacionFormatoCliente)
+     * terminan llamando a emitir().
+     */
+    private function rechazarSiYaExisteUnoVigente(Estudiante $estudiante, TipoDocumentoEnum $tipo, ?Curso $curso): void
+    {
+        $existe = Certificado::query()
+            ->where('estudiante_id', $estudiante->id)
+            ->where('tipo', $tipo)
+            ->where('es_duplicado', false)
+            ->when($curso !== null, fn ($query) => $query->where('curso_id', $curso->id), fn ($query) => $query->whereNull('curso_id'))
+            ->exists();
+
+        if (! $existe) {
+            return;
+        }
+
+        $detalleCurso = $curso !== null ? " para el curso «{$curso->nombre}»" : '';
+
+        throw new InvalidArgumentException(
+            "{$estudiante->nombreCompleto()} ya tiene un(a) {$tipo->label()} emitido{$detalleCurso}. Si necesita otra copia, use la opción «Duplicar» en vez de emitir uno nuevo.",
+        );
     }
 
     /**

@@ -4,6 +4,7 @@ namespace Tests\Feature\Certificados;
 
 use App\Models\User;
 use App\Modules\Academico\Models\Ciclo;
+use App\Modules\Academico\Models\Curso;
 use App\Modules\Certificados\Enums\EstadoSolicitudCertificadoEnum;
 use App\Modules\Certificados\Enums\TipoDocumentoEnum;
 use App\Modules\Certificados\Models\Certificado;
@@ -112,10 +113,11 @@ class CertificadoServiceTest extends TestCase
     public function test_numeros_correlativos_no_se_repiten_dentro_del_mismo_anio(): void
     {
         $emisor = User::factory()->create();
-        $estudiante = Estudiante::factory()->create();
+        $estudianteUno = Estudiante::factory()->create();
+        $estudianteDos = Estudiante::factory()->create();
 
-        $primero = app(CertificadoService::class)->emitir($estudiante, null, null, null, $emisor);
-        $segundo = app(CertificadoService::class)->emitir($estudiante, null, null, null, $emisor);
+        $primero = app(CertificadoService::class)->emitir($estudianteUno, null, null, null, $emisor);
+        $segundo = app(CertificadoService::class)->emitir($estudianteDos, null, null, null, $emisor);
 
         $this->assertNotSame($primero->numero, $segundo->numero);
     }
@@ -311,6 +313,48 @@ class CertificadoServiceTest extends TestCase
         $service->marcarEntregado($certificado, $emisor, UploadedFile::fake()->image('entrega.jpg'));
 
         $this->assertNotNull($certificado->getFirstMedia('foto_entrega'));
+    }
+
+    public function test_emitir_dos_veces_el_mismo_tipo_para_el_mismo_estudiante_rechaza_la_segunda(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $emisor = User::factory()->create();
+
+        app(CertificadoService::class)->emitir($estudiante, null, null, null, $emisor, TipoDocumentoEnum::CERTIFICADO_ESTUDIOS);
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        app(CertificadoService::class)->emitir($estudiante, null, null, null, $emisor, TipoDocumentoEnum::CERTIFICADO_ESTUDIOS);
+    }
+
+    public function test_emitir_el_mismo_tipo_de_capacitacion_para_distinto_curso_no_se_rechaza(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $emisor = User::factory()->create();
+        $cursoUno = Curso::factory()->capacitacion()->create();
+        $cursoDos = Curso::factory()->capacitacion()->create();
+
+        app(CertificadoService::class)->emitir(
+            $estudiante, null, null, null, $emisor, TipoDocumentoEnum::CERTIFICADO_CAPACITACION, $cursoUno, 'REG-001',
+        );
+        $segundo = app(CertificadoService::class)->emitir(
+            $estudiante, null, null, null, $emisor, TipoDocumentoEnum::CERTIFICADO_CAPACITACION, $cursoDos, 'REG-002',
+        );
+
+        $this->assertNotNull($segundo->id);
+        $this->assertSame(2, Certificado::query()->where('estudiante_id', $estudiante->id)->count());
+    }
+
+    public function test_duplicar_no_choca_con_la_regla_de_duplicados_al_emitir(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $emisor = User::factory()->create();
+
+        $original = app(CertificadoService::class)->emitir($estudiante, null, null, null, $emisor, TipoDocumentoEnum::CERTIFICADO_ESTUDIOS);
+        $duplicado = app(CertificadoService::class)->duplicar($original, null, $emisor);
+
+        $this->assertNotNull($duplicado->id);
+        $this->assertTrue($duplicado->es_duplicado);
     }
 
     public function test_emitir_sin_tipo_explicito_usa_certificado_de_estudios_por_defecto(): void

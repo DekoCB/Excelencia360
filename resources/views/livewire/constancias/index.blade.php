@@ -178,7 +178,13 @@ new #[Layout('layouts.app')] class extends Component
         $estudiante = Estudiante::query()->findOrFail($this->estudianteSeleccionadoId);
         $matricula = $this->matriculaId !== '' ? Matricula::query()->findOrFail($this->matriculaId) : null;
 
-        $service->emitir($estudiante, $matricula, null, $this->observaciones ?: null, Auth::user(), TipoDocumentoEnum::from($this->tipoDocumentoEmitir));
+        try {
+            $service->emitir($estudiante, $matricula, null, $this->observaciones ?: null, Auth::user(), TipoDocumentoEnum::from($this->tipoDocumentoEmitir));
+        } catch (\InvalidArgumentException $e) {
+            $this->addError('estudianteSeleccionadoId', $e->getMessage());
+
+            return;
+        }
 
         $this->reset(['estudianteSeleccionadoId', 'estudianteSeleccionadoNombre', 'matriculaId', 'observaciones']);
         $this->tipoDocumentoEmitir = TipoDocumentoEnum::CONSTANCIA_ESTUDIOS->value;
@@ -191,7 +197,13 @@ new #[Layout('layouts.app')] class extends Component
 
         $solicitud = SolicitudCertificado::query()->findOrFail($solicitudId);
 
-        $service->emitir($solicitud->estudiante, $solicitud->matricula, $solicitud, null, Auth::user());
+        try {
+            $service->emitir($solicitud->estudiante, $solicitud->matricula, $solicitud, null, Auth::user());
+        } catch (\InvalidArgumentException $e) {
+            session()->flash('error', $e->getMessage());
+
+            return;
+        }
 
         session()->flash('status', 'Documento emitido a partir de la solicitud.');
     }
@@ -379,6 +391,10 @@ new #[Layout('layouts.app')] class extends Component
 
     @if (session('status'))
         <x-alert class="mb-4">{{ session('status') }}</x-alert>
+    @endif
+
+    @if (session('error'))
+        <x-alert variant="danger" class="mb-4">{{ session('error') }}</x-alert>
     @endif
 
     <div class="mb-6 flex gap-1 border-b border-border">

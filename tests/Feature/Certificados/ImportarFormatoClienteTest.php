@@ -171,7 +171,15 @@ class ImportarFormatoClienteTest extends TestCase
         $this->assertDatabaseHas('certificados', ['estudiante_id' => $estudiante->id, 'numero_registro' => 'GE-2026-004/001']);
     }
 
-    public function test_confirmar_con_dni_repetido_en_el_mismo_lote_crea_un_solo_estudiante_y_dos_certificados(): void
+    /**
+     * Antes de la regla de duplicados, dos filas con el mismo DNI y curso
+     * en un mismo lote (típicamente un error de digitación en el
+     * numero_registro de una de las dos) creaban dos certificados para el
+     * mismo estudiante -- ahora la segunda fila se rechaza como duplicado
+     * (ver CertificadoService::rechazarSiYaExisteUnoVigente()), igual que
+     * pasaría emitiendo uno por uno desde el panel.
+     */
+    public function test_confirmar_con_dni_y_curso_repetido_en_el_mismo_lote_crea_un_solo_estudiante_y_un_solo_certificado(): void
     {
         $emisor = User::factory()->create();
 
@@ -188,9 +196,10 @@ class ImportarFormatoClienteTest extends TestCase
             ],
         ], $emisor);
 
-        $this->assertSame(2, $resultado['exitosos']);
+        $this->assertSame(1, $resultado['exitosos']);
+        $this->assertCount(1, $resultado['errores']);
         $this->assertDatabaseCount('estudiantes', 1);
-        $this->assertDatabaseCount('certificados', 2);
+        $this->assertDatabaseCount('certificados', 1);
     }
 
     public function test_confirmar_reutiliza_el_curso_si_ya_existe(): void

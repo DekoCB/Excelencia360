@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Modules\Academico\Models\Ciclo;
 use App\Modules\Academico\Models\Curso;
 use App\Modules\Certificados\Enums\TipoDocumentoEnum;
+use App\Modules\Certificados\Models\Certificado;
 use App\Modules\Certificados\Models\SolicitudCertificado;
 use App\Modules\Certificados\Services\CertificadoService;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
@@ -309,6 +310,25 @@ class CertificadosPermisosTest extends TestCase
 
         $this->assertDatabaseHas('libretas', ['estudiante_id' => $estudiante->id, 'ciclo_id' => $ciclo->id]);
         $this->assertNotNull($solicitud->fresh()->libreta_id);
+    }
+
+    public function test_emitir_un_certificado_duplicado_desde_el_panel_muestra_error_en_vez_de_tumbar_la_peticion(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create();
+        app(CertificadoService::class)->emitir($estudiante, null, null, null, $coordinador);
+
+        $this->actingAs($coordinador);
+
+        Volt::test('certificados.index')
+            ->set('tab', 'emitir')
+            ->call('seleccionarEstudiante', $estudiante->id, $estudiante->nombreCompleto())
+            ->set('tipoDocumentoEmitir', TipoDocumentoEnum::CERTIFICADO_ESTUDIOS->value)
+            ->call('emitir')
+            ->assertHasErrors('estudianteSeleccionadoId');
+
+        $this->assertSame(1, Certificado::query()->where('estudiante_id', $estudiante->id)->count());
     }
 
     public function test_el_panel_de_certificados_muestra_el_enlace_para_ver_el_pdf(): void

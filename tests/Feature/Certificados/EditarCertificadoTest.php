@@ -152,11 +152,12 @@ class EditarCertificadoTest extends TestCase
     {
         $coordinador = User::factory()->create();
         $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $otroEstudiante = Estudiante::factory()->create();
         $estudiante = Estudiante::factory()->create();
         $curso = Curso::factory()->capacitacion()->create();
 
         $this->service()->emitir(
-            $estudiante, null, null, null, $coordinador,
+            $otroEstudiante, null, null, null, $coordinador,
             TipoDocumentoEnum::CERTIFICADO_CAPACITACION, $curso, 'YA-EXISTE',
         );
         $certificado = $this->service()->emitir(
