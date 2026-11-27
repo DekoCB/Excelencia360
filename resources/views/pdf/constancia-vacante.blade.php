@@ -3,18 +3,13 @@
 <head>
     <meta charset="utf-8">
     <style>
-        body { font-family: 'Helvetica', sans-serif; font-size: 13px; color: #1B1F27; line-height: 1.6; }
-        h1 { font-size: 18px; text-align: center; margin-bottom: 32px; text-transform: uppercase; letter-spacing: 0.05em; }
-        p { text-align: justify; }
-        .firma { margin-top: 80px; text-align: center; }
-        .linea { border-top: 1px solid #1B1F27; width: 240px; margin: 0 auto; padding-top: 6px; }
-        .codigo { margin-top: 60px; font-size: 10px; color: #8891A0; text-align: center; }
+        @include('pdf.partials.estilos-base')
     </style>
 </head>
 <body>
-    <h1>Constancia de vacante</h1>
+    @include('pdf.partials.encabezado', ['titulo' => 'Constancia de vacante'])
 
-    <p>
+    <p class="cuerpo-carta">
         {{ mb_strtoupper(config('institucion.nombre')) }} (RUC {{ config('institucion.ruc') }}) deja constancia de que
         <strong>{{ $matricula->estudiante?->nombreCompleto() ?? '—' }}</strong>, identificado(a) con DNI
         <strong>{{ $matricula->estudiante?->dni ?? '—' }}</strong>, cuenta con vacante confirmada para cursar
@@ -23,14 +18,17 @@
         {{ $matricula->fecha_matricula->format('d/m/Y') }}.
     </p>
 
-    <p>
+    <p class="cuerpo-carta">
         Se expide la presente constancia a solicitud del interesado para los fines que estime conveniente.
     </p>
 
-    <div class="firma">
-        <div class="linea">Gerencia General · {{ config('institucion.nombre') }}</div>
+    <div class="firma-carta">
+        <div class="linea"></div>
+        <p class="nombre">{{ mb_strtoupper(config('institucion.gerente_general')) }}</p>
+        <p>GERENTE GENERAL</p>
+        <p>{{ mb_strtoupper(config('institucion.nombre')) }}</p>
     </div>
 
-    <p class="codigo">Constancia N.° {{ str_pad((string) $matricula->id, 6, '0', STR_PAD_LEFT) }} · generada el {{ now()->format('d/m/Y H:i') }}</p>
+    <p class="pie-generado">Constancia N.° {{ str_pad((string) $matricula->id, 6, '0', STR_PAD_LEFT) }} · generada el {{ now()->format('d/m/Y H:i') }}</p>
 </body>
 </html>

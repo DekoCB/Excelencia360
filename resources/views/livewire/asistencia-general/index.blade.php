@@ -42,7 +42,41 @@ new #[Layout('layouts.app')] class extends Component
 
     public function mount(): void
     {
-        abort_unless(Auth::user()->hasAnyPermission(['asistencia_general.ver', 'asistencia_general.registrar']), 403);
+        abort_unless(
+            Auth::user()->hasAnyPermission(['asistencia_general.ver', 'asistencia_general.registrar', 'asistencia_general.registrar_propio']),
+            403,
+        );
+    }
+
+    /**
+     * Autoservicio para quien solo tiene asistencia_general.registrar_propio
+     * (hoy, Docente): marca su propio ingreso/salida, sin ver ni poder
+     * tocar el registro de nadie más -- a diferencia de
+     * registrarIngreso()/registrarSalida(), que son para el panel
+     * administrativo completo.
+     */
+    public function registrarMiAsistencia(AsistenciaGeneralService $service): void
+    {
+        abort_unless(Auth::user()->hasPermissionTo('asistencia_general.registrar_propio'), 403);
+
+        $persona = Auth::user();
+        $registroAbierto = $service->registroAbiertoDe($persona);
+
+        if ($registroAbierto !== null) {
+            $service->registrarSalida($registroAbierto);
+            $this->confirmar($persona, 'salida');
+            session()->flash('status', 'Salida registrada.');
+
+            return;
+        }
+
+        $this->validate([
+            'turnoElegido' => ['required', Rule::in(array_column(TurnoDiaEnum::cases(), 'value'))],
+        ], [], ['turnoElegido' => 'turno']);
+
+        $service->registrarIngreso($persona, TurnoDiaEnum::from($this->turnoElegido), Auth::user());
+        $this->confirmar($persona, 'ingreso');
+        session()->flash('status', 'Ingreso registrado.');
     }
 
     public function registrarIngreso(string $personaType, int $personaId, AsistenciaGeneralService $service): void
@@ -133,6 +167,24 @@ new #[Layout('layouts.app')] class extends Component
 
     public function with(AsistenciaGeneralService $service): array
     {
+        $user = Auth::user();
+        $puedeAdmin = $user->hasAnyPermission(['asistencia_general.ver', 'asistencia_general.registrar']);
+        $soloPropio = ! $puedeAdmin && $user->hasPermissionTo('asistencia_general.registrar_propio');
+
+        if ($soloPropio) {
+            return [
+                'puedeRegistrar' => false,
+                'soloPropio' => true,
+                'resultados' => collect(),
+                'turnosDia' => TurnoDiaEnum::cases(),
+                'historialDelDia' => collect(),
+                'miRegistroAbierto' => $service->registroAbiertoDe($user),
+                'miHistorialHoy' => $service->historialDelDia()->filter(
+                    fn (AsistenciaGeneral $registro) => $registro->persona_type === User::class && $registro->persona_id === $user->id,
+                ),
+            ];
+        }
+
         $resultados = $this->busqueda !== '' ? $service->buscarPersona($this->busqueda) : collect();
 
         $resultados = $resultados->map(function (array $resultado) use ($service) {
@@ -142,10 +194,13 @@ new #[Layout('layouts.app')] class extends Component
         });
 
         return [
-            'puedeRegistrar' => Auth::user()->hasPermissionTo('asistencia_general.registrar'),
+            'puedeRegistrar' => $user->hasPermissionTo('asistencia_general.registrar'),
+            'soloPropio' => false,
             'resultados' => $resultados,
             'turnosDia' => TurnoDiaEnum::cases(),
-            'historialDelDia' => $service->historialDelDia(),
+            'historialDelDia' => $puedeAdmin ? $service->historialDelDia() : collect(),
+            'miRegistroAbierto' => null,
+            'miHistorialHoy' => collect(),
         ];
     }
 }; ?>
@@ -164,6 +219,80 @@ new #[Layout('layouts.app')] class extends Component
         <p class="mb-4 rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">{{ session('qr_error') }}</p>
     @endif
 
+    @if ($soloPropio)
+        <div class="mb-6 rounded-2xl border border-border bg-surface shadow-sm p-4">
+            <div class="mb-4">
+                <x-input-label for="turnoElegido" value="Turno" />
+                <x-select-input
+                    wire:model="turnoElegido"
+                    id="turnoElegido"
+                    class="mt-1 block w-full sm:w-64"
+                    placeholder="Selecciona…"
+                    :options="collect($turnosDia)->mapWithKeys(fn ($turno) => [$turno->value => $turno->label()])"
+                />
+                <x-input-error :messages="$errors->get('turnoElegido')" class="mt-1" />
+            </div>
+
+            @if ($ultimoRegistro)
+                <div class="relative mb-4 overflow-hidden rounded-md border border-accent/30 bg-accent-soft px-4 py-3 text-sm">
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="font-display text-base text-ink">{{ $ultimoRegistro['nombre'] }}</p>
+                        <x-badge :variant="$ultimoRegistro['accion'] === 'ingreso' ? 'ok' : 'warn'">
+                            {{ $ultimoRegistro['accion'] === 'ingreso' ? 'Ingreso' : 'Salida' }}
+                        </x-badge>
+                    </div>
+                    <p class="mt-1 text-xs text-ink-dim">Hora {{ $ultimoRegistro['hora'] }}</p>
+
+                    <div
+                        x-show="confirmado"
+                        x-transition:enter="ease-out duration-300"
+                        x-transition:enter-start="opacity-0 scale-50"
+                        x-transition:enter-end="opacity-100 scale-100"
+                        x-transition:leave="ease-in duration-300"
+                        x-transition:leave-start="opacity-100 scale-100"
+                        x-transition:leave-end="opacity-0 scale-50"
+                        class="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 bg-ok/90 text-white"
+                    >
+                        <x-heroicon-o-check-circle class="h-8 w-8" />
+                        <span class="font-display text-xl">Confirmado</span>
+                    </div>
+                </div>
+            @endif
+
+            @if ($miRegistroAbierto)
+                <p class="mb-3 text-sm text-ink-dim">
+                    Entraste a las {{ $miRegistroAbierto->hora_ingreso->format('H:i') }}
+                    en el turno de {{ $miRegistroAbierto->turno->label() }}.
+                </p>
+                <x-primary-button type="button" wire:click="registrarMiAsistencia">Marcar mi salida</x-primary-button>
+            @else
+                <x-primary-button type="button" wire:click="registrarMiAsistencia">Marcar mi ingreso</x-primary-button>
+            @endif
+        </div>
+
+        <div class="rounded-2xl border border-border bg-surface shadow-sm">
+            <div class="border-b border-border px-4 py-3">
+                <h2 class="font-display text-sm text-ink">Mis registros de hoy</h2>
+            </div>
+            <div class="divide-y divide-border">
+                @forelse ($miHistorialHoy as $registro)
+                    <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
+                        <p class="text-xs text-ink-faint">
+                            Turno de {{ $registro->turno->label() }} · Ingreso {{ $registro->hora_ingreso->format('H:i') }}
+                            @if ($registro->hora_salida)
+                                · Salida {{ $registro->hora_salida->format('H:i') }}
+                            @endif
+                        </p>
+                        <x-badge :variant="$registro->estaAbierta() ? 'warn' : 'ok'">
+                            {{ $registro->estaAbierta() ? 'Dentro' : 'Salió' }}
+                        </x-badge>
+                    </div>
+                @empty
+                    <p class="px-4 py-8 text-center text-sm text-ink-faint">Todavía no marcaste tu asistencia hoy.</p>
+                @endforelse
+            </div>
+        </div>
+    @else
     @if ($puedeRegistrar)
         <div class="mb-6 rounded-2xl border border-border bg-surface shadow-sm p-4">
             <div class="mb-4">
@@ -282,4 +411,5 @@ new #[Layout('layouts.app')] class extends Component
             @endforelse
         </div>
     </div>
+    @endif
 </div>

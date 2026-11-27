@@ -3,27 +3,19 @@
 <head>
     <meta charset="utf-8">
     <style>
-        body { font-family: 'Helvetica', sans-serif; font-size: 11px; color: #1B1F27; }
-        h1 { font-size: 18px; margin-bottom: 2px; }
-        .subtitulo { color: #5B6472; margin-bottom: 18px; }
+        @include('pdf.partials.estilos-base')
 
         table.resumen { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
         table.resumen td { width: 33.33%; padding: 10px 12px; border: 1px solid #DBDFE6; }
-        .resumen .etiqueta { font-size: 9px; text-transform: uppercase; letter-spacing: 0.03em; color: #5B6472; margin: 0 0 4px; }
+        .resumen .etiqueta { margin: 0 0 4px; }
         .resumen .monto { font-size: 16px; font-weight: bold; margin: 0; }
         .ok { color: #15803D; }
         .danger { color: #B91C1C; }
-
-        table.movimientos { width: 100%; border-collapse: collapse; }
-        table.movimientos th { background: #F0F2F5; text-align: left; padding: 6px 8px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.03em; color: #5B6472; border-bottom: 1px solid #DBDFE6; }
-        table.movimientos td { padding: 6px 8px; border-bottom: 1px solid #EEF0F3; }
-        .monto-col { text-align: right; white-space: nowrap; }
-        .sin-datos { color: #8891A0; font-style: italic; }
+        .cuadrado { color: #15803D; }
     </style>
 </head>
 <body>
-    <h1>Flujo de caja</h1>
-    <p class="subtitulo">{{ config('institucion.nombre') }} · {{ $mesLabel }} · generado el {{ now()->format('d/m/Y H:i') }}</p>
+    @include('pdf.partials.encabezado', ['titulo' => 'Flujo de caja', 'subtitulo' => config('institucion.nombre').' · '.$mesLabel.' · generado el '.now()->format('d/m/Y H:i')])
 
     <table class="resumen">
         <tr>
@@ -42,7 +34,43 @@
         </tr>
     </table>
 
-    <table class="movimientos">
+    @if (($turnosCerrados ?? collect())->isNotEmpty())
+        <div class="seccion-titulo">Turnos de caja cerrados en el período</div>
+        <table class="tabla-pdf">
+            <thead>
+                <tr>
+                    <th>Turno</th>
+                    <th>Responsable</th>
+                    <th>Apertura</th>
+                    <th>Cierre</th>
+                    <th class="monto-col">Inicial</th>
+                    <th class="monto-col">Declarado</th>
+                    <th class="monto-col">Calculado</th>
+                    <th class="monto-col">Diferencia</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ($turnosCerrados as $fila)
+                    @php $turnoCerrado = $fila['turno']; @endphp
+                    <tr>
+                        <td>{{ $turnoCerrado->turno?->label() ?? '—' }}</td>
+                        <td>{{ $turnoCerrado->responsable ?? $turnoCerrado->usuario->name }}</td>
+                        <td>{{ $turnoCerrado->hora_apertura->format('d/m/Y H:i') }}</td>
+                        <td>{{ $turnoCerrado->hora_cierre->format('d/m/Y H:i') }}</td>
+                        <td class="monto-col">S/ {{ number_format((float) $turnoCerrado->monto_inicial, 2) }}</td>
+                        <td class="monto-col">S/ {{ number_format((float) $turnoCerrado->monto_final_declarado, 2) }}</td>
+                        <td class="monto-col">S/ {{ number_format($fila['montoCalculado'], 2) }}</td>
+                        <td class="monto-col {{ abs($fila['diferencia']) < 0.01 ? 'cuadrado' : 'danger' }}">
+                            {{ abs($fila['diferencia']) < 0.01 ? 'Cuadrado' : ($fila['diferencia'] > 0 ? '+' : '−').' S/ '.number_format(abs($fila['diferencia']), 2) }}
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
+
+    <div class="seccion-titulo">Movimientos de {{ $mesLabel }}</div>
+    <table class="tabla-pdf">
         <thead>
             <tr>
                 <th>Fecha</th>
@@ -66,5 +94,7 @@
             @endforelse
         </tbody>
     </table>
+
+    <p class="pie-generado">Generado el {{ now()->format('d/m/Y H:i') }}</p>
 </body>
 </html>

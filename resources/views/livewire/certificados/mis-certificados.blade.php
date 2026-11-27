@@ -216,6 +216,9 @@ new #[Layout('layouts.app')] class extends Component
                             <p class="mt-1 text-xs text-warn">Pendiente de recojo en administración</p>
                         @endif
                     </div>
+                    @if ($certificado->getFirstMedia('pdf'))
+                        <a href="{{ $certificado->getFirstMediaUrl('pdf') }}" target="_blank" class="text-xs font-medium text-accent hover:underline">Ver PDF</a>
+                    @endif
                 </div>
             @empty
                 <p class="py-4 text-sm text-ink-faint">Todavía no tienes certificados emitidos.</p>

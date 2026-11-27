@@ -33,13 +33,65 @@ class AsistenciaGeneralPermisosTest extends TestCase
             ->assertOk();
     }
 
-    public function test_un_docente_no_puede_ver_la_pantalla(): void
+    public function test_un_estudiante_no_puede_ver_la_pantalla(): void
+    {
+        $estudiante = User::factory()->create();
+        $estudiante->assignRole(RolEnum::ESTUDIANTE->value);
+
+        $this->actingAs($estudiante)
+            ->get(route('asistencia-general.index'))
+            ->assertForbidden();
+    }
+
+    public function test_un_docente_ve_solo_el_autoservicio_sin_el_panel_administrativo(): void
     {
         $docente = User::factory()->create();
         $docente->assignRole(RolEnum::DOCENTE->value);
 
         $this->actingAs($docente)
             ->get(route('asistencia-general.index'))
+            ->assertOk()
+            ->assertSee('Marcar mi ingreso')
+            ->assertDontSee('O buscar por nombre o DNI');
+    }
+
+    public function test_un_docente_marca_su_propio_ingreso_y_salida(): void
+    {
+        $docente = User::factory()->create();
+        $docente->assignRole(RolEnum::DOCENTE->value);
+
+        $this->actingAs($docente);
+
+        Volt::test('asistencia-general.index')
+            ->set('turnoElegido', 'manana')
+            ->call('registrarMiAsistencia')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('asistencias_generales', [
+            'persona_type' => User::class,
+            'persona_id' => $docente->id,
+            'turno' => 'manana',
+        ]);
+
+        Volt::test('asistencia-general.index')
+            ->call('registrarMiAsistencia')
+            ->assertHasNoErrors();
+
+        $registro = AsistenciaGeneral::query()->firstOrFail();
+        $this->assertNotNull($registro->hora_salida);
+    }
+
+    public function test_un_docente_no_puede_registrar_la_asistencia_de_otra_persona(): void
+    {
+        $docente = User::factory()->create();
+        $docente->assignRole(RolEnum::DOCENTE->value);
+        $estudiante = Estudiante::factory()->create();
+
+        $this->actingAs($docente);
+
+        Volt::test('asistencia-general.index')
+            ->set('turnoElegido', 'manana')
+            ->call('registrarIngreso', Estudiante::class, $estudiante->id)
             ->assertForbidden();
     }
 

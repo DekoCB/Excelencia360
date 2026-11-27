@@ -46,6 +46,7 @@ class ModuleRoutesHaveWebMiddlewareTest extends TestCase
             'asistencia.show' => ['asistencia.show'],
             'asistencia.marcar' => ['asistencia.marcar'],
             'asistencia-general.index' => ['asistencia-general.index'],
+            'caja-chica.index' => ['caja-chica.index'],
             'evaluaciones.libreta' => ['evaluaciones.libreta'],
             'evaluaciones.mi-libreta' => ['evaluaciones.mi-libreta'],
             'incidencias.index' => ['incidencias.index'],

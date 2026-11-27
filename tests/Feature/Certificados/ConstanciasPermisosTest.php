@@ -328,4 +328,36 @@ class ConstanciasPermisosTest extends TestCase
             ->set('tab', 'historial')
             ->assertDontSee(TipoDocumentoEnum::CERTIFICADO_ESTUDIOS->label());
     }
+
+    public function test_el_panel_de_constancias_muestra_el_enlace_para_ver_el_pdf(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create();
+        app(CertificadoService::class)->emitir(
+            $estudiante, null, null, null, $coordinador, TipoDocumentoEnum::CONSTANCIA_ESTUDIOS,
+        );
+
+        $this->actingAs($coordinador);
+
+        Volt::test('constancias.index')
+            ->set('tab', 'historial')
+            ->assertSee('Ver PDF');
+    }
+
+    public function test_el_estudiante_ve_el_enlace_para_ver_el_pdf_de_su_constancia(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::ESTUDIANTE->value);
+        $estudiante = Estudiante::factory()->create(['user_id' => $usuario->id]);
+        $emisor = User::factory()->create();
+        app(CertificadoService::class)->emitir(
+            $estudiante, null, null, null, $emisor, TipoDocumentoEnum::CONSTANCIA_ESTUDIOS,
+        );
+
+        $this->actingAs($usuario)
+            ->get(route('constancias.mis-constancias'))
+            ->assertOk()
+            ->assertSee('Ver PDF');
+    }
 }

@@ -212,11 +212,12 @@ class FlujoCajaService
      *
      * @return Collection<int, TurnoCaja>
      */
-    public function turnosCerrados(?int $usuarioId = null): Collection
+    public function turnosCerrados(?int $usuarioId = null, ?Carbon $desde = null, ?Carbon $hasta = null): Collection
     {
         return TurnoCaja::query()
             ->where('estado', 'cerrado')
             ->when($usuarioId !== null, fn ($query) => $query->where('usuario_id', $usuarioId))
+            ->when($desde !== null && $hasta !== null, fn ($query) => $query->whereBetween('hora_cierre', [$desde, $hasta]))
             ->with('usuario')
             ->latest('hora_cierre')
             ->get();

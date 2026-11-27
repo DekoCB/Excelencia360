@@ -3,32 +3,22 @@
 <head>
     <meta charset="utf-8">
     <style>
-        body { font-family: 'Helvetica', sans-serif; font-size: 11px; color: #1B1F27; }
-        h1 { font-size: 18px; margin-bottom: 4px; }
-        .subtitulo { color: #5B6472; margin-bottom: 24px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
-        th { background: #F0F2F5; text-align: left; padding: 5px 6px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.03em; color: #5B6472; border-bottom: 1px solid #DBDFE6; }
-        td { padding: 5px 6px; border-bottom: 1px solid #EEF0F3; }
-        .etiqueta { color: #5B6472; width: 30%; font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; }
-        .seccion { font-size: 13px; font-weight: bold; margin-top: 18px; margin-bottom: 6px; border-bottom: 1px solid #DBDFE6; padding-bottom: 4px; }
-        .subseccion { font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.03em; color: #5B6472; margin-top: 10px; margin-bottom: 4px; }
-        .codigo { margin-top: 30px; font-size: 9px; color: #8891A0; }
+        @include('pdf.partials.estilos-base')
     </style>
 </head>
 <body>
-    <h1>Historial del estudiante</h1>
-    <p class="subtitulo">{{ config('institucion.nombre') }} · generado el {{ now()->format('d/m/Y H:i') }}</p>
+    @include('pdf.partials.encabezado', ['titulo' => 'Historial del estudiante', 'subtitulo' => config('institucion.nombre').' · generado el '.now()->format('d/m/Y H:i')])
 
-    <div class="seccion">Datos del estudiante</div>
-    <table>
-        <tr><td class="etiqueta">Nombres y apellidos</td><td>{{ $estudiante->nombreCompleto() }}</td></tr>
-        <tr><td class="etiqueta">DNI</td><td>{{ $estudiante->dni }}</td></tr>
-        <tr><td class="etiqueta">Fecha de nacimiento</td><td>{{ $estudiante->fecha_nacimiento?->format('d/m/Y') ?? '—' }}</td></tr>
-        <tr><td class="etiqueta">Estado</td><td>{{ $estudiante->estado->label() }}</td></tr>
+    <div class="seccion-titulo">Datos del estudiante</div>
+    <table class="datos">
+        <tr><td class="etiqueta">Nombres y apellidos</td><td class="valor">{{ $estudiante->nombreCompleto() }}</td></tr>
+        <tr><td class="etiqueta">DNI</td><td class="valor">{{ $estudiante->dni }}</td></tr>
+        <tr><td class="etiqueta">Fecha de nacimiento</td><td class="valor">{{ $estudiante->fecha_nacimiento?->format('d/m/Y') ?? '—' }}</td></tr>
+        <tr><td class="etiqueta">Estado</td><td class="valor">{{ $estudiante->estado->label() }}</td></tr>
     </table>
 
-    <div class="seccion">Semestres cursados</div>
-    <table>
+    <div class="seccion-titulo">Semestres cursados</div>
+    <table class="tabla-pdf">
         <thead>
             <tr><th>Semestre</th><th>Periodo académico</th><th>Fecha de matrícula</th><th>Fin de estudios</th><th>Estado</th></tr>
         </thead>
@@ -42,20 +32,20 @@
                     <td>{{ $matricula->estado->label() }}</td>
                 </tr>
             @empty
-                <tr><td colspan="5">Sin matrículas registradas.</td></tr>
+                <tr><td colspan="5" class="sin-datos">Sin matrículas registradas.</td></tr>
             @endforelse
         </tbody>
     </table>
 
-    <div class="seccion">Situación de pagos</div>
-    <table>
-        <tr><td class="etiqueta">Pagado</td><td>S/ {{ number_format($resumenPagos['totalPagado'], 2) }}</td></tr>
-        <tr><td class="etiqueta">Pendiente</td><td>S/ {{ number_format($resumenPagos['totalPendiente'], 2) }}</td></tr>
-        <tr><td class="etiqueta">Exonerado</td><td>S/ {{ number_format($resumenPagos['totalExonerado'], 2) }}</td></tr>
+    <div class="seccion-titulo">Situación de pagos</div>
+    <table class="datos">
+        <tr><td class="etiqueta">Pagado</td><td class="valor">S/ {{ number_format($resumenPagos['totalPagado'], 2) }}</td></tr>
+        <tr><td class="etiqueta">Pendiente</td><td class="valor">S/ {{ number_format($resumenPagos['totalPendiente'], 2) }}</td></tr>
+        <tr><td class="etiqueta">Exonerado</td><td class="valor">S/ {{ number_format($resumenPagos['totalExonerado'], 2) }}</td></tr>
     </table>
     @if ($resumenPagos['cuotasVencidas']->isNotEmpty())
         <div class="subseccion">Cuotas vencidas</div>
-        <table>
+        <table class="tabla-pdf">
             <thead><tr><th>Cuota</th><th>Semestre</th><th>Período de matrícula</th><th>Monto</th><th>Venció</th></tr></thead>
             <tbody>
                 @foreach ($resumenPagos['cuotasVencidas'] as $cuota)
@@ -73,7 +63,7 @@
 
     @if ($resumenPagos['cuotasPendientes']->isNotEmpty())
         <div class="subseccion">Cuotas pendientes</div>
-        <table>
+        <table class="tabla-pdf">
             <thead><tr><th>Cuota</th><th>Semestre</th><th>Período de matrícula</th><th>Saldo</th><th>Vence</th></tr></thead>
             <tbody>
                 @foreach ($resumenPagos['cuotasPendientes'] as $cuota)
@@ -90,7 +80,7 @@
     @endif
 
     <div class="subseccion">Detalle de pagos</div>
-    <table>
+    <table class="tabla-pdf">
         <thead>
             <tr><th>Fecha</th><th>Concepto</th><th>Método</th><th>Estado</th><th>Monto</th></tr>
         </thead>
@@ -104,25 +94,25 @@
                     <td>S/ {{ number_format((float) $pago->monto, 2) }}</td>
                 </tr>
             @empty
-                <tr><td colspan="5">Sin pagos registrados.</td></tr>
+                <tr><td colspan="5" class="sin-datos">Sin pagos registrados.</td></tr>
             @endforelse
         </tbody>
     </table>
 
-    <div class="seccion">Documentos</div>
+    <div class="seccion-titulo">Documentos</div>
     <div class="subseccion">Subidos al matricularse</div>
-    <table>
+    <table class="tabla-pdf">
         <thead><tr><th>Documento</th><th>Estado</th></tr></thead>
         <tbody>
             @forelse ($documentosSubidos as $documento)
                 <tr><td>{{ $documento->tipo->label() }}</td><td>{{ $documento->verificado ? 'Verificado' : 'Pendiente' }}</td></tr>
             @empty
-                <tr><td colspan="2">No se han subido documentos.</td></tr>
+                <tr><td colspan="2" class="sin-datos">No se han subido documentos.</td></tr>
             @endforelse
         </tbody>
     </table>
     <div class="subseccion">Emitidos por la institución</div>
-    <table>
+    <table class="tabla-pdf">
         <thead><tr><th>Documento</th><th>N.°</th><th>Emisión</th><th>Entrega</th></tr></thead>
         <tbody>
             @forelse ($documentosEmitidos as $certificado)
@@ -133,12 +123,12 @@
                     <td>{{ $certificado->entregado_en ? 'Entregado' : 'Sin entregar' }}</td>
                 </tr>
             @empty
-                <tr><td colspan="4">No se han emitido certificados ni constancias.</td></tr>
+                <tr><td colspan="4" class="sin-datos">No se han emitido certificados ni constancias.</td></tr>
             @endforelse
         </tbody>
     </table>
     <div class="subseccion">Libretas generadas</div>
-    <table>
+    <table class="tabla-pdf">
         <thead><tr><th>Período de matrícula</th><th>Generada</th><th>Entrega</th></tr></thead>
         <tbody>
             @forelse ($libretas as $libreta)
@@ -148,15 +138,15 @@
                     <td>{{ $libreta->entregado_en ? 'Entregada' : 'Sin entregar' }}</td>
                 </tr>
             @empty
-                <tr><td colspan="3">No se han generado libretas.</td></tr>
+                <tr><td colspan="3" class="sin-datos">No se han generado libretas.</td></tr>
             @endforelse
         </tbody>
     </table>
 
-    <div class="seccion">Exámenes y notas</div>
+    <div class="seccion-titulo">Exámenes y notas</div>
     @if ($examenesUbicacion->isNotEmpty())
         <div class="subseccion">Exámenes de ubicación</div>
-        <table>
+        <table class="tabla-pdf">
             <thead><tr><th>Fecha</th><th>Costo</th><th>Resultado</th><th>Semestre asignado</th></tr></thead>
             <tbody>
                 @foreach ($examenesUbicacion as $examen)
@@ -172,7 +162,7 @@
     @endif
     @forelse ($notasPorCiclo as $entrada)
         <div class="subseccion">{{ $entrada['ciclo']->nombre }}</div>
-        <table>
+        <table class="tabla-pdf">
             <thead><tr><th>Curso</th><th>Promedio</th><th>Letra</th></tr></thead>
             <tbody>
                 @foreach ($entrada['cursos'] as $curso)
@@ -185,9 +175,9 @@
             </tbody>
         </table>
     @empty
-        <p>Sin notas registradas todavía.</p>
+        <p class="sin-datos">Sin notas registradas todavía.</p>
     @endforelse
 
-    <p class="codigo">Historial generado para el estudiante con DNI {{ $estudiante->dni }} · {{ now()->format('d/m/Y H:i') }}</p>
+    <p class="pie-generado">Historial generado para el estudiante con DNI {{ $estudiante->dni }} · {{ now()->format('d/m/Y H:i') }}</p>
 </body>
 </html>

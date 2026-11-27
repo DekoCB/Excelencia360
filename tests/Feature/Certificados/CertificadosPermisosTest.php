@@ -310,4 +310,32 @@ class CertificadosPermisosTest extends TestCase
         $this->assertDatabaseHas('libretas', ['estudiante_id' => $estudiante->id, 'ciclo_id' => $ciclo->id]);
         $this->assertNotNull($solicitud->fresh()->libreta_id);
     }
+
+    public function test_el_panel_de_certificados_muestra_el_enlace_para_ver_el_pdf(): void
+    {
+        $coordinador = User::factory()->create();
+        $coordinador->assignRole(RolEnum::COORDINADOR->value);
+        $estudiante = Estudiante::factory()->create();
+        app(CertificadoService::class)->emitir($estudiante, null, null, null, $coordinador);
+
+        $this->actingAs($coordinador);
+
+        Volt::test('certificados.index')
+            ->set('tab', 'historial')
+            ->assertSee('Ver PDF');
+    }
+
+    public function test_el_estudiante_ve_el_enlace_para_ver_el_pdf_de_su_certificado(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::ESTUDIANTE->value);
+        $estudiante = Estudiante::factory()->create(['user_id' => $usuario->id]);
+        $emisor = User::factory()->create();
+        app(CertificadoService::class)->emitir($estudiante, null, null, null, $emisor);
+
+        $this->actingAs($usuario)
+            ->get(route('certificados.mis-certificados'))
+            ->assertOk()
+            ->assertSee('Ver PDF');
+    }
 }

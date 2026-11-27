@@ -3,6 +3,11 @@
 <head>
     <meta charset="utf-8">
     <style>
+        /* Landscape: la tabla de calificaciones ahora muestra el desglose
+           completo (unidades, examen, sustitutorio/aplazado), no solo el
+           promedio final -- no entra cómodo en una página vertical. */
+        @page { size: a4 landscape; margin: 22px; }
+
         body { font-family: 'Helvetica', sans-serif; font-size: 12px; color: #1B1F27; }
 
         table.encabezado { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
@@ -105,26 +110,35 @@
                 <table class="calificaciones">
                     <thead>
                         <tr>
-                            <td style="width: 24px;">N°</td>
-                            <td style="width: 70px;">Código</td>
+                            <td style="width: 20px;">N°</td>
+                            <td style="width: 60px;">Código</td>
                             <td class="col-unidad">Unidad Didáctica</td>
-                            <td style="width: 32px;">CND</td>
-                            <td style="width: 32px;">SEC</td>
-                            <td style="width: 32px;">CRD</td>
-                            <td style="width: 40px;">PF</td>
-                            <td style="width: 70px;">Estado</td>
+                            <td style="width: 28px;">CRD</td>
+                            <td style="width: 36px;">U1</td>
+                            <td style="width: 36px;">U2</td>
+                            <td style="width: 40px;">Asist.</td>
+                            <td style="width: 44px;">Ex. Final</td>
+                            <td style="width: 44px;">Sustit.</td>
+                            <td style="width: 44px;">Aplaz.</td>
+                            <td style="width: 36px;">PF</td>
+                            <td style="width: 66px;">Estado</td>
                         </tr>
                     </thead>
                     <tbody>
+                        @php $nota = fn (?float $valor) => $valor !== null ? number_format($valor, 2) : '—'; @endphp
                         @foreach ($periodo['cursos'] as $n => $curso)
                             <tr>
                                 <td>{{ $n + 1 }}</td>
                                 <td>{{ $curso['codigo'] }}</td>
                                 <td class="col-unidad">{{ $curso['nombre'] }}</td>
-                                <td>{{ $curso['cnd'] }}</td>
-                                <td>{{ $periodo['seccion'] ?? '—' }}</td>
                                 <td>{{ $curso['creditos'] ?? '—' }}</td>
-                                <td class="pf">{{ $curso['promedio'] !== null ? number_format($curso['promedio'], 2) : '—' }}</td>
+                                <td>{{ $nota($curso['porUnidad']['unidad1']) }}</td>
+                                <td>{{ $nota($curso['porUnidad']['unidad2']) }}</td>
+                                <td>{{ $nota($curso['porUnidad']['asistencia']) }}</td>
+                                <td>{{ $nota($curso['porUnidad']['examenFinal']) }}</td>
+                                <td>{{ $nota($curso['porUnidad']['sustitutorio']) }}</td>
+                                <td>{{ $nota($curso['porUnidad']['aplazado']) }}</td>
+                                <td class="pf">{{ $nota($curso['promedio']) }}</td>
                                 <td>
                                     @if ($curso['estado'])
                                         <span class="estado-pill {{ $curso['estado'] === 'APROBADO' ? 'aprobado' : 'desaprobado' }}">{{ $curso['estado'] }}</span>

@@ -6,6 +6,7 @@ use App\Modules\AsistenciaDocentes\Providers\AsistenciaDocentesServiceProvider;
 use App\Modules\AsistenciaGeneral\Providers\AsistenciaGeneralServiceProvider;
 use App\Modules\AulaVirtual\Providers\AulaVirtualServiceProvider;
 use App\Modules\Biblioteca\Providers\BibliotecaServiceProvider;
+use App\Modules\CajaChica\Providers\CajaChicaServiceProvider;
 use App\Modules\Calendario\Providers\CalendarioServiceProvider;
 use App\Modules\Certificados\Providers\CertificadosServiceProvider;
 use App\Modules\Dashboard\Providers\DashboardServiceProvider;
@@ -48,6 +49,7 @@ return [
     MigracionesServiceProvider::class,
     VacacionesServiceProvider::class,
     FlujoCajaServiceProvider::class,
+    CajaChicaServiceProvider::class,
     DocentesServiceProvider::class,
     PersonalServiceProvider::class,
     TramitesServiceProvider::class,

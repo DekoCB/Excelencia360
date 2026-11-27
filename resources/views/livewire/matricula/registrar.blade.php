@@ -523,7 +523,7 @@ new class extends Component
             <h3 class="mt-6 text-sm font-semibold text-ink">Institución de procedencia (opcional)</h3>
             <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="sm:col-span-2">
-                    <x-input-label for="colegioNombre" value="Colegio anterior" />
+                    <x-input-label for="colegioNombre" value="Institución de procedencia" />
                     <x-text-input wire:model="colegioNombre" id="colegioNombre" class="mt-1 block w-full" />
                     <x-input-error :messages="$errors->get('colegioNombre')" class="mt-1" />
                 </div>

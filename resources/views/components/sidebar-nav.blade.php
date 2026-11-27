@@ -173,7 +173,7 @@
 
     {{-- Asistencia por curso vive dentro de Aula Virtual (ver aula-virtual/show.blade.php, pestaña "Asistencia") -- ya no tiene entrada propia acá. asistencia.marcar sigue siendo standalone para que el estudiante escanee el QR sin entrar al curso. En su lugar va Asistencia General (portería del Instituto). --}}
 
-    @canany(['asistencia_general.ver', 'asistencia_general.registrar'])
+    @canany(['asistencia_general.ver', 'asistencia_general.registrar', 'asistencia_general.registrar_propio'])
         <a
             href="{{ route('asistencia-general.index') }}"
             wire:navigate
@@ -347,6 +347,21 @@
             >
                 <x-heroicon-o-banknotes class="h-5 w-5 shrink-0" />
                 <span class="sidebar-label">Flujo de caja</span>
+            </a>
+        @endcan
+
+        @can('caja_chica.ver')
+            <a
+                href="{{ route('caja-chica.index') }}"
+                wire:navigate
+                @class([
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+                    'bg-accent text-white shadow-md shadow-accent/30' =>request()->routeIs('caja-chica.*'),
+                    'text-ink-dim hover:bg-surface-2 hover:text-ink' => ! request()->routeIs('caja-chica.*'),
+                ])
+            >
+                <x-heroicon-o-wallet class="h-5 w-5 shrink-0" />
+                <span class="sidebar-label">Caja chica</span>
             </a>
         @endcan
     @endcanany

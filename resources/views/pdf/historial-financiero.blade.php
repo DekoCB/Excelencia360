@@ -3,30 +3,21 @@
 <head>
     <meta charset="utf-8">
     <style>
-        body { font-family: 'Helvetica', sans-serif; font-size: 11px; color: #1B1F27; }
-        h1 { font-size: 18px; margin-bottom: 4px; }
-        .subtitulo { color: #5B6472; margin-bottom: 24px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
-        th { background: #F0F2F5; text-align: left; padding: 5px 6px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.03em; color: #5B6472; border-bottom: 1px solid #DBDFE6; }
-        td { padding: 5px 6px; border-bottom: 1px solid #EEF0F3; }
-        .etiqueta { color: #5B6472; width: 30%; font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; }
-        .seccion { font-size: 13px; font-weight: bold; margin-top: 18px; margin-bottom: 6px; border-bottom: 1px solid #DBDFE6; padding-bottom: 4px; }
-        .subseccion { font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.03em; color: #5B6472; margin-top: 10px; margin-bottom: 4px; }
+        @include('pdf.partials.estilos-base')
     </style>
 </head>
 <body>
-    <h1>Situación financiera</h1>
-    <p class="subtitulo">{{ $estudiante->nombreCompleto() }} · DNI {{ $estudiante->dni }} · generado el {{ now()->format('d/m/Y H:i') }}</p>
+    @include('pdf.partials.encabezado', ['titulo' => 'Situación financiera', 'subtitulo' => $estudiante->nombreCompleto().' · DNI '.$estudiante->dni])
 
-    <table>
-        <tr><td class="etiqueta">Pagado</td><td>S/ {{ number_format($resumenPagos['totalPagado'], 2) }}</td></tr>
-        <tr><td class="etiqueta">Pendiente</td><td>S/ {{ number_format($resumenPagos['totalPendiente'], 2) }}</td></tr>
-        <tr><td class="etiqueta">Exonerado</td><td>S/ {{ number_format($resumenPagos['totalExonerado'], 2) }}</td></tr>
+    <table class="datos">
+        <tr><td class="etiqueta">Pagado</td><td class="valor">S/ {{ number_format($resumenPagos['totalPagado'], 2) }}</td></tr>
+        <tr><td class="etiqueta">Pendiente</td><td class="valor">S/ {{ number_format($resumenPagos['totalPendiente'], 2) }}</td></tr>
+        <tr><td class="etiqueta">Exonerado</td><td class="valor">S/ {{ number_format($resumenPagos['totalExonerado'], 2) }}</td></tr>
     </table>
 
     @if ($resumenPagos['cuotasVencidas']->isNotEmpty())
-        <div class="subseccion">Cuotas vencidas</div>
-        <table>
+        <div class="seccion-titulo">Cuotas vencidas</div>
+        <table class="tabla-pdf">
             <thead><tr><th>Cuota</th><th>Semestre</th><th>Período de matrícula</th><th>Monto</th><th>Venció</th></tr></thead>
             <tbody>
                 @foreach ($resumenPagos['cuotasVencidas'] as $cuota)
@@ -43,8 +34,8 @@
     @endif
 
     @if ($resumenPagos['cuotasPendientes']->isNotEmpty())
-        <div class="subseccion">Cuotas pendientes</div>
-        <table>
+        <div class="seccion-titulo">Cuotas pendientes</div>
+        <table class="tabla-pdf">
             <thead><tr><th>Cuota</th><th>Semestre</th><th>Período de matrícula</th><th>Saldo</th><th>Vence</th></tr></thead>
             <tbody>
                 @foreach ($resumenPagos['cuotasPendientes'] as $cuota)
@@ -61,8 +52,8 @@
     @endif
 
     @if ($resumenPagos['cargosAdicionalesPendientes']->isNotEmpty())
-        <div class="subseccion">Cargos adicionales pendientes</div>
-        <table>
+        <div class="seccion-titulo">Cargos adicionales pendientes</div>
+        <table class="tabla-pdf">
             <thead><tr><th>Concepto</th><th>Saldo</th><th>Vence</th><th>Estado</th></tr></thead>
             <tbody>
                 @foreach ($resumenPagos['cargosAdicionalesPendientes'] as $cargo)
@@ -77,8 +68,8 @@
         </table>
     @endif
 
-    <div class="subseccion">Detalle de pagos</div>
-    <table>
+    <div class="seccion-titulo">Detalle de pagos</div>
+    <table class="tabla-pdf">
         <thead>
             <tr><th>Fecha</th><th>Concepto</th><th>Método</th><th>Estado</th><th>Monto</th></tr>
         </thead>
@@ -92,9 +83,11 @@
                     <td>S/ {{ number_format((float) $pago->monto, 2) }}</td>
                 </tr>
             @empty
-                <tr><td colspan="5">Sin pagos registrados.</td></tr>
+                <tr><td colspan="5" class="sin-datos">Sin pagos registrados.</td></tr>
             @endforelse
         </tbody>
     </table>
+
+    <p class="pie-generado">Generado el {{ now()->format('d/m/Y H:i') }}</p>
 </body>
 </html>

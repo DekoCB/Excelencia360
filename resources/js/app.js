@@ -43,28 +43,51 @@ function aplicarColoresDeTema(config) {
 }
 
 /**
- * Beep corto de confirmación de asistencia (ver asistencia/show.blade.php):
- * generado con Web Audio en vez de un archivo de audio, para una
- * notificación más perceptible que el texto solo.
+ * Confirmación sonora de asistencia (ver asistencia/show.blade.php y
+ * asistencia-general/index.blade.php): un timbre de dos notas (Web Audio,
+ * sin archivo de audio) más fuerte que el beep original, seguido de una
+ * voz que dice "Registrado" (SpeechSynthesis) -- pedido explícito del
+ * usuario para que se note incluso sin mirar la pantalla.
  */
 window.sonidoConfirmacion = function () {
     try {
         const contexto = new (window.AudioContext || window.webkitAudioContext)();
-        const oscilador = contexto.createOscillator();
-        const ganancia = contexto.createGain();
 
-        oscilador.type = 'sine';
-        oscilador.frequency.value = 880;
-        ganancia.gain.setValueAtTime(0.2, contexto.currentTime);
-        ganancia.gain.exponentialRampToValueAtTime(0.001, contexto.currentTime + 0.3);
+        // Dos notas ascendentes en vez de un solo beep: más perceptible en
+        // un ambiente con ruido (portería, pasillo) que un tono único.
+        [880, 1318.5].forEach((frecuencia, indice) => {
+            const oscilador = contexto.createOscillator();
+            const ganancia = contexto.createGain();
+            const inicio = contexto.currentTime + indice * 0.12;
 
-        oscilador.connect(ganancia);
-        ganancia.connect(contexto.destination);
+            oscilador.type = 'sine';
+            oscilador.frequency.value = frecuencia;
+            ganancia.gain.setValueAtTime(0.5, inicio);
+            ganancia.gain.exponentialRampToValueAtTime(0.001, inicio + 0.3);
 
-        oscilador.start();
-        oscilador.stop(contexto.currentTime + 0.3);
+            oscilador.connect(ganancia);
+            ganancia.connect(contexto.destination);
+
+            oscilador.start(inicio);
+            oscilador.stop(inicio + 0.3);
+        });
     } catch (e) {
-        // Sin Web Audio disponible: la confirmación visual sigue sin sonido.
+        // Sin Web Audio disponible: sigue la voz (y la confirmación visual).
+    }
+
+    try {
+        if ('speechSynthesis' in window) {
+            const mensaje = new SpeechSynthesisUtterance('Registrado');
+            mensaje.lang = 'es-PE';
+            mensaje.volume = 1;
+            mensaje.rate = 1;
+            // cancel() evita que se amontonen varias voces en cola si el
+            // docente/portero escanea varios carnets seguidos.
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(mensaje);
+        }
+    } catch (e) {
+        // Sin SpeechSynthesis disponible: el timbre ya sonó igual.
     }
 };
 

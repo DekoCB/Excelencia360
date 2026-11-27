@@ -203,6 +203,19 @@ new #[Layout('layouts.app')] class extends Component
         abort_unless(Auth::user()->hasPermissionTo('flujo_caja.ver'), 403);
 
         $datos = $this->datosDelPeriodo($service);
+        $usuarioIdFiltro = $this->usuarioId !== '' ? (int) $this->usuarioId : null;
+
+        $datos['turnosCerrados'] = $service->turnosCerrados($usuarioIdFiltro, $datos['inicio'], $datos['fin'])
+            ->map(function ($turnoCerrado) use ($service) {
+                $montoCalculado = $service->montoCalculadoDelTurno($turnoCerrado);
+
+                return [
+                    'turno' => $turnoCerrado,
+                    'montoCalculado' => $montoCalculado,
+                    'diferencia' => (float) $turnoCerrado->monto_final_declarado - $montoCalculado,
+                ];
+            });
+
         $nombreArchivo = 'flujo-caja-'.$datos['inicio']->format('Y-m').'.pdf';
 
         // Ver reportes/index.blade.php: Pdf::loadView(...)->download() no lo
