@@ -81,7 +81,7 @@ class FlujoCajaService
             ->first();
     }
 
-    public function abrirTurno(User $usuario, float $montoInicial, TurnoDiaEnum $turno): TurnoCaja
+    public function abrirTurno(User $usuario, float $montoInicial, TurnoDiaEnum $turno, string $responsable): TurnoCaja
     {
         if ($this->turnoAbiertoDe($usuario) !== null) {
             throw ValidationException::withMessages([
@@ -92,6 +92,7 @@ class FlujoCajaService
         return TurnoCaja::query()->create([
             'usuario_id' => $usuario->id,
             'turno' => $turno,
+            'responsable' => $responsable,
             'fecha' => now()->toDateString(),
             'hora_apertura' => now(),
             'monto_inicial' => $montoInicial,

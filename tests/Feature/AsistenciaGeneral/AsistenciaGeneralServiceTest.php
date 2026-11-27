@@ -4,6 +4,7 @@ namespace Tests\Feature\AsistenciaGeneral;
 
 use App\Models\User;
 use App\Modules\AsistenciaGeneral\Services\AsistenciaGeneralService;
+use App\Modules\Docentes\Models\Docente;
 use App\Modules\Identidad\Database\Seeders\RolesAndPermissionsSeeder;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Personal\Models\Personal;
@@ -89,6 +90,34 @@ class AsistenciaGeneralServiceTest extends TestCase
 
         $this->assertNotNull($cerrado->hora_salida);
         $this->assertNull($this->service()->registroAbiertoDe($personal));
+    }
+
+    public function test_persona_para_qr_token_resuelve_un_estudiante(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $token = $estudiante->obtenerOCrearQrToken();
+
+        $persona = $this->service()->personaParaQrToken($token);
+
+        $this->assertNotNull($persona);
+        $this->assertTrue($persona->is($estudiante));
+    }
+
+    public function test_persona_para_qr_token_resuelve_el_user_de_un_docente(): void
+    {
+        $usuarioDocente = User::factory()->create();
+        $docente = Docente::factory()->create(['user_id' => $usuarioDocente->id]);
+        $token = $docente->obtenerOCrearQrToken();
+
+        $persona = $this->service()->personaParaQrToken($token);
+
+        $this->assertNotNull($persona);
+        $this->assertTrue($persona->is($usuarioDocente));
+    }
+
+    public function test_persona_para_qr_token_devuelve_null_si_no_existe(): void
+    {
+        $this->assertNull($this->service()->personaParaQrToken('codigo-inexistente'));
     }
 
     public function test_historial_del_dia_solo_trae_los_registros_de_la_fecha_pedida(): void

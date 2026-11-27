@@ -6,6 +6,7 @@ namespace App\Modules\AsistenciaGeneral\Services;
 
 use App\Models\User;
 use App\Modules\AsistenciaGeneral\Models\AsistenciaGeneral;
+use App\Modules\Docentes\Models\Docente;
 use App\Modules\Matricula\Models\Estudiante;
 use App\Modules\Personal\Models\Personal;
 use App\Shared\Enums\TurnoDiaEnum;
@@ -76,6 +77,24 @@ class AsistenciaGeneralService
             ]);
 
         return $estudiantes->concat($personal)->concat($personalSinCuenta)->values();
+    }
+
+    /**
+     * Resuelve el QR del carnet de asistencia (mismo token que ya usan
+     * Estudiante y Docente en su perfil, ver TieneQrToken) a la "persona"
+     * polimórfica de este módulo -- un Docente resuelve a su User, porque
+     * el registro de Asistencia General se guarda contra User, no Docente.
+     * Personal (sin cuenta) no tiene QR propio: se registra por buscador.
+     */
+    public function personaParaQrToken(string $token): ?Model
+    {
+        $estudiante = Estudiante::query()->where('qr_token', $token)->first();
+
+        if ($estudiante !== null) {
+            return $estudiante;
+        }
+
+        return Docente::query()->where('qr_token', $token)->first()?->usuario;
     }
 
     public function registroAbiertoDe(Model $persona): ?AsistenciaGeneral

@@ -100,6 +100,32 @@ class MatriculaPermisosTest extends TestCase
         $this->assertDatabaseHas('matriculas', ['estudiante_id' => $estudiante->id, 'ciclo_id' => $ciclo->id]);
     }
 
+    /**
+     * Regresión: un celular que no calza con el formato peruano (ej.
+     * empieza en 7) llegaba intacto hasta confirmar() y tumbaba la
+     * petición con un 500 -- new Telefono() lanza una excepción sin
+     * capturar en vez de dejar un error de formulario (ver
+     * App\Shared\ValueObjects\Telefono).
+     */
+    public function test_un_celular_con_formato_invalido_muestra_error_en_vez_de_tumbar_la_peticion(): void
+    {
+        $usuario = User::factory()->create();
+        $usuario->assignRole(RolEnum::COORDINADOR->value);
+
+        $this->actingAs($usuario);
+
+        Volt::test('matricula.registrar')
+            ->set('nombres', 'Luis')
+            ->set('apellidos', 'Fernández Ruiz')
+            ->set('dni', '55667788')
+            ->set('email', 'estudiante'.uniqid().'@example.com')
+            ->set('celular', '753159862')
+            ->call('avanzar')
+            ->assertHasErrors('celular');
+
+        $this->assertDatabaseMissing('estudiantes', ['dni' => '55667788']);
+    }
+
     public function test_el_paso_de_documentos_se_puede_saltar_sin_subir_ningun_archivo(): void
     {
         $usuario = User::factory()->create();

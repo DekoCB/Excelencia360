@@ -87,6 +87,34 @@ new #[Layout('layouts.app')] class extends Component
         $this->mostrarModal = true;
     }
 
+    /**
+     * `Telefono`/`Dni` validan su formato al construirse lanzando
+     * InvalidArgumentException -- sin esta regla antes, un número que no
+     * calza (ej. no empieza en 9) llegaba intacto hasta guardar() y
+     * tumbaba la petición con un 500 en vez de un error de formulario.
+     */
+    private function reglaCelular(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            try {
+                new Telefono((string) $value);
+            } catch (\InvalidArgumentException) {
+                $fail('Debe ser un celular peruano válido: 9 dígitos y empieza en 9.');
+            }
+        };
+    }
+
+    private function reglaDni(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            try {
+                new Dni((string) $value);
+            } catch (\InvalidArgumentException) {
+                $fail('Debe tener entre 8 y 12 caracteres alfanuméricos.');
+            }
+        };
+    }
+
     public function guardar(MatriculaService $service): void
     {
         Gate::authorize($this->editandoId ? 'matricula.editar' : 'matricula.crear');
@@ -94,8 +122,8 @@ new #[Layout('layouts.app')] class extends Component
         $this->validate([
             'estudianteId' => 'required|integer|exists:estudiantes,id',
             'nombres' => 'required|string|max:150',
-            'dni' => 'required|string|min:8|max:12',
-            'celular' => 'required|string',
+            'dni' => ['required', 'string', 'min:8', 'max:12', $this->reglaDni()],
+            'celular' => ['required', 'string', $this->reglaCelular()],
             'correo' => 'nullable|email|max:150',
             'direccion' => 'nullable|string|max:150',
             'parentesco' => 'required|string|max:50',

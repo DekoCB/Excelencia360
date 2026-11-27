@@ -25,6 +25,15 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $turnoElegido = '';
 
+    /**
+     * Resultado del último escaneo/registro, para la tarjeta de
+     * confirmación con sonido + animación (mismo patrón que
+     * asistencia/show.blade.php).
+     *
+     * @var array{nombre: string, accion: 'ingreso'|'salida', hora: string}|null
+     */
+    public ?array $ultimoRegistro = null;
+
     public function mount(): void
     {
         abort_unless(Auth::user()->hasAnyPermission(['asistencia_general.ver', 'asistencia_general.registrar']), 403);
@@ -45,6 +54,7 @@ new #[Layout('layouts.app')] class extends Component
         $service->registrarIngreso($persona, TurnoDiaEnum::from($this->turnoElegido), Auth::user());
 
         $this->busqueda = '';
+        $this->confirmar($persona, 'ingreso');
         session()->flash('status', 'Ingreso registrado.');
     }
 
@@ -56,7 +66,57 @@ new #[Layout('layouts.app')] class extends Component
 
         $service->registrarSalida($registro);
 
+        $this->confirmar($registro->persona, 'salida');
         session()->flash('status', 'Salida registrada.');
+    }
+
+    /**
+     * El docente/estudiante escanea su QR de asistencia (mismo carnet que
+     * ya usan para la asistencia por curso) para marcar su ingreso o
+     * salida del Instituto -- si ya tiene un ingreso abierto, el mismo
+     * escaneo lo cierra en vez de pedir un segundo código para la salida.
+     */
+    public function escanearQr(string $codigo, AsistenciaGeneralService $service): void
+    {
+        abort_unless(Auth::user()->hasPermissionTo('asistencia_general.registrar'), 403);
+
+        session()->forget('qr_error');
+        $this->ultimoRegistro = null;
+
+        $persona = $service->personaParaQrToken($codigo);
+
+        if ($persona === null) {
+            session()->flash('qr_error', 'Código QR no reconocido.');
+
+            return;
+        }
+
+        $registroAbierto = $service->registroAbiertoDe($persona);
+
+        if ($registroAbierto !== null) {
+            $service->registrarSalida($registroAbierto);
+            $this->confirmar($persona, 'salida');
+
+            return;
+        }
+
+        $this->validate([
+            'turnoElegido' => ['required', Rule::in(array_column(TurnoDiaEnum::cases(), 'value'))],
+        ], [], ['turnoElegido' => 'turno']);
+
+        $service->registrarIngreso($persona, TurnoDiaEnum::from($this->turnoElegido), Auth::user());
+        $this->confirmar($persona, 'ingreso');
+    }
+
+    private function confirmar(Estudiante|User|Personal $persona, string $accion): void
+    {
+        $this->ultimoRegistro = [
+            'nombre' => method_exists($persona, 'nombreCompleto') ? $persona->nombreCompleto() : $persona->name,
+            'accion' => $accion,
+            'hora' => now()->format('H:i'),
+        ];
+
+        $this->dispatch('asistencia-confirmada');
     }
 
     public function with(AsistenciaGeneralService $service): array
@@ -78,7 +138,7 @@ new #[Layout('layouts.app')] class extends Component
     }
 }; ?>
 
-<div>
+<div x-data="{ confirmado: false }" x-on:asistencia-confirmada.window="confirmado = true; window.sonidoConfirmacion?.(); setTimeout(() => confirmado = false, 2500)">
     <x-slot name="header">
         <h1 class="font-display text-2xl text-ink">Asistencia general</h1>
         <p class="mt-1 text-sm text-ink-dim">Ingreso y salida del Instituto -- estudiantes y personal, por turno.</p>
@@ -88,24 +148,57 @@ new #[Layout('layouts.app')] class extends Component
         <x-alert class="mb-4">{{ session('status') }}</x-alert>
     @endif
 
+    @if (session('qr_error'))
+        <p class="mb-4 rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">{{ session('qr_error') }}</p>
+    @endif
+
     @if ($puedeRegistrar)
         <div class="mb-6 rounded-2xl border border-border bg-surface shadow-sm p-4">
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto]">
-                <div>
-                    <x-input-label for="busqueda" value="Buscar por nombre o DNI" />
-                    <x-text-input wire:model.live.debounce.300ms="busqueda" id="busqueda" type="text" class="mt-1 block w-full" placeholder="Ej. Juan Pérez o 12345678" autofocus />
+            <div class="mb-4">
+                <x-input-label for="turnoElegido" value="Turno" />
+                <x-select-input
+                    wire:model="turnoElegido"
+                    id="turnoElegido"
+                    class="mt-1 block w-full sm:w-64"
+                    placeholder="Selecciona…"
+                    :options="collect($turnosDia)->mapWithKeys(fn ($turno) => [$turno->value => $turno->label()])"
+                />
+                <x-input-error :messages="$errors->get('turnoElegido')" class="mt-1" />
+            </div>
+
+            @if ($ultimoRegistro)
+                <div class="relative mb-4 overflow-hidden rounded-md border border-accent/30 bg-accent-soft px-4 py-3 text-sm">
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="font-display text-base text-ink">{{ $ultimoRegistro['nombre'] }}</p>
+                        <x-badge :variant="$ultimoRegistro['accion'] === 'ingreso' ? 'ok' : 'warn'">
+                            {{ $ultimoRegistro['accion'] === 'ingreso' ? 'Ingreso' : 'Salida' }}
+                        </x-badge>
+                    </div>
+                    <p class="mt-1 text-xs text-ink-dim">Hora {{ $ultimoRegistro['hora'] }}</p>
+
+                    <div
+                        x-show="confirmado"
+                        x-transition:enter="ease-out duration-300"
+                        x-transition:enter-start="opacity-0 scale-50"
+                        x-transition:enter-end="opacity-100 scale-100"
+                        x-transition:leave="ease-in duration-300"
+                        x-transition:leave-start="opacity-100 scale-100"
+                        x-transition:leave-end="opacity-0 scale-50"
+                        class="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 bg-ok/90 text-white"
+                    >
+                        <x-heroicon-o-check-circle class="h-8 w-8" />
+                        <span class="font-display text-xl">Confirmado</span>
+                    </div>
                 </div>
-                <div>
-                    <x-input-label for="turnoElegido" value="Turno" />
-                    <x-select-input
-                        wire:model="turnoElegido"
-                        id="turnoElegido"
-                        class="mt-1 block w-full"
-                        placeholder="Selecciona…"
-                        :options="collect($turnosDia)->mapWithKeys(fn ($turno) => [$turno->value => $turno->label()])"
-                    />
-                    <x-input-error :messages="$errors->get('turnoElegido')" class="mt-1" />
-                </div>
+            @endif
+
+            <div class="mb-4">
+                <x-qr-scanner metodo="escanearQr" />
+            </div>
+
+            <div>
+                <x-input-label for="busqueda" value="O buscar por nombre o DNI" />
+                <x-text-input wire:model.live.debounce.300ms="busqueda" id="busqueda" type="text" class="mt-1 block w-full" placeholder="Ej. Juan Pérez o 12345678" />
             </div>
 
             @if ($busqueda !== '')

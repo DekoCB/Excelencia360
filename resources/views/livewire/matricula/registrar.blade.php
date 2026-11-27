@@ -105,6 +105,42 @@ new class extends Component
         return MatriculaService::esMenorDeEdad($this->fechaNacimiento);
     }
 
+    /**
+     * `Telefono`/`Dni` validan su formato al construirse lanzando
+     * InvalidArgumentException -- sin esta regla antes, un número que no
+     * calza (ej. no empieza en 9) llegaba intacto hasta confirmar() y
+     * tumbaba la petición con un 500 en vez de un error de formulario.
+     */
+    private function reglaCelular(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            if ($value === '' || $value === null) {
+                return;
+            }
+
+            try {
+                new Telefono((string) $value);
+            } catch (\InvalidArgumentException) {
+                $fail('Debe ser un celular peruano válido: 9 dígitos y empieza en 9.');
+            }
+        };
+    }
+
+    private function reglaDni(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            if ($value === '' || $value === null) {
+                return;
+            }
+
+            try {
+                new Dni((string) $value);
+            } catch (\InvalidArgumentException) {
+                $fail('Debe tener entre 8 y 12 caracteres alfanuméricos.');
+            }
+        };
+    }
+
     public function agregarCelular(): void
     {
         $this->celularesAdicionales[] = '';
@@ -122,13 +158,13 @@ new class extends Component
             $this->validate([
                 'nombres' => 'required|string|max:100',
                 'apellidos' => 'required|string|max:100',
-                'dni' => 'required|string|min:8|max:12',
+                'dni' => ['required', 'string', 'min:8', 'max:12', $this->reglaDni()],
                 'email' => 'required|email|max:150',
                 'fechaNacimiento' => 'nullable|date|before:today',
                 'estadoCivil' => 'nullable|string|in:'.implode(',', array_column(EstadoCivilEnum::cases(), 'value')),
                 'direccion' => 'nullable|string|max:150',
-                'celular' => 'nullable|string',
-                'celularesAdicionales.*' => 'nullable|string',
+                'celular' => ['nullable', 'string', $this->reglaCelular()],
+                'celularesAdicionales.*' => ['nullable', 'string', $this->reglaCelular()],
             ]);
 
             if (! $service->dniDisponible($this->dni)) {
@@ -151,8 +187,8 @@ new class extends Component
         if ($this->paso === 2) {
             $this->validate([
                 'apoderadoNombres' => 'required|string|max:150',
-                'apoderadoDni' => 'required|string|min:8|max:12',
-                'apoderadoCelular' => 'required|string',
+                'apoderadoDni' => ['required', 'string', 'min:8', 'max:12', $this->reglaDni()],
+                'apoderadoCelular' => ['required', 'string', $this->reglaCelular()],
                 'apoderadoCorreo' => 'nullable|email|max:150',
                 'apoderadoDireccion' => 'nullable|string|max:150',
                 'apoderadoParentesco' => 'required|string|max:50',

@@ -35,6 +35,16 @@ new #[Layout('layouts.app')] class extends Component
     /** @var array<int, string|null> */
     public array $observaciones = [];
 
+    /**
+     * Checkbox "Olvidó su fotocheck" por estudiante, solo para el registro
+     * manual (punto 3 del backlog de notificaciones): deja la anotación en
+     * observacion al guardar, para distinguir esos casos de una marcación
+     * manual común.
+     *
+     * @var array<int, bool>
+     */
+    public array $olvidoFotocheck = [];
+
     /** @var array<int, TemporaryUploadedFile|null> */
     public array $justificantes = [];
 
@@ -133,9 +143,20 @@ new #[Layout('layouts.app')] class extends Component
 
         $this->validate($rules);
 
-        $service->registrar($this->horario, $this->fecha, $this->estados, $this->observaciones, $this->justificantes);
+        $observaciones = $this->observaciones;
+
+        foreach ($this->olvidoFotocheck as $estudianteId => $olvido) {
+            if (! $olvido) {
+                continue;
+            }
+
+            $observaciones[$estudianteId] = trim(($observaciones[$estudianteId] ?? '').' Olvidó su fotocheck.');
+        }
+
+        $service->registrar($this->horario, $this->fecha, $this->estados, $observaciones, $this->justificantes);
 
         $this->justificantes = [];
+        $this->olvidoFotocheck = [];
         $this->guardado = true;
 
         $this->cargarRegistros($service);
@@ -463,6 +484,13 @@ new #[Layout('layouts.app')] class extends Component
                             @endforeach
                         </div>
                     </div>
+
+                    @if ($puedeRegistrar)
+                        <label class="mt-2 flex items-center gap-1.5 text-xs text-ink-faint">
+                            <input type="checkbox" wire:model="olvidoFotocheck.{{ $estudiante->id }}" class="rounded border-border text-accent focus:ring-accent">
+                            Olvidó su fotocheck (registro manual)
+                        </label>
+                    @endif
 
                     <div x-show="estado === 'justificado'" x-cloak class="mt-3 grid grid-cols-1 gap-3 border-t border-border pt-3 sm:grid-cols-2">
                         <div>

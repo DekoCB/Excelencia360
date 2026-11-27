@@ -48,6 +48,8 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $turnoNuevo = '';
 
+    public string $responsableNuevo = '';
+
     public string $montoFinal = '';
 
     public bool $verTurnosCerrados = false;
@@ -86,6 +88,7 @@ new #[Layout('layouts.app')] class extends Component
         $this->resetValidation();
         $this->montoInicial = '';
         $this->turnoNuevo = '';
+        $this->responsableNuevo = '';
         $this->mostrarModalAbrirTurno = true;
     }
 
@@ -96,9 +99,10 @@ new #[Layout('layouts.app')] class extends Component
         $this->validate([
             'montoInicial' => 'required|numeric|min:0',
             'turnoNuevo' => ['required', Rule::in(array_column(TurnoDiaEnum::cases(), 'value'))],
+            'responsableNuevo' => 'required|string|max:150',
         ]);
 
-        $service->abrirTurno(Auth::user(), (float) $this->montoInicial, TurnoDiaEnum::from($this->turnoNuevo));
+        $service->abrirTurno(Auth::user(), (float) $this->montoInicial, TurnoDiaEnum::from($this->turnoNuevo), $this->responsableNuevo);
 
         $this->mostrarModalAbrirTurno = false;
         session()->flash('status', 'Turno de caja abierto.');
@@ -267,8 +271,8 @@ new #[Layout('layouts.app')] class extends Component
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <div>
                         <p class="font-display text-sm text-ink">
-                            Turno de {{ $turnoAbierto->turno?->label() ?? '—' }} abierto por {{ $turnoAbierto->usuario->name }}
-                            desde {{ $turnoAbierto->hora_apertura->format('d/m/Y H:i') }}
+                            Turno de {{ $turnoAbierto->turno?->label() ?? '—' }} a cargo de {{ $turnoAbierto->responsable ?? $turnoAbierto->usuario->name }}
+                            · abierto por {{ $turnoAbierto->usuario->name }} desde {{ $turnoAbierto->hora_apertura->format('d/m/Y H:i') }}
                         </p>
                         <p class="mt-1 text-xs text-ink-faint">
                             Monto inicial S/ {{ number_format((float) $turnoAbierto->monto_inicial, 2) }}
@@ -376,7 +380,7 @@ new #[Layout('layouts.app')] class extends Component
                         <div class="flex flex-wrap items-center justify-between gap-4 px-4 py-3 text-sm">
                             <div>
                                 <p class="text-ink">
-                                    Turno de {{ $turnoCerrado->turno?->label() ?? '—' }} · {{ $turnoCerrado->usuario->name }}
+                                    Turno de {{ $turnoCerrado->turno?->label() ?? '—' }} · {{ $turnoCerrado->responsable ?? $turnoCerrado->usuario->name }}
                                 </p>
                                 <p class="text-xs text-ink-faint">
                                     {{ $turnoCerrado->hora_apertura->format('d/m/Y H:i') }} — {{ $turnoCerrado->hora_cierre->format('H:i') }}
@@ -537,7 +541,13 @@ new #[Layout('layouts.app')] class extends Component
             x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
         >
             <h2 class="font-display text-lg text-ink">Abrir turno de caja</h2>
-            <p class="mt-1 text-sm text-ink-dim">Indica el turno y cuánto dinero tienes en caja al empezar.</p>
+            <p class="mt-1 text-sm text-ink-dim">Indica quién queda a cargo, el turno y cuánto dinero hay en caja al empezar.</p>
+
+            <div class="mt-4">
+                <x-input-label for="responsableNuevo" value="Responsable de este turno" />
+                <x-text-input wire:model="responsableNuevo" id="responsableNuevo" type="text" class="mt-1 block w-full" placeholder="Nombre de quien queda a cargo de la caja" />
+                <x-input-error :messages="$errors->get('responsableNuevo')" class="mt-1" />
+            </div>
 
             <div class="mt-4">
                 <x-input-label for="turnoNuevo" value="Turno" />

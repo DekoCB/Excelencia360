@@ -27,6 +27,8 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $usuario_id
  * @property TurnoDiaEnum|null $turno
+ * @property string|null $responsable quien queda físicamente a cargo de
+ *                                    la caja -- no siempre es $usuario
  * @property Carbon $fecha
  * @property Carbon $hora_apertura
  * @property float $monto_inicial
@@ -45,6 +47,7 @@ class TurnoCaja extends Model
     protected $fillable = [
         'usuario_id',
         'turno',
+        'responsable',
         'fecha',
         'hora_apertura',
         'monto_inicial',
