@@ -548,7 +548,15 @@ new class extends Component
             @endif
 
             @if ($paso < 3)
-                <x-primary-button type="button" wire:click="avanzar">Continuar</x-primary-button>
+                <x-primary-button
+                    type="button"
+                    x-data
+                    x-on:click="
+                        ($wire.paso === 1 && $wire.fechaNacimiento === '')
+                            ? $store.confirm.preguntar('No indicaste la fecha de nacimiento: el sistema asumirá que es mayor de edad y no pedirá los datos del apoderado. ¿Continuar así?', () => $wire.avanzar(), { etiquetaConfirmar: 'Continuar' })
+                            : $wire.avanzar()
+                    "
+                >Continuar</x-primary-button>
             @else
                 <x-primary-button type="button" wire:click="confirmar">Registrar estudiante</x-primary-button>
             @endif
