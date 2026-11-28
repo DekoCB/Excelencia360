@@ -708,7 +708,7 @@ new #[Layout('layouts.app')] class extends Component
                         <div>
                             <x-input-label for="cursoId" value="Curso de capacitación" />
                             <x-select-input
-                                wire:model="cursoId"
+                                wire:model.live="cursoId"
                                 id="cursoId"
                                 class="mt-1 block w-full"
                                 placeholder="Selecciona…"
