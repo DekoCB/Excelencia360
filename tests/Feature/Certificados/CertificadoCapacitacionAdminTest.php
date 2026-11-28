@@ -92,6 +92,64 @@ class CertificadoCapacitacionAdminTest extends TestCase
         $this->assertDatabaseCount('certificados', 0);
     }
 
+    public function test_exige_documento_de_autorizacion_si_el_curso_todavia_no_tiene_uno(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $curso = Curso::factory()->capacitacion()->create(['documento_autorizacion' => null]);
+
+        $this->actingAs($this->coordinador());
+
+        Volt::test('certificados.index')
+            ->set('estudianteSeleccionadoId', $estudiante->id)
+            ->set('tipoDocumentoEmitir', TipoDocumentoEnum::CERTIFICADO_CAPACITACION->value)
+            ->set('cursoId', (string) $curso->id)
+            ->set('numeroRegistro', '3002324002')
+            ->call('emitir')
+            ->assertHasErrors(['documentoAutorizacion']);
+
+        $this->assertDatabaseCount('certificados', 0);
+    }
+
+    public function test_el_documento_de_autorizacion_ingresado_se_guarda_en_el_curso(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $curso = Curso::factory()->capacitacion()->create(['documento_autorizacion' => null]);
+
+        $this->actingAs($this->coordinador());
+
+        Volt::test('certificados.index')
+            ->set('estudianteSeleccionadoId', $estudiante->id)
+            ->set('tipoDocumentoEmitir', TipoDocumentoEnum::CERTIFICADO_CAPACITACION->value)
+            ->set('cursoId', (string) $curso->id)
+            ->set('numeroRegistro', '3002324002')
+            ->set('documentoAutorizacion', 'R.G.G. N° 004-2026-GE360')
+            ->call('emitir')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('cursos', [
+            'id' => $curso->id,
+            'documento_autorizacion' => 'R.G.G. N° 004-2026-GE360',
+        ]);
+    }
+
+    public function test_no_pide_documento_de_autorizacion_si_el_curso_ya_tiene_uno(): void
+    {
+        $estudiante = Estudiante::factory()->create();
+        $curso = Curso::factory()->capacitacion()->create(['documento_autorizacion' => 'Ya definido']);
+
+        $this->actingAs($this->coordinador());
+
+        Volt::test('certificados.index')
+            ->set('estudianteSeleccionadoId', $estudiante->id)
+            ->set('tipoDocumentoEmitir', TipoDocumentoEnum::CERTIFICADO_CAPACITACION->value)
+            ->set('cursoId', (string) $curso->id)
+            ->set('numeroRegistro', '3002324002')
+            ->call('emitir')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('cursos', ['id' => $curso->id, 'documento_autorizacion' => 'Ya definido']);
+    }
+
     public function test_no_permite_repetir_un_numero_de_registro_ya_usado(): void
     {
         $curso = Curso::factory()->capacitacion()->create();

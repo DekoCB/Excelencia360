@@ -40,6 +40,15 @@ new #[Layout('layouts.app')] class extends Component
 
     public string $numeroRegistro = '';
 
+    /**
+     * El documento de autorización (ej. "R.G.G. N° 004-2026-GE360") vive en
+     * el Curso, no en cada Certificado -- se pide acá solo para fijarlo la
+     * primera vez (cuando el curso todavía no lo tiene), igual criterio que
+     * el importador masivo: nunca se sobrescribe uno ya definido (ver
+     * CertificadoService::emitirCapacitacionDesdeFilas()).
+     */
+    public string $documentoAutorizacion = '';
+
     public string $nota = '';
 
     public string $observaciones = '';
@@ -202,6 +211,17 @@ new #[Layout('layouts.app')] class extends Component
         $this->terminoBusqueda = '';
     }
 
+    /**
+     * Precarga el documento de autorización ya guardado en el curso
+     * elegido -- si todavía no tiene uno, se deja vacío para que el
+     * formulario lo pida (ver validate() en emitir()).
+     */
+    public function updatedCursoId(): void
+    {
+        $curso = $this->cursoId !== '' ? Curso::query()->find($this->cursoId) : null;
+        $this->documentoAutorizacion = $curso?->documento_autorizacion ?? '';
+    }
+
     public function emitir(CertificadoService $service): void
     {
         abort_unless(Auth::user()->hasPermissionTo('certificados.emitir'), 403);
@@ -222,6 +242,11 @@ new #[Layout('layouts.app')] class extends Component
         $matricula = $this->matriculaId !== '' ? Matricula::query()->findOrFail($this->matriculaId) : null;
         $curso = $esCapacitacion ? Curso::query()->findOrFail($this->cursoId) : null;
 
+        if ($esCapacitacion && ($curso->documento_autorizacion ?? null) === null) {
+            $this->validate(['documentoAutorizacion' => 'required|string|max:255']);
+            $curso->update(['documento_autorizacion' => $this->documentoAutorizacion]);
+        }
+
         try {
             $service->emitir(
                 $estudiante,
@@ -240,7 +265,7 @@ new #[Layout('layouts.app')] class extends Component
             return;
         }
 
-        $this->reset(['estudianteSeleccionadoId', 'estudianteSeleccionadoNombre', 'matriculaId', 'cursoId', 'numeroRegistro', 'nota', 'observaciones']);
+        $this->reset(['estudianteSeleccionadoId', 'estudianteSeleccionadoNombre', 'matriculaId', 'cursoId', 'numeroRegistro', 'documentoAutorizacion', 'nota', 'observaciones']);
         $this->tipoDocumentoEmitir = TipoDocumentoEnum::CERTIFICADO_ESTUDIOS->value;
         session()->flash('status', 'Documento emitido.');
     }
@@ -704,6 +729,22 @@ new #[Layout('layouts.app')] class extends Component
                                 <x-input-error :messages="$errors->get('nota')" class="mt-1" />
                             </div>
                         </div>
+
+                        @if ($cursoId !== '')
+                            <div>
+                                <x-input-label for="documentoAutorizacion" value="Documento de autorización" />
+                                @php $cursoElegido = collect($cursosCapacitacion)->firstWhere('id', (int) $cursoId); @endphp
+                                @if ($cursoElegido?->documento_autorizacion)
+                                    <x-text-input :value="$cursoElegido->documento_autorizacion" :disabled="true" class="mt-1 block w-full" />
+                                    <p class="mt-1 text-xs text-ink-faint">Ya definido para este curso (se edita desde Académico → Unidades Didácticas).</p>
+                                @else
+                                    <x-text-input wire:model="documentoAutorizacion" id="documentoAutorizacion" class="mt-1 block w-full" placeholder="Ej. R.G.G. N° 004-2026-GE360" />
+                                    <x-input-error :messages="$errors->get('documentoAutorizacion')" class="mt-1" />
+                                    <p class="mt-1 text-xs text-ink-faint">Este curso todavía no tiene uno: lo que escribas acá queda guardado para todos sus certificados.</p>
+                                @endif
+                            </div>
+                        @endif
+
                         <p class="text-xs text-ink-faint">El número de registro es el código que la persona usará para validar este certificado; la nota es el promedio ponderado final del curso, si corresponde (escala 0-20).</p>
                     </div>
                 @elseif ($estudianteSeleccionadoId)
